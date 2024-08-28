@@ -1,7 +1,6 @@
 #include "libgfx/video.h"
 #include "lightui/draw.h"
 #include <lightui/window.h>
-#include <stddef.h>
 
 /*
  * This is a demo app that should utilise the compositor and the
@@ -12,7 +11,7 @@ lightui_window_t* wnd;
 
 int main()
 {
-    wnd = lightui_request_window("gfxtest", 100, 100, NULL);
+    wnd = lightui_request_window("gfxtest", 100, 100, LIGHTUI_WNDFLAG_NO_MIN_BTN);
 
     if (!wnd)
         return -1;

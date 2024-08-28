@@ -356,6 +356,9 @@ static inline void scheduler_do_requeue(scheduler_t* scheduler, sthread_t** acti
 {
     sthread_t* sthread;
 
+    /* Reached the end of this queue, move over to the next available priority */
+    squeue_next_prio(scheduler->active_q);
+
     /* Just to be sure */
     if (!active_thread || !(*active_thread))
         return;
@@ -367,9 +370,6 @@ static inline void scheduler_do_requeue(scheduler_t* scheduler, sthread_t** acti
     if (sthread->c_queue && sthread->tslice <= 0)
         /* Thread has used up it's timeslice, recalculate it and move the thread to expired */
         scheduler_move_thread_to_inactive(scheduler, active_thread);
-
-    /* Reached the end of this queue, move over to the next available priority */
-    squeue_next_prio(scheduler->active_q);
 }
 
 /*!

@@ -125,9 +125,7 @@ kerror_t reaper_register_process(proc_t* proc)
     /* Unlock the mutex. After this we musn't access @proc anymore */
     mutex_unlock(__reaper_process_lock);
 
-    KLOG_DBG("Unblocking reaper...\n");
     thread_unblock(__reaper_thread);
-    KLOG_DBG("Unblocked reaper!\n");
     return (0);
 }
 

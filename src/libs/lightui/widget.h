@@ -46,6 +46,9 @@ typedef struct lightui_widget_event {
     uint16_t scancode;
 } lightui_widget_event_t;
 
+typedef void (*f_lightui_widget_onevent_t)(struct lightui_widget* w, lightui_widget_event_t* event);
+typedef void (*f_lightui_widget_draw_t)(struct lightui_widget* w);
+
 typedef struct lightui_widget {
     lightui_window_t* wnd;
     uint32_t x, y;
@@ -61,8 +64,8 @@ typedef struct lightui_widget {
     void* private;
 
     /* GFX ops */
-    void (*f_draw)(struct lightui_widget* w);
-    void (*f_onevent)(struct lightui_widget* w, lightui_widget_event_t* event);
+    f_lightui_widget_draw_t f_draw;
+    f_lightui_widget_onevent_t f_onevent;
 
     /* Links widgets together */
     struct lightui_widget* next;
@@ -71,6 +74,6 @@ typedef struct lightui_widget {
 /*!
  * @brief: Adds a generic widget to the window
  */
-LEXPORT int lightui_window_add_widget(lightui_window_t* wnd, const char* label, const char* content, uint32_t x, uint32_t y, uint32_t width, uint32_t height, enum LIGHTUI_WIDGET_TYPE type);
+LEXPORT int lightui_window_add_widget(lightui_window_t* wnd, lightui_widget_t* widget);
 
 #endif // !__LIGHTOS_LIGHTUI_WIDGET__

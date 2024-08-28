@@ -330,10 +330,12 @@ typedef struct scheduler {
 
 static inline sthread_t* scheduler_get_new_thread(scheduler_t* s, sthread_t* c_active)
 {
-    sthread_t* walker = nullptr;
+    sthread_t* walker;
 
     if (c_active)
         walker = c_active->next;
+    else
+        walker = s->active_q->vec_threads[s->active_q->active_prio].list;
 
     /* Check if this thread has a next broski */
     if (!walker) {

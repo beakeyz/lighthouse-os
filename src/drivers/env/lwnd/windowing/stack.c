@@ -169,15 +169,17 @@ static inline void _lwndstack_unlink_window(lwnd_wndstack_t* stack, lwnd_window_
         stack->bottom_window = prev;
 }
 
+/*!
+ * @brief: Removes a window from a stack
+ *
+ * Caller needs to have both the map lock and the order lock
+ */
 int wndstack_remove_window(lwnd_wndstack_t* stack, struct lwnd_window* wnd)
 {
     lwnd_window_t** p_wnd = _get_lwndstack_window(stack, wnd);
 
     if (!p_wnd)
         return -KERR_NOT_FOUND;
-
-    mutex_lock(stack->map_lock);
-    mutex_lock(stack->order_lock);
 
     /* Do the unlink */
     _lwndstack_unlink_window(stack, p_wnd, wnd);
@@ -187,11 +189,45 @@ int wndstack_remove_window(lwnd_wndstack_t* stack, struct lwnd_window* wnd)
     /* Also remove from the hashmap */
     ASSERT_MSG(hashmap_remove(stack->wnd_map, (hashmap_key_t)wnd->title) != nullptr, "Tried to remove a window that was found in the layer list, but not in the hashmap!");
 
-    mutex_unlock(stack->order_lock);
-    mutex_unlock(stack->map_lock);
+    /* Update the background window */
+    __wndstack_do_update_background(stack);
+    return 0;
+}
+
+int wndstack_remove_window_ex(lwnd_wndstack_t* stack, const char* title, struct lwnd_window** pwnd)
+{
+    lwnd_window_t* wnd;
+    lwnd_window_t** p_wnd;
+
+    mutex_lock(stack->map_lock);
+    mutex_lock(stack->order_lock);
+
+    /* Get the window pointer */
+    wnd = hashmap_get(stack->wnd_map, (hashmap_key_t)title);
+
+    /* Get the window slot */
+    p_wnd = _get_lwndstack_window(stack, wnd);
+
+    if (!p_wnd)
+        return -KERR_NOT_FOUND;
+
+    /* Do the unlink */
+    _lwndstack_unlink_window(stack, p_wnd, wnd);
+
+    KLOG_DBG("Removing window: %s\n", wnd->title);
+
+    /* Also remove from the hashmap */
+    ASSERT_MSG(hashmap_remove(stack->wnd_map, (hashmap_key_t)wnd->title) != nullptr, "Tried to remove a window that was found in the layer list, but not in the hashmap!");
 
     /* Update the background window */
     __wndstack_do_update_background(stack);
+
+    /* Export the bitch */
+    if (pwnd)
+        *pwnd = wnd;
+
+    mutex_unlock(stack->order_lock);
+    mutex_unlock(stack->map_lock);
     return 0;
 }
 
@@ -216,6 +252,7 @@ int wndstack_focus_window(lwnd_wndstack_t* stack, struct lwnd_window* wnd)
 
 int wndstack_cycle_windows(lwnd_wndstack_t* stack)
 {
+    int error = KERR_NOT_FOUND;
     lwnd_window_t* old_top;
     lwnd_window_t* new_top;
 
@@ -224,18 +261,14 @@ int wndstack_cycle_windows(lwnd_wndstack_t* stack)
     old_top = stack->top_window;
 
     /* No windows in the stack */
-    if (!old_top || !stack->bottom_window) {
-        mutex_unlock(stack->order_lock);
-        return KERR_NOT_FOUND;
-    }
+    if (!old_top || !stack->bottom_window)
+        goto unlock_and_exit;
 
     new_top = old_top->next_layer;
 
     /* Only one window, can't cycle */
-    if (!new_top) {
-        mutex_unlock(stack->order_lock);
-        return KERR_NOT_FOUND;
-    }
+    if (!new_top)
+        goto unlock_and_exit;
 
     /* The bottom of the stack is now going to be the old top window */
     stack->bottom_window->next_layer = old_top;
@@ -258,6 +291,10 @@ int wndstack_cycle_windows(lwnd_wndstack_t* stack)
         new_top = new_top->next_layer;
     } while (new_top);
 
-    mutex_lock(stack->order_lock);
-    return 0;
+    /* Reset error num */
+    error = 0;
+
+unlock_and_exit:
+    mutex_unlock(stack->order_lock);
+    return error;
 }

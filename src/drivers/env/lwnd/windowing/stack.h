@@ -46,6 +46,7 @@ struct lwnd_window* wndstack_find_window(lwnd_wndstack_t* stack, const char* tit
 
 int wndstack_add_window(lwnd_wndstack_t* stack, struct lwnd_window* wnd);
 int wndstack_remove_window(lwnd_wndstack_t* stack, struct lwnd_window* wnd);
+int wndstack_remove_window_ex(lwnd_wndstack_t* stack, const char* title, struct lwnd_window** pwnd);
 
 int wndstack_focus_window(lwnd_wndstack_t* stack, struct lwnd_window* wnd);
 int wndstack_cycle_windows(lwnd_wndstack_t* stack);

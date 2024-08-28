@@ -1,6 +1,8 @@
 #include "libgfx/lgfx.h"
 #include "libgfx/shared.h"
 #include "libgfx/video.h"
+#include "lightui/widget.h"
+#include "lightui/widgets/button.h"
 #include "lightui/window.h"
 #include <errno.h>
 #include <lightos/lib/lightos.h>
@@ -64,11 +66,17 @@ static int __maybe_request_fb(lightui_window_t* wnd)
     /* Set the pointer for the user */
     wnd->user_fb_start = (void*)wnd->gfxwnd.fb.fb + ((wnd->lui_top_border_height) * wnd->gfxwnd.fb.pitch) + (wnd->lui_border_width * (wnd->gfxwnd.fb.bpp >> 3));
 
+    /* If the borderwidth is NULL, we don't draw any extra shit lol */
+    if (!wnd->lui_border_width)
+        return 0;
+
     /* Prepare the top bar */
     lwindow_draw_outline_rect(&wnd->gfxwnd, 0, 0, wnd->gfxwnd.current_width, wnd->gfxwnd.current_height, LCLR_RGBA(0x0f, 0x0f, 0x0f, 0xff));
     lwindow_draw_outline_rect(&wnd->gfxwnd, 1, 1, wnd->gfxwnd.current_width - 2, wnd->gfxwnd.current_height - 2, LCLR_RGBA(0x2f, 0x2f, 0x2f, 0xff));
     lwindow_draw_rect(&wnd->gfxwnd, 2, 2, wnd->gfxwnd.current_width - 4, wnd->gfxwnd.current_height - 3, LCLR_RGBA(0x1f, 0x1f, 0x1f, 0xff));
-    lwindow_draw_outline_rect(&wnd->gfxwnd, wnd->lui_border_width - 1, wnd->lui_top_border_height - 1, wnd->lui_width + 2, wnd->lui_height + 2, LCLR_RGBA(0x0f, 0x0f, 0x0f, 0xff));
+
+    if (wnd->lui_top_border_height)
+        lwindow_draw_outline_rect(&wnd->gfxwnd, wnd->lui_border_width - 1, wnd->lui_top_border_height - 1, wnd->lui_width + 2, wnd->lui_height + 2, LCLR_RGBA(0x0f, 0x0f, 0x0f, 0xff));
 
     return 0;
 }
@@ -76,9 +84,6 @@ static int __maybe_request_fb(lightui_window_t* wnd)
 lightui_window_t* lightui_request_window(const char* label, uint32_t width, uint32_t height, uint32_t lui_flags)
 {
     lightui_window_t* wnd;
-    const uint32_t border_height = (((lui_flags & LIGHTUI_WNDFLAG_NO_BORDER) == LIGHTUI_WNDFLAG_NO_BORDER)
-            ? 0
-            : LIGHTUI_TOP_BORDER_HEIGHT);
 
     /* TODO: Reallocate */
     if (n_window == window_list_sz)
@@ -89,16 +94,34 @@ lightui_window_t* lightui_request_window(const char* label, uint32_t width, uint
     if (!wnd)
         return nullptr;
 
-    wnd->lui_border_width = 4;
+    /* Set the general border width */
+    wnd->lui_border_width = (((lui_flags & LIGHTUI_WNDFLAG_NO_BORDER) == LIGHTUI_WNDFLAG_NO_BORDER)
+            ? 0
+            : LIGHTUI_BORDER_WIDTH);
+
+    /* Set the top bar height */
+    wnd->lui_top_border_height = (((lui_flags & LIGHTUI_WNDFLAG_NO_TOPBAR) == LIGHTUI_WNDFLAG_NO_TOPBAR)
+            ? LIGHTUI_BORDER_WIDTH
+            : LIGHTUI_TOP_BORDER_HEIGHT);
+
+    /* Make sure there is no top border, if the borderwidth is zero lmao */
+    if (!wnd->lui_border_width)
+        wnd->lui_top_border_height = 0;
 
     /* Add a bit to the height to encompass the border */
-    if (!request_lwindow(&wnd->gfxwnd, label, width + (2 * wnd->lui_border_width), height + border_height + wnd->lui_border_width, LWND_FLAG_DEFER_UPDATES))
+    if (!request_lwindow(&wnd->gfxwnd, label, width + (2 * wnd->lui_border_width), height + wnd->lui_top_border_height + wnd->lui_border_width, LWND_FLAG_DEFER_UPDATES))
         return nullptr;
 
-    wnd->lui_top_border_height = border_height;
     wnd->lui_flags = lui_flags;
     wnd->lui_width = width;
     wnd->lui_height = height;
+
+    /* Add the close button */
+    lightui_add_button_widget(wnd, NULL, (lui_flags & LIGHTUI_WNDFLAG_NO_CLOSE_BTN) ? NULL : "red", 6, 5, 8, 8, NULL);
+    /* Add the minimize button */
+    lightui_add_button_widget(wnd, NULL, (lui_flags & LIGHTUI_WNDFLAG_NO_MIN_BTN) ? NULL : "orange", 6 + 14, 5, 8, 8, NULL);
+    /* Add the maximize button */
+    lightui_add_button_widget(wnd, NULL, (lui_flags & LIGHTUI_WNDFLAG_NO_MAX_BTN) ? NULL : "green", 6 + 28, 5, 8, 8, NULL);
 
     /* Request a framebuffer if the caller doesn't want to do that themselves */
     if (__maybe_request_fb(wnd)) {
@@ -128,8 +151,33 @@ int lightui_close_window(lightui_window_t* wnd)
     return 0;
 }
 
-LEXPORT int lightui_window_update(lightui_window_t* wnd)
+/*!
+ * @brief: Checks if a window needs to update it's widgets
+ */
+static inline void lwindow_maybe_update_widgets(lightui_window_t* wnd)
 {
+    /* Widget update flag not set, no need to update */
+    if (!(wnd->lui_flags & LIGHTUI_WNDFLAG_WIDGETS_NEED_UPDATE))
+        return;
+
+    /* Loop over all widgets to update them */
+    for (lightui_widget_t* widget = wnd->widgets; widget; widget = widget->next)
+        widget->f_draw(widget);
+
+    /* Clear the update flag to prevent unwanted updates */
+    wnd->lui_flags &= ~LIGHTUI_WNDFLAG_WIDGETS_NEED_UPDATE;
+}
+
+/*!
+ * @brief: Push the window framebuffer to the screen
+ *
+ * First updates any widgets attached to this window, then
+ * forces the pixel updates
+ */
+int lightui_window_update(lightui_window_t* wnd)
+{
+    lwindow_maybe_update_widgets(wnd);
+
     if (lwindow_force_update(&wnd->gfxwnd))
         return -EBADMSG;
 

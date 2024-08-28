@@ -224,6 +224,9 @@ int lwnd_window_request_fb(lwnd_window_t* wnd, lwnd_screen_t* screen)
     if (error)
         goto error_and_exit;
 
+    /* Clear out the new buffer */
+    memset((void*)info->kernel_addr, 0, info->size);
+
     if (wnd->proc) {
         /* Grab the physical address of the framebuffer */
         fb_phys = kmem_to_phys(NULL, info->kernel_addr);

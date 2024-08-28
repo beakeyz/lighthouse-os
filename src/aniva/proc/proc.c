@@ -556,6 +556,9 @@ kerror_t try_terminate_process_ex(proc_t* proc, bool defer_yield)
     if (!proc)
         return -1;
 
+    if ((proc->m_flags & PROC_FINISHED) == PROC_FINISHED)
+        return KERR_HANDLED;
+
     this_thread = get_current_scheduling_thread();
 
     /* Check every thread to see if there are any pending syscalls */

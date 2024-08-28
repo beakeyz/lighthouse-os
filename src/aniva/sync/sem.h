@@ -10,7 +10,6 @@ void destroy_semaphore(struct semaphore* sem);
 
 int sem_wait(struct semaphore* sem, void* waiter);
 int sem_post(struct semaphore* sem);
-int sem_drain(struct semaphore* sem);
 
 bool semaphore_is_binary(struct semaphore* sem);
 

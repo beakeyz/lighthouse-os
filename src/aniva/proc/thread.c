@@ -470,6 +470,8 @@ void thread_exit_init_state(thread_t* from, registers_t* regs)
 
 void thread_block(thread_t* thread)
 {
+    thread_t* current_thread = get_current_scheduling_thread();
+
     pause_scheduler();
 
     KLOG_DBG("Blocking thread: %s\n", thread->m_name);
@@ -483,7 +485,7 @@ void thread_block(thread_t* thread)
 
     // FIXME: we do allow blocking other threads here, we need to
     // check if that comes with extra complications
-    if (thread == get_current_scheduling_thread())
+    if (thread == current_thread)
         scheduler_yield();
 }
 

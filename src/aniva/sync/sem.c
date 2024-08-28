@@ -40,39 +40,32 @@ void destroy_semaphore(struct semaphore* sem)
     kfree(sem);
 }
 
-int sem_enqueue_waiter(struct semaphore* sem, void* waiter)
+/*!
+ * @brief: Enqueues a waiter thread to this semaphore
+ *
+ * Caller needs to hold the semaphores spinlock
+ */
+static int sem_enqueue_waiter(struct semaphore* sem)
 {
     thread_t* this_thread;
-    //kernel_panic("TODO: queue a waiter for a semaphore");
-    //spinlock_lock(sem->wait_lock);
-    
+
     this_thread = get_current_scheduling_thread();
-    
+
     if (!this_thread)
         return -1;
 
+    /* Add the thread to the queue */
     queue_enqueue(sem->waiters, this_thread);
 
+    /* Unlock the spinlock and release the semaphore */
     spinlock_unlock(sem->wait_lock);
 
+    /* Block this thread */
     thread_block(this_thread);
-    
+
     /* Lock the spinlock again once we get unblocked */
     spinlock_lock(sem->wait_lock);
 
-    return 0;
-}
-
-int sem_dequeue_waiter(struct semaphore* sem)
-{
-    thread_t* target_thread;
-
-    target_thread = queue_dequeue(sem->waiters);
-
-    if (!target_thread)
-      return -1;
-
-    thread_unblock(target_thread);
     return 0;
 }
 
@@ -96,17 +89,32 @@ int sem_wait(struct semaphore* sem, void* waiter)
     atomic_ptr_write(&sem->value, val);
 
     if (val < 0)
-        error = sem_enqueue_waiter(sem, waiter);
+        error = sem_enqueue_waiter(sem);
 
     spinlock_unlock(sem->wait_lock);
 
     return error;
 }
 
+static int sem_dequeue_waiter(struct semaphore* sem, thread_t** p_waiter)
+{
+    thread_t* target_thread;
+
+    target_thread = queue_dequeue(sem->waiters);
+
+    if (!target_thread)
+        return -1;
+
+    /* Export the thread */
+    *p_waiter = target_thread;
+    return 0;
+}
+
 int sem_post(struct semaphore* sem)
 {
     int error;
     int64_t val;
+    thread_t* waiter = nullptr;
 
     error = 0;
 
@@ -120,45 +128,15 @@ int sem_post(struct semaphore* sem)
 
     /* There are waiters. Dequeue them */
     if (val <= 0)
-        error = sem_dequeue_waiter(sem);
+        error = sem_dequeue_waiter(sem, &waiter);
 
+    /* Unlock the pointer */
     spinlock_unlock(sem->wait_lock);
 
-    return error;
-}
+    /* Unblock the thread */
+    if (waiter)
+        thread_unblock(waiter);
 
-/**
- * @brief: Resets the semaphore to zero if there are waiters
- */
-int sem_drain(struct semaphore* sem)
-{
-    int error;
-    int64_t val;
-
-    error = 0;
-
-    spinlock_lock(sem->wait_lock);
-
-    val = atomic_ptr_read(&sem->value);
-
-    if (val)
-      goto unlock_and_exit;
-
-    val++;
-
-    do {
-        /* Always increment the semaphore value */
-        atomic_ptr_write(&sem->value, val);
-
-        /* There are waiters. Dequeue them */
-        if (val <= 0)
-            error = sem_dequeue_waiter(sem);
-
-        val++;
-    } while (val <= 0);
-
-unlock_and_exit:
-    spinlock_unlock(sem->wait_lock);
     return error;
 }
 

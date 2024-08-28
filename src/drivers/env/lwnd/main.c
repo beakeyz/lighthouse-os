@@ -16,6 +16,7 @@
 #include "proc/proc.h"
 #include "sched/scheduler.h"
 #include "system/profile/profile.h"
+#include <kevent/event.h>
 #include <libgfx/shared.h>
 
 /*
@@ -46,32 +47,41 @@ static enum ANIVA_SCANCODES _forcequit_sequence[] USED = {
     ANIVA_SCANCODE_Q,
 };
 
-/*!
- * @brief: This is a temporary key handler to test out window event and shit
- *
- * Sends the key event over to the focussed window if there isn't a special key combination pressed
- */
-static int lwnd_on_key(hid_event_t* ctx)
+static int lwnd_process_window_keypress(lwnd_screen_t* screen, lwnd_wndstack_t* stack, lwnd_window_t* window, hid_event_t* ctx)
 {
-    if ((ctx->key.flags & HID_EVENT_KEY_FLAG_PRESSED) != HID_EVENT_KEY_FLAG_PRESSED)
-        return 0;
+    if (!screen || !stack || !window)
+        return -KERR_INVAL;
 
     switch (ctx->key.scancode) {
     case ANIVA_SCANCODE_W:
-        lwnd_window_move(_lwnd_0_screen, _lwnd_stack->top_window, _lwnd_stack->top_window->x, _lwnd_stack->top_window->y - 10);
+        lwnd_window_move(screen, window, window->x, window->y - 10);
         break;
     case ANIVA_SCANCODE_S:
-        lwnd_window_move(_lwnd_0_screen, _lwnd_stack->top_window, _lwnd_stack->top_window->x, _lwnd_stack->top_window->y + 10);
+        lwnd_window_move(screen, window, window->x, window->y + 10);
         break;
     case ANIVA_SCANCODE_A:
-        lwnd_window_move(_lwnd_0_screen, _lwnd_stack->top_window, _lwnd_stack->top_window->x - 10, _lwnd_stack->top_window->y);
+        lwnd_window_move(screen, window, window->x - 10, window->y);
         break;
     case ANIVA_SCANCODE_D:
-        lwnd_window_move(_lwnd_0_screen, _lwnd_stack->top_window, _lwnd_stack->top_window->x + 10, _lwnd_stack->top_window->y);
+        lwnd_window_move(screen, window, window->x + 10, window->y);
         break;
     case ANIVA_SCANCODE_TAB:
-        wndstack_cycle_windows(_lwnd_stack);
+        wndstack_cycle_windows(stack);
         break;
+    default:
+        break;
+    }
+
+    return 0;
+}
+
+static int lwnd_process_system_keypress(hid_event_t* ctx)
+{
+    /* Check for lwnd keycombinations */
+    if (_lwnd_stack->top_window && hid_event_is_keycombination_pressed(ctx, _forcequit_sequence, 3))
+        return try_terminate_process(_lwnd_stack->top_window->proc);
+
+    switch (ctx->key.scancode) {
     case ANIVA_SCANCODE_RIGHTBRACKET:
         proc_exec("Root/Apps/doom -iwad Root/Apps/doom1.wad", get_user_profile(), NULL);
         break;
@@ -81,10 +91,32 @@ static int lwnd_on_key(hid_event_t* ctx)
     default:
         break;
     }
-    return 0;
+
+    return -KERR_NOT_FOUND;
 }
 
-#include <kevent/event.h>
+/*!
+ * @brief: This is a temporary key handler to test out window event and shit
+ *
+ * Sends the key event over to the focussed window if there isn't a special key combination pressed
+ */
+static int lwnd_on_key(hid_event_t* ctx)
+{
+    int error = -KERR_NOT_FOUND;
+
+    if ((ctx->key.flags & HID_EVENT_KEY_FLAG_PRESSED) != HID_EVENT_KEY_FLAG_PRESSED)
+        return 0;
+
+    /* First check if there was a system keypress that has intercepted this key event */
+    error = lwnd_process_system_keypress(ctx);
+
+    /* If the routine doesn't throw an error, the keypress has been intercepted... */
+    if (KERR_OK(error))
+        return error;
+
+    /* If we have a top window, redirect the key event there if it was let through */
+    return lwnd_process_window_keypress(_lwnd_0_screen, _lwnd_stack, _lwnd_stack->top_window, ctx);
+}
 
 static int lwnd_on_process_event(kevent_ctx_t* ctx, void* param)
 {
@@ -248,8 +280,8 @@ uintptr_t msg_window_driver(aniva_driver_t* this, dcc_t code, void* buffer, size
     proc_t* calling_process;
     lwindow_t* uwnd;
 
-    lwnd_window_t* wnd;
-    lwnd_workspace_t* c_workspace;
+    lwnd_window_t* wnd = nullptr;
+    lwnd_workspace_t* c_workspace = nullptr;
 
     calling_process = get_current_proc();
 
@@ -274,7 +306,7 @@ uintptr_t msg_window_driver(aniva_driver_t* this, dcc_t code, void* buffer, size
     case LWND_DCC_CREATE:
         KLOG_DBG("Trying to create lwnd window!\n");
         /* Create the window */
-        if ((wnd = create_window(calling_process, uwnd->title, 10, 10, uwnd->current_width, uwnd->current_height)) == nullptr)
+        if ((wnd = create_window(calling_process, uwnd->title, (_lwnd_0_screen->px_width >> 1) - (uwnd->current_width >> 1), (_lwnd_0_screen->px_height >> 1) - (uwnd->current_height >> 1), uwnd->current_width, uwnd->current_height)) == nullptr)
             return DRV_STAT_INVAL;
 
         /* Also register the window to the current stack */
@@ -285,12 +317,7 @@ uintptr_t msg_window_driver(aniva_driver_t* this, dcc_t code, void* buffer, size
         break;
     case LWND_DCC_CLOSE:
         KLOG_DBG("Trying to close lwnd window!\n");
-        wnd = wndstack_find_window(c_workspace->stack, uwnd->title);
-
-        if (!wnd)
-            return DRV_STAT_NOT_FOUND;
-
-        if (wndstack_remove_window(c_workspace->stack, wnd))
+        if (wndstack_remove_window_ex(c_workspace->stack, uwnd->title, &wnd) || !wnd)
             return DRV_STAT_NOT_FOUND;
 
         destroy_window(wnd);
@@ -319,10 +346,6 @@ uintptr_t msg_window_driver(aniva_driver_t* this, dcc_t code, void* buffer, size
         uwnd->fb.green_mask = wnd->this_fb->colors.green.length_bits << uwnd->fb.green_lshift;
         uwnd->fb.blue_mask = wnd->this_fb->colors.blue.length_bits << uwnd->fb.blue_lshift;
         uwnd->fb.alpha_mask = wnd->this_fb->colors.alpha.length_bits << uwnd->fb.alpha_lshift;
-
-        KLOG_DBG("Red mask: %x\n", uwnd->fb.red_lshift);
-        KLOG_DBG("Green mask: %x\n", uwnd->fb.green_mask);
-        KLOG_DBG("Blue mask: %x\n", uwnd->fb.blue_mask);
 
         break;
     case LWND_DCC_UPDATE_WND:

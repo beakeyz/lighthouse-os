@@ -13,11 +13,15 @@ struct lightui_widget;
 #define LIGHTUI_WNDFLAG_NO_MAX_BTN 0x00000008
 #define LIGHTUI_WNDFLAG_NO_CLOSE_BTN 0x00000010
 #define LIGHTUI_WNDFLAG_NO_BORDER 0x00000020
-#define LIGHTUI_WNDFLAG_DEFER_FB 0x00000040
+#define LIGHTUI_WNDFLAG_NO_TOPBAR 0x00000040
+#define LIGHTUI_WNDFLAG_DEFER_FB 0x00000080
 /* When set, the window is in widget mode */
-#define LIGHTUI_WNDFLAG_WIDGET 0x00000080
+#define LIGHTUI_WNDFLAG_WIDGET 0x00000100
+/* Marks that there are widgets that need to update */
+#define LIGHTUI_WNDFLAG_WIDGETS_NEED_UPDATE 0x00000200
 
 #define LIGHTUI_TOP_BORDER_HEIGHT 18
+#define LIGHTUI_BORDER_WIDTH 4
 
 typedef struct lightui_window {
     /* Window struct used by libgfx */
@@ -37,6 +41,11 @@ typedef struct lightui_window {
     /* List of widgets attached to this window */
     struct lightui_widget* widgets;
 } lightui_window_t;
+
+static inline void lightui_window_request_widget_update(lightui_window_t* wnd)
+{
+    wnd->lui_flags |= LIGHTUI_WNDFLAG_WIDGETS_NEED_UPDATE;
+}
 
 /*!
  * @brief: Request a window to be created on the display manager
