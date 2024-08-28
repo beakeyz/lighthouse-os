@@ -6,7 +6,6 @@
 #include "irq/interrupts.h"
 #include "libk/flow/error.h"
 #include "lightos/event/key.h"
-#include "logging/log.h"
 #include "system/acpi/acpi.h"
 #include "system/acpi/parser.h"
 #include <dev/device.h>
@@ -25,16 +24,6 @@ static uint16_t s_current_scancodes[7];
 
 registers_t* i8042_kbd_irq_handler(registers_t* regs);
 registers_t* i8042_mouse_irq_handler(registers_t* regs);
-
-/**
- * @brief: i8042 poll routine
- *
- * There is no such thing as polling on a i8042 device, since the IRQ handler dumps the events directly into the ring buffer
- */
-static int i8042_poll(device_t* device)
-{
-    return 0;
-}
 
 static inline uint32_t i8042_read_status()
 {
@@ -169,7 +158,6 @@ static int i8042_disable(device_t* device)
 static device_ctl_node_t i8042_ctl[] = {
     DEVICE_CTL(DEVICE_CTLC_ENABLE, i8042_enable, NULL),
     DEVICE_CTL(DEVICE_CTLC_DISABLE, i8042_disable, NULL),
-    DEVICE_CTL(DEVICE_CTLC_HID_POLL, i8042_poll, NULL),
     DEVICE_CTL_END,
 };
 

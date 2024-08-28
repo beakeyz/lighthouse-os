@@ -30,6 +30,7 @@ hid_device_t* create_hid_device(driver_t* driver, const char* name, enum HID_BUS
     device_t* device;
     hid_device_t* hiddev;
     hid_event_t* event_buffer;
+    enum DEVICE_CTYPE ctype;
 
     event_capacity = HID_DEFAULT_EBUF_CAPACITY;
 
@@ -45,7 +46,11 @@ hid_device_t* create_hid_device(driver_t* driver, const char* name, enum HID_BUS
         return nullptr;
     }
 
-    device = create_device_ex(driver, (char*)name, hiddev, NULL, ctllist);
+    /* First, transform the btype into a ctype  */
+    ctype = hid_get_ctype(btype);
+
+    /* Then create a device with the resulting type */
+    device = create_device_ex(driver, (char*)name, hiddev, ctype, NULL, ctllist);
 
     if (!device) {
         kfree(hiddev);
@@ -124,6 +129,9 @@ kerror_t hid_device_queue(hid_device_t* device, struct hid_event* event)
 
 /*!
  * @brief: Send a poll CTLC to the device
+ *
+ * TODO: This is currently unused, because the poll control code
+ * for hid devices is also unused xD
  */
 static inline int _hid_device_do_poll(hid_device_t* device)
 {
@@ -132,19 +140,12 @@ static inline int _hid_device_do_poll(hid_device_t* device)
 
 kerror_t hid_device_poll(hid_device_t* device, struct hid_event** p_event)
 {
-    kerror_t error;
-
     if (!device || !p_event)
         return -KERR_INVAL;
 
-    error = 0;
-
     /* If there is no new data */
     if (device->device_events.r_idx == device->device_events.w_idx)
-        error = _hid_device_do_poll(device);
-
-    if (error)
-        return error;
+        return KERR_NOT_FOUND;
 
     *p_event = hid_event_buffer_read(&device->device_events, &device->device_events.r_idx);
 

@@ -563,7 +563,7 @@ disk_dev_t* create_generic_ramdev_at(uintptr_t address, size_t size)
         return nullptr;
 
     /* NOTE: ideally, we want this to be the first 'drive' we create, so we claim the first entry */
-    dev = create_generic_disk(NULL, "ramdisk", NULL, &_rd_disk_ops);
+    dev = create_generic_disk(NULL, "ramdisk", NULL, DEVICE_CTYPE_SOFTDEV, &_rd_disk_ops);
 
     if (!dev)
         return nullptr;
@@ -794,7 +794,7 @@ static void __disk_device_implement_ops(disk_dev_t* device, driver_t* parent, di
  *
  * Also attaches it to the core disk driver
  */
-disk_dev_t* create_generic_disk(struct driver* parent, char* name, void* private, disk_dev_ops_t* ops)
+disk_dev_t* create_generic_disk(struct driver* parent, char* name, void* private, enum DEVICE_CTYPE type, disk_dev_ops_t* ops)
 {
     disk_dev_t* ret = nullptr;
     char* dev_name = nullptr;
@@ -819,7 +819,7 @@ disk_dev_t* create_generic_disk(struct driver* parent, char* name, void* private
     memset(ret, 0, sizeof(*ret));
 
     ret->m_priv = private;
-    ret->m_dev = create_device_ex(parent, dev_name, ret, NULL, NULL);
+    ret->m_dev = create_device_ex(parent, dev_name, ret, type, NULL, NULL);
 
     /* Implement the disk opperations */
     __disk_device_implement_ops(ret, parent, ops);

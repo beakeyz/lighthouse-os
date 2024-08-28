@@ -243,6 +243,11 @@ static inline void kterm_clear_raw()
     kterm_draw_rect(0, 0, _kterm_fb_width, _kterm_fb_height, kterm_color_for_pallet_idx(_current_background_idx));
 }
 
+/*!
+ * @brief: Update a single char on the screen
+ *
+ * TODO: Check if char_start is aligned and @count times inside the char buffer
+ */
 static inline void kterm_update_term_char(struct kterm_terminal_char* char_start, uint32_t count)
 {
     uint8_t* glyph;
@@ -1152,7 +1157,7 @@ int kterm_init(driver_t* driver)
     kterm_reset_prompt_vars();
 
     /* Create the kterm interface device */
-    _kterm_device = create_device_ex(driver, "kterm", NULL, NULL, _kterm_device_ctl);
+    _kterm_device = create_device_ex(driver, "kterm", NULL, DEVICE_CTYPE_SOFTDEV, NULL, _kterm_device_ctl);
 
     ASSERT_MSG(_kterm_device, "Failed to create control driver for kterm");
 
@@ -1211,6 +1216,9 @@ int kterm_init(driver_t* driver)
      * Allocate a range for our characters
      */
     ASSERT(!__kmem_kernel_alloc_range((void**)&_characters, _chars_xres * _chars_yres * sizeof(struct kterm_terminal_char), NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE));
+
+    /* Clear the entire character buffer */
+    memset(_characters, 0, _chars_xres * _chars_yres * sizeof(struct kterm_terminal_char));
 
     /* Allocate the color pallet */
     ASSERT(!__kmem_kernel_alloc_range((void**)&_clr_pallet, KTERM_MAX_PALLET_ENTRY_COUNT * sizeof(struct kterm_terminal_pallet_entry), NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE));

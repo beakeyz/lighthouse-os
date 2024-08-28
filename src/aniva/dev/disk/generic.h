@@ -3,6 +3,7 @@
 #include "dev/ctl.h"
 #include "dev/disk/partition/mbr.h"
 #include "dev/disk/shared.h"
+#include "devices/shared.h"
 #include "libk/flow/error.h"
 #include "mem/kmem_manager.h"
 #include <libk/stddef.h>
@@ -108,7 +109,7 @@ static inline uintptr_t get_blockcount(disk_dev_t* device, uintptr_t size)
     return (ALIGN_UP((size), (device)->m_logical_sector_size) / (device)->m_logical_sector_size);
 }
 
-disk_dev_t* create_generic_disk(struct driver* parent, char* name, void* private, disk_dev_ops_t* ops);
+disk_dev_t* create_generic_disk(struct driver* parent, char* name, void* private, enum DEVICE_CTYPE type, disk_dev_ops_t* ops);
 void destroy_generic_disk(disk_dev_t* device);
 
 void disk_set_effective_sector_count(disk_dev_t* dev, uint32_t count);

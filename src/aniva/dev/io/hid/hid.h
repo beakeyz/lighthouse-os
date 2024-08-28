@@ -22,6 +22,18 @@ enum HID_BUS_TYPE {
     HID_BUS_TYPE_USB,
 };
 
+static inline enum DEVICE_CTYPE hid_get_ctype(enum HID_BUS_TYPE btype)
+{
+    switch (btype) {
+        case HID_BUS_TYPE_USB:
+            return DEVICE_CTYPE_USB;
+        case HID_BUS_TYPE_PS2:
+            return DEVICE_CTYPE_PS2;
+    }
+
+    return DEVICE_CTYPE_UNKNOWN;
+}
+
 typedef struct hid_device {
     /* Generic device */
     struct device* dev;

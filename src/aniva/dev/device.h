@@ -184,7 +184,7 @@ void debug_devices();
 
 /* Object management */
 device_t* create_device(struct driver* parent, char* name, void* priv);
-device_t* create_device_ex(struct driver* parent, char* name, void* priv, uint32_t flags, struct device_ctl_node* ctl_list);
+device_t* create_device_ex(struct driver* parent, char* name, void* priv, enum DEVICE_CTYPE type, uint32_t flags, struct device_ctl_node* ctl_list);
 void destroy_device(device_t* device);
 
 /* Device registering */

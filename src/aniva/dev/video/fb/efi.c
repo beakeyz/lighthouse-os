@@ -270,7 +270,7 @@ int fb_driver_init(driver_t* driver)
     if (!fb)
         return -1;
 
-    vdev = create_video_device(_this, VIDDEV_MAINDEVICE, efi_ctls);
+    vdev = create_video_device(_this, VIDDEV_MAINDEVICE, DEVICE_CTYPE_SOFTDEV, efi_ctls);
 
     if (!vdev)
         return -2;

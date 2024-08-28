@@ -510,7 +510,7 @@ static pci_device_t* create_pci_device(pci_device_address_t* address, pci_bus_t*
     /* Format the pci name */
     sfmt(pci_name, "pdev.%x.%x.%x", ret->class, ret->subclass, ret->prog_if);
 
-    ret->dev = create_device_ex(NULL, pci_name, NULL, NULL, pci_ctl);
+    ret->dev = create_device_ex(NULL, pci_name, NULL, DEVICE_CTYPE_PCI, NULL, pci_ctl);
 
     /* Register the pci device to its bus */
     device_register_to_bus(ret->dev, bus->dev);

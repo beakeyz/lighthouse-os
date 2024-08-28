@@ -428,7 +428,7 @@ usb_device_t* create_usb_device(struct usb_hcd* hcd, struct usb_hub* hub, enum U
     memset(device, 0, sizeof(*device));
 
     device->req_doorbell = create_doorbell(255, NULL);
-    device->device = create_device_ex(NULL, (char*)name, device, NULL, NULL);
+    device->device = create_device_ex(NULL, (char*)name, device, DEVICE_CTYPE_USB, NULL, NULL);
     device->hub = hub;
     device->hcd = hcd;
     device->speed = speed;

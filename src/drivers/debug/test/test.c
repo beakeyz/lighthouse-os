@@ -76,7 +76,7 @@ int test_init(driver_t* driver)
     KLOG_INFO("Initializing test driver!\n");
 
     /* Regular device */
-    device = create_device_ex(driver, "test_device", NULL, NULL, generic);
+    device = create_device_ex(driver, "test_device", NULL, DEVICE_CTYPE_SOFTDEV, NULL, generic);
 
     if (!device)
         return 0;

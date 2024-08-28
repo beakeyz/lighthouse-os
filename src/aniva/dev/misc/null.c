@@ -49,7 +49,7 @@ void init_null_device(oss_node_t* dev_node)
     if (!dev_node)
         return;
 
-    null_device = create_device_ex(NULL, "Null", NULL, NULL, null_ctl);
+    null_device = create_device_ex(NULL, "Null", NULL, DEVICE_CTYPE_SOFTDEV, NULL, null_ctl);
 
     if (!null_device)
         return;

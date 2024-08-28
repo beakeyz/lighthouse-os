@@ -1066,7 +1066,7 @@ int ehci_init(driver_t* driver)
 
 int ehci_exit()
 {
-    kernel_panic("TODO: Remove all the child devices created by this driver");
+    kernel_panic("TODO: Remove all the child devices of the EHCI roothubs");
     unregister_pci_driver(&ehci_pci_driver);
     return 0;
 }

@@ -1,7 +1,6 @@
 #include "dev/device.h"
 #include "devices/shared.h"
 #include "libk/flow/error.h"
-#include "logging/log.h"
 #include "system/acpi/acpica/acexcep.h"
 #include "system/acpi/acpica/acnames.h"
 #include "system/acpi/acpica/acnamesp.h"
@@ -24,7 +23,6 @@ struct {
 
 static int _acpi_dev_create(device_t* device)
 {
-    KLOG_DBG("Creating acpi device\n");
     return 0;
 }
 

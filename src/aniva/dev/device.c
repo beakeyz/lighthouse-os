@@ -23,7 +23,7 @@ static void __destroy_device(device_t* device);
 
 device_t* create_device(driver_t* parent, char* name, void* priv)
 {
-    return create_device_ex(parent, name, priv, NULL, NULL);
+    return create_device_ex(parent, name, priv, DEVICE_CTYPE_SOFTDEV, NULL, NULL);
 }
 
 /*!
@@ -34,7 +34,7 @@ device_t* create_device(driver_t* parent, char* name, void* priv)
  *
  * NOTE: this does not register a device to a driver, which means that it won't have a parent
  */
-device_t* create_device_ex(struct driver* parent, char* name, void* priv, uint32_t flags, device_ctl_node_t* ctl_list)
+device_t* create_device_ex(struct driver* parent, char* name, void* priv, enum DEVICE_CTYPE type, uint32_t flags, device_ctl_node_t* ctl_list)
 {
     int error;
     device_t* ret;
@@ -56,6 +56,7 @@ device_t* create_device_ex(struct driver* parent, char* name, void* priv, uint32
     ret->drivers[0] = parent;
     ret->flags = flags;
     ret->private = priv;
+    ret->type = type;
     ret->ctlmap = create_device_ctlmap(ret);
 
     if (ctl_list)

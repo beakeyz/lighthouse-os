@@ -96,18 +96,6 @@ static int get_usbkbd(usbkbd_t** p_kbd, usb_device_t* udev, hid_device_t* hdev)
     return 0;
 }
 
-/**
- * @brief: Poll a HID device
- *
- * FIXME: This polling function on the endpoint seems kinda useless...
- * Since most keyboard devices handle polling themselves, the only thing
- * we really have to do atm is check the HID device event buffer.
- */
-static int usbkbd_poll(device_t* device)
-{
-    return 0;
-}
-
 static int usbkbd_disable(device_t* device)
 {
     usbkbd_t* kbd;
@@ -150,7 +138,6 @@ static int usbkbd_enable(device_t* device)
 static device_ctl_node_t _usbkbd_ctllist[] = {
     DEVICE_CTL(DEVICE_CTLC_ENABLE, usbkbd_enable, NULL),
     DEVICE_CTL(DEVICE_CTLC_DISABLE, usbkbd_disable, NULL),
-    DEVICE_CTL(DEVICE_CTLC_HID_POLL, usbkbd_poll, NULL),
     DEVICE_CTL_END,
 };
 

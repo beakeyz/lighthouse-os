@@ -99,7 +99,7 @@ int video_deactivate_current_driver()
  *
  * Also allocates a generic device object
  */
-video_device_t* create_video_device(struct driver* driver, const char* name, device_ctl_node_t* ctl_list)
+video_device_t* create_video_device(struct driver* driver, const char* name, enum DEVICE_CTYPE type, device_ctl_node_t* ctl_list)
 {
     video_device_t* ret;
 
@@ -116,7 +116,7 @@ video_device_t* create_video_device(struct driver* driver, const char* name, dev
     memset(ret, 0, sizeof(*ret));
 
     /* Create a device with our own endpoints */
-    ret->device = create_device_ex(driver, (char*)name, ret, NULL, ctl_list);
+    ret->device = create_device_ex(driver, (char*)name, ret, type, NULL, ctl_list);
 
 exit:
     return ret;

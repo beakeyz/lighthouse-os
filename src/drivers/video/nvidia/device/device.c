@@ -212,7 +212,7 @@ nv_device_t* create_nv_device(driver_t* driver, pci_device_t* pdev)
     nvd->id.vendor = pdev->vendor_id;
 
     /* Create the nvidia video device object */
-    nvd->vdev = create_video_device(driver, VIDDEV_MAINDEVICE, _nv_ctl_list);
+    nvd->vdev = create_video_device(driver, VIDDEV_MAINDEVICE, DEVICE_CTYPE_PCI, _nv_ctl_list);
     nvd->pdevice = pdev;
 
     /* Perform main device initialization */

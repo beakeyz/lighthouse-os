@@ -18,6 +18,9 @@ enum DEVICE_CTYPE {
     DEVICE_CTYPE_I2C,
     DEVICE_CTYPE_GPIO,
     DEVICE_CTYPE_PS2,
+    DEVICE_CTYPE_SATA,
+    DEVICE_CTYPE_ATA,
+    DEVICE_CTYPE_ACPI,
 
     DEVICE_CTYPE_OTHER
 };
@@ -41,6 +44,12 @@ static inline const char* devinfo_get_ctype(enum DEVICE_CTYPE type)
         return "GPIO";
     case DEVICE_CTYPE_PS2:
         return "PS/2";
+    case DEVICE_CTYPE_SATA:
+        return "Sata";
+    case DEVICE_CTYPE_ATA:
+        return "ATA";
+    case DEVICE_CTYPE_ACPI:
+        return "Acpi";
     case DEVICE_CTYPE_OTHER:
         return "Other";
     }

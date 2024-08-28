@@ -81,7 +81,7 @@ int radeon_probe(pci_device_t* device, pci_driver_t* driver)
 
     ASSERT(video_deactivate_current_driver() == 0);
 
-    vdev = create_video_device(_rad_driver, NULL, NULL);
+    vdev = create_video_device(_rad_driver, NULL, DEVICE_CTYPE_PCI, NULL);
 
     register_video_device(vdev);
 

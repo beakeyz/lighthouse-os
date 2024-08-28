@@ -66,7 +66,7 @@ pci_bus_t* create_pci_bus(uint64_t base, uint8_t start, uint8_t end, uint32_t bu
     busname = _create_bus_name(busnum);
 
     /* Create the device for this bus */
-    bus->dev = create_device_ex(NULL, (char*)busname, bus, NULL, NULL);
+    bus->dev = create_device_ex(NULL, (char*)busname, bus, DEVICE_CTYPE_PCI, NULL, NULL);
     bus->dev->bus_group = register_dev_group(DGROUP_TYPE_PCI, to_string(busnum), NULL, parent_group->node);
 
     dev_group_add_device(parent_group, bus->dev);
