@@ -26,6 +26,8 @@
 static video_device_t* _lwnd_vdev;
 /* Keyboard HID device for keyboard input */
 static hid_device_t* _lwnd_kbddev;
+/* Mouse HID device for mouse input */
+static hid_device_t* _lwnd_mousedev;
 /*
  * Static framebuffer info
  * I don't really know how prone this is to change in the future, since
@@ -118,6 +120,12 @@ static int lwnd_on_key(hid_event_t* ctx)
     return lwnd_process_window_keypress(_lwnd_0_screen, _lwnd_stack, _lwnd_stack->top_window, ctx);
 }
 
+static int lwnd_on_mouse(hid_event_t* ctx)
+{
+    generic_draw_rect(_lwnd_0_screen->fbinfo, ctx->mouse.deltax, ctx->mouse.deltay, 3, 3, (fb_color_t) { { 0xff, 0, 0, 0xff } });
+    return 0;
+}
+
 static int lwnd_on_process_event(kevent_ctx_t* ctx, void* param)
 {
     lwnd_workspace_t* workspace;
@@ -153,20 +161,23 @@ static int lwnd_on_process_event(kevent_ctx_t* ctx, void* param)
  */
 static void USED lwnd_main()
 {
-    hid_event_t* c_kb_ctx;
+    hid_event_t* c_hid_ctx;
 
     while (true) {
 
         if (!_lwnd_0_screen)
             goto yield_and_continue;
 
-        c_kb_ctx = NULL;
+        c_hid_ctx = NULL;
         _lwnd_c_ws = lwnd_screen_get_c_workspace(_lwnd_0_screen);
         _lwnd_stack = _lwnd_c_ws->stack;
 
         /* Check if there is a keypress ready */
-        if (hid_device_poll(_lwnd_kbddev, &c_kb_ctx) == 0)
-            lwnd_on_key(c_kb_ctx);
+        if (hid_device_poll(_lwnd_kbddev, &c_hid_ctx) == 0)
+            lwnd_on_key(c_hid_ctx);
+
+        if (hid_device_poll(_lwnd_mousedev, &c_hid_ctx) == 0)
+            lwnd_on_mouse(c_hid_ctx);
 
         /*
          * Loop over all the windows from front to back to render all windows in
@@ -231,8 +242,10 @@ int init_window_driver()
 
     profile_set_activated(get_user_profile());
 
+    /* Get the raw kernel devices we need */
     _lwnd_vdev = get_active_vdev();
     _lwnd_kbddev = get_hid_device("usbkbd_0");
+    _lwnd_mousedev = get_hid_device("usbmouse_0");
 
     if (!_lwnd_kbddev)
         _lwnd_kbddev = get_hid_device("i8042");
@@ -241,14 +254,14 @@ int init_window_driver()
      * TODO: when we implement 2D acceleration, we probably need to do something else here
      * TODO: implement screens on the drivers side with 'connectors'
      */
-    // Must(driver_send_msg_a("core/video", VIDDEV_DCC_GET_FBINFO, NULL, NULL, &_fb_info, sizeof(_fb_info)));
     vdev_get_mainfb(_lwnd_vdev->device, &_lwnd_fb_handle);
 
     /* Fill our framebuffer info struct */
     ASSERT_MSG(vdev_get_fbinfo(_lwnd_vdev->device, _lwnd_fb_handle, EARLY_FB_MAP_BASE, &_fb_info) == 0, "Failed to get fbinfo from video device");
 
-    println("Initializing screen!");
+    KLOG_DBG("Initializing screen!");
 
+    /* Add an eventhook to the process events */
     kevent_add_hook("proc", "lwnd", lwnd_on_process_event, NULL);
 
     /* Create the main screen */
@@ -305,6 +318,11 @@ uintptr_t msg_window_driver(aniva_driver_t* this, dcc_t code, void* buffer, size
     switch (code) {
     case LWND_DCC_CREATE:
         KLOG_DBG("Trying to create lwnd window!\n");
+
+        /* Check if the dimentions are legal */
+        if (uwnd->current_width > _lwnd_0_screen->px_width || uwnd->current_height > _lwnd_0_screen->px_height)
+            return DRV_STAT_INVAL;
+
         /* Create the window */
         if ((wnd = create_window(calling_process, uwnd->title, (_lwnd_0_screen->px_width >> 1) - (uwnd->current_width >> 1), (_lwnd_0_screen->px_height >> 1) - (uwnd->current_height >> 1), uwnd->current_width, uwnd->current_height)) == nullptr)
             return DRV_STAT_INVAL;

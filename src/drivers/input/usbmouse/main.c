@@ -1,10 +1,10 @@
+#include "dev/io/hid/event.h"
 #include "dev/io/hid/hid.h"
 #include "dev/usb/spec.h"
 #include "dev/usb/xfer.h"
 #include "logging/log.h"
 #include "mem/heap.h"
 #include <dev/core.h>
-#include <dev/driver.h>
 #include <dev/driver.h>
 
 #include <dev/usb/driver.h>
@@ -41,18 +41,9 @@ struct usbmouse {
 static u32 _next_usbmouse_id;
 static struct usbmouse* _usbmice;
 
-static struct usbmouse* getusbmouse_for_udev(usb_device_t* udev)
-{
-    for (struct usbmouse* mouse = _usbmice; mouse; mouse = mouse->next) {
-        if (mouse->udev == udev)
-            return mouse;
-    }
-
-    return nullptr;
-}
-
 static int usbmouse_irq(usb_xfer_t* xfer)
 {
+    hid_event_t event = { 0 };
     struct usbmouse* mouse;
 
     /* Fuck */
@@ -61,7 +52,25 @@ static int usbmouse_irq(usb_xfer_t* xfer)
 
     mouse = xfer->priv_ctx;
 
-    KLOG("Recieved USB mouse packet (x:%d, y:%d)\n", mouse->resp.packet.x, -mouse->resp.packet.y);
+    // KLOG("Recieved USB mouse packet (x:%d, y:%d)\n", mouse->resp.packet.x, -mouse->resp.packet.y);
+
+    event.type = HID_EVENT_MOUSE;
+    event.device = mouse->hdev;
+    event.mouse.deltax = mouse->resp.packet.x;
+    event.mouse.deltay = -mouse->resp.packet.y;
+    event.mouse.deltaz = mouse->resp.packet.z;
+
+    if (mouse->resp.packet.button_flags & 0x01)
+        event.mouse.flags |= HID_MOUSE_FLAG_LBTN_PRESSED;
+
+    if (mouse->resp.packet.button_flags & 0x02)
+        event.mouse.flags |= HID_MOUSE_FLAG_RBTN_PRESSED;
+
+    if (mouse->resp.packet.button_flags & 0x04)
+        event.mouse.flags |= HID_MOUSE_FLAG_MBTN_PRESSED;
+
+    /* Enqueue the hid event packet */
+    hid_device_queue(mouse->hdev, &event);
 
     /* Resubmit */
     usb_xfer_enqueue(xfer, xfer->device->hcd);

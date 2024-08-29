@@ -1,6 +1,6 @@
 #include "dev/core.h"
-#include "dev/io/hid/event.h"
 #include "dev/driver.h"
+#include "dev/io/hid/event.h"
 #include "devices/shared.h"
 #include "drivers/input/i8042/i8042.h"
 #include "irq/interrupts.h"
@@ -170,8 +170,8 @@ static int _init_i8042(driver_t* driver)
     if (!parser)
         return -KERR_NODEV;
 
-    if (!acpi_parser_is_fadt_bootflag(parser, ACPI_FADT_8042))
-        return -KERR_NODEV;
+    // if (!acpi_parser_is_fadt_bootflag(parser, ACPI_FADT_8042))
+    // return -KERR_NODEV;
 
     // kernel_panic("Fuck, there seems to be no i8042 present on the system =/");
 
