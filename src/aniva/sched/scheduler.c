@@ -335,10 +335,10 @@ static inline void scheduler_move_thread_to_inactive(scheduler_t* scheduler, sth
     /* Grab the direct pointer */
     p_thread = *active_thread;
 
+    // KLOG_DBG("Moving %s to inactive. New tslice: %d\n", p_thread->t->m_name, p_thread->tslice);
+
     /* Calculate the new timeslice for this thread */
     sthread_calc_stimeslice(p_thread);
-
-    // KLOG_DBG("Moving %s to inactive. New tslice: %d\n", p_thread->t->m_name, p_thread->tslice);
 
     /* Remove it from the active queue and add it to the inactive queue */
     squeue_remove(scheduler->active_q, active_thread);
@@ -355,9 +355,6 @@ static inline void scheduler_move_thread_to_inactive(scheduler_t* scheduler, sth
 static inline void scheduler_do_requeue(scheduler_t* scheduler, sthread_t** active_thread)
 {
     sthread_t* sthread;
-
-    /* Reached the end of this queue, move over to the next available priority */
-    squeue_next_prio(scheduler->active_q);
 
     /* Just to be sure */
     if (!active_thread || !(*active_thread))
@@ -586,10 +583,6 @@ kerror_t scheduler_add_thread_ex(scheduler_t* s, thread_t* thread, enum SCHEDULE
 
     /* Recalculate the timeslice, just in case */
     sthread_calc_stimeslice(thread->sthread);
-
-    /* Set the current active priority, based on the bas prio of the new thread */
-    if (thread->sthread->base_prio >= s->active_q->active_prio)
-        s->active_q->active_prio = thread->sthread->base_prio;
 
     resume_scheduler();
     return 0;

@@ -217,8 +217,46 @@ struct __oss_resolve_context {
     u32 obj_gen_idx;
     oss_node_t* obj_gen_node;
     oss_node_t* current_node;
+    oss_node_t* start_node;
     oss_node_entry_t* current_entry;
 };
+
+static inline int __try_query_parent_node(struct __oss_resolve_context* ctx, oss_obj_t** obj_out, oss_node_t** node_out)
+{
+    int error;
+    char* full_path = strdup(ctx->path);
+    oss_node_t* gen_node = ctx->start_node;
+
+    /* Walk down the parent list to find an upstream object gen node */
+    while (gen_node && gen_node->type != OSS_OBJ_GEN_NODE) {
+        char* _full_path = kmalloc(strlen(full_path) + 1 + strlen(gen_node->name));
+
+        /* Format the new full path */
+        sfmt(_full_path, "%s/%s", gen_node->name, full_path);
+
+        /* Free the old full path */
+        kfree(full_path);
+
+        /* Set the new pointer */
+        full_path = _full_path;
+
+        gen_node = gen_node->parent;
+    }
+
+    /* This would be kinda oof */
+    if (!gen_node) {
+        kfree(full_path);
+        return -KERR_NOT_FOUND;
+    }
+
+    if (obj_out)
+        error = oss_node_query(gen_node, full_path, obj_out);
+    else
+        error = oss_node_query_node(gen_node, full_path, node_out);
+
+    kfree(full_path);
+    return error;
+}
 
 static inline int __handle_oss_entry_scan_result(struct __oss_resolve_context* ctx, oss_obj_t** obj_out, oss_node_t** node_out)
 {
@@ -227,7 +265,7 @@ static inline int __handle_oss_entry_scan_result(struct __oss_resolve_context* c
 
     /* An error without a generation node, fuck us bro */
     if (ctx->error && !ctx->obj_gen_node)
-        return ctx->error;
+        return __try_query_parent_node(ctx, obj_out, node_out);
 
     if (ctx->error)
         /* There was an error, but we've passed a generation node, try to see if it has awnsers */
@@ -330,6 +368,7 @@ static int __oss_resolve_node_entry_rel_locked(struct oss_node* rel, const char*
     /* Pack the result of the scan into the context struct */
     ctx.path = path;
     ctx.error = error;
+    ctx.start_node = rel;
     ctx.obj_gen_idx = obj_gen_idx;
     ctx.obj_gen_node = obj_gen_node;
     ctx.current_node = c_node;

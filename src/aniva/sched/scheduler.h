@@ -168,11 +168,9 @@ static inline void sthread_calc_stimeslice(sthread_t* st)
  */
 static inline void try_do_sthread_tick(sthread_t* t, stimeslice_t delta, bool force)
 {
-    /* Force the timeslice to be empty */
-    if (force) {
-        t->tslice = 0;
-        return;
-    }
+    /* Force us to add an entire granularity of timeslice, which forces context switch */
+    if (force)
+        delta = STIMESLICE_GRANULARITY;
 
     /* Add a single stepping to the timeslice */
     t->elapsed_tslice += delta;
@@ -181,7 +179,7 @@ static inline void try_do_sthread_tick(sthread_t* t, stimeslice_t delta, bool fo
      * Check if this thread still has time left
      * If the force flag is set, just always fuck over the thread
      */
-    if (t->elapsed_tslice < STIMESLICE_GRANULARITY && t->elapsed_tslice < t->tslice)
+    if (t->elapsed_tslice <= STIMESLICE_GRANULARITY && t->elapsed_tslice < t->tslice)
         return;
 
     /* If this was a pseudo-tick, don't affect the timeslices stats */
