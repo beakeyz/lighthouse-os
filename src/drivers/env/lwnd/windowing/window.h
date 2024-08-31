@@ -1,6 +1,7 @@
 #ifndef __LWND_WINDOWING_WINDOW__
 #define __LWND_WINDOWING_WINDOW__
 
+#include "dev/io/hid/event.h"
 #include "dev/video/framebuffer.h"
 #include "libk/stddef.h"
 #include "mem/zalloc/zalloc.h"
@@ -55,6 +56,13 @@ typedef struct lwnd_window {
 
     /* Local framebuffer info */
     fb_info_t* this_fb;
+
+    u32 key_read_idx;
+    u32 mouse_read_idx;
+    hid_event_t* hid_key_ring;
+    hid_event_t* hid_mouse_ring;
+    hid_event_buffer_t hid_key_buffer;
+    hid_event_buffer_t hid_mouse_buffer;
 
     /*
      * The different rectangles that make up this window

@@ -1,4 +1,5 @@
 #include "window.h"
+#include "dev/io/hid/event.h"
 #include "dev/video/framebuffer.h"
 #include "drivers/env/lwnd/display/screen.h"
 #include "libk/flow/error.h"
@@ -29,6 +30,9 @@ lwnd_window_t* create_window(proc_t* p, const char* title, u32 x, u32 y, u32 wid
     ret->flags = LWND_WINDOW_FLAG_NEED_UPDATE;
     ret->this_fb = NULL;
 
+    ret->hid_key_ring = kmalloc(sizeof(hid_event_t) * 64);
+    init_hid_event_buffer(&ret->hid_key_buffer, ret->hid_key_ring, 64);
+
     /* Link a windows initial rect */
     create_and_link_lwndrect(&ret->rects, ret->rect_cache, 0, 0, width, height);
 
@@ -46,6 +50,8 @@ void destroy_window(lwnd_window_t* window)
 
         kfree(window->this_fb);
     }
+
+    kfree(window->hid_key_ring);
 
     kfree((void*)window->title);
     kfree(window);
@@ -190,6 +196,8 @@ static inline void __lwnd_redraw_rect(lwnd_window_t* wnd, lwnd_screen_t* screen,
         screen_offset += screen_info->pitch - (draw_width * screen_bytes_per_pixel);
         rect_offset += wnd_info->pitch - (draw_width * wnd_bytes_per_pixel);
     }
+
+    rect->rect_changed = false;
 }
 
 int lwnd_window_draw(lwnd_window_t* wnd, struct lwnd_screen* screen)

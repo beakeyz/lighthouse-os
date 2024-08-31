@@ -198,9 +198,10 @@ static u32 __rect_split(lwnd_wndrect_t** p_rects, lwnd_window_t* wnd, lwnd_wndre
 
             new_rect = create_and_link_lwndrect(p_rects, wnd->rect_cache, c_x, c_y, c_w, c_h);
 
-            for (lwnd_wndrect_t* r = wnd->prev_rects; r && new_rect->rect_changed; r = r->next_part)
+            for (lwnd_wndrect_t* r = wnd->prev_rects; r && new_rect->rect_changed; r = r->next_part) {
                 if (r->x == new_rect->x && r->y == new_rect->y && r->w == new_rect->w && r->h == new_rect->h)
                     new_rect->rect_changed = false;
+            }
 
             n_split++;
         }

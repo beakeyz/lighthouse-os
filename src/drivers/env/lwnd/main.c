@@ -58,31 +58,44 @@ static int lwnd_process_window_keypress(lwnd_screen_t* screen, lwnd_wndstack_t* 
     if (!screen || !stack || !window)
         return -KERR_INVAL;
 
-    switch (ctx->key.scancode) {
-    case ANIVA_SCANCODE_W:
-        lwnd_window_move(screen, window, window->x, window->y - 10);
-        break;
-    case ANIVA_SCANCODE_S:
-        lwnd_window_move(screen, window, window->x, window->y + 10);
-        break;
-    case ANIVA_SCANCODE_A:
-        lwnd_window_move(screen, window, window->x - 10, window->y);
-        break;
-    case ANIVA_SCANCODE_D:
-        lwnd_window_move(screen, window, window->x + 10, window->y);
-        break;
-    case ANIVA_SCANCODE_TAB:
-        wndstack_cycle_windows(stack);
-        break;
-    default:
-        break;
+    if (ctx->key.pressed_buffer[0] == ANIVA_SCANCODE_LALT) {
+        if ((ctx->key.flags & HID_EVENT_KEY_FLAG_PRESSED) != HID_EVENT_KEY_FLAG_PRESSED)
+            return 0;
+
+        switch (ctx->key.scancode) {
+        case ANIVA_SCANCODE_W:
+            lwnd_window_move(screen, window, window->x, window->y - 10);
+            break;
+        case ANIVA_SCANCODE_S:
+            lwnd_window_move(screen, window, window->x, window->y + 10);
+            break;
+        case ANIVA_SCANCODE_A:
+            lwnd_window_move(screen, window, window->x - 10, window->y);
+            break;
+        case ANIVA_SCANCODE_D:
+            lwnd_window_move(screen, window, window->x + 10, window->y);
+            break;
+        case ANIVA_SCANCODE_TAB:
+            wndstack_cycle_windows(stack);
+            break;
+        default:
+            break;
+        }
+
+        return 0;
     }
+
+    /* Write this event */
+    hid_event_buffer_write(&window->hid_key_buffer, ctx);
 
     return 0;
 }
 
 static int lwnd_process_system_keypress(hid_event_t* ctx)
 {
+    if ((ctx->key.flags & HID_EVENT_KEY_FLAG_PRESSED) != HID_EVENT_KEY_FLAG_PRESSED)
+        return -KERR_NOT_FOUND;
+
     /* Check for lwnd keycombinations */
     if (_lwnd_stack->top_window && hid_event_is_keycombination_pressed(ctx, _forcequit_sequence, 3))
         return try_terminate_process(_lwnd_stack->top_window->proc);
@@ -109,9 +122,6 @@ static int lwnd_process_system_keypress(hid_event_t* ctx)
 static int lwnd_on_key(hid_event_t* ctx)
 {
     int error = -KERR_NOT_FOUND;
-
-    if ((ctx->key.flags & HID_EVENT_KEY_FLAG_PRESSED) != HID_EVENT_KEY_FLAG_PRESSED)
-        return 0;
 
     /* First check if there was a system keypress that has intercepted this key event */
     error = lwnd_process_system_keypress(ctx);
@@ -219,9 +229,6 @@ static void USED lwnd_main()
         }
 
         lwnd_wndstack_update_background(_lwnd_stack);
-
-        /* Clear the entire bitmap at this point lol */
-        memset(_lwnd_0_screen->screen_sector_bitmap->m_map, 0, _lwnd_0_screen->screen_sector_bitmap->m_size);
 
         /*
         _lwnd_stack->bottom_window->next_layer = _lwnd_stack->background_window;
@@ -396,6 +403,14 @@ uintptr_t msg_window_driver(aniva_driver_t* this, dcc_t code, void* buffer, size
         break;
     case LWND_DCC_GETKEY:
         // KLOG_DBG("Trying to get key event!\n");
+        wnd = wndstack_find_window(c_workspace->stack, uwnd->title);
+
+        if (!wnd)
+            return DRV_STAT_NOT_FOUND;
+
+        /* Write a hid event to the user */
+        (void)hid_event_write_to_user(&wnd->hid_key_buffer, &wnd->key_read_idx, uwnd);
+
         break;
     }
     return DRV_STAT_OK;
