@@ -79,7 +79,7 @@ int lwnd_workspace_remove_windows_of_process(lwnd_workspace_t* ws, proc_t* p)
         next_wnd = this_wnd->next_layer;
 
         /* Order updates to all other windows */
-        lwnd_window_update(this_wnd);
+        lwnd_window_update_screen(this_wnd, ws->parent_screen);
 
         /* Check */
         if (this_wnd->proc != p)

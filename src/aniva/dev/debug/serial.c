@@ -23,7 +23,6 @@ static logger_t serial_logger = {
  */
 void init_serial()
 {
-
     out8(COM1 + 1, 0x00);
     out8(COM1 + 3, 0x80);
     out8(COM1 + 0, 0x02);

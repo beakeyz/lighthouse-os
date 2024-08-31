@@ -140,6 +140,7 @@ bool is_driver_loaded(struct driver* handle);
  */
 struct driver* get_driver(dev_url_t url);
 struct driver* get_driver_from_type(enum DRIVER_TYPE type, uint32_t index);
+struct driver* get_driver_from_address(vaddr_t addr);
 size_t get_driver_type_count(enum DRIVER_TYPE type);
 kerror_t foreach_driver(bool (*callback)(struct oss_node* h, struct oss_obj* obj, void* arg), void* arg);
 bool verify_driver(struct driver* driver);

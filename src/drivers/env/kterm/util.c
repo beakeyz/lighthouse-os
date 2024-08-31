@@ -124,7 +124,7 @@ bool print_drv_info(oss_node_t* node, oss_obj_t* obj, void* arg0)
     if (obj->type != OSS_OBJ_TYPE_DRIVER || !driver)
         return false;
 
-    printf("%16.16s: %32.32s (Loaded: %s)\n", driver->m_url, (driver->m_driver_file_path == nullptr) ? "Internal" : driver->m_driver_file_path, ((driver->m_flags & DRV_LOADED) == DRV_LOADED) ? "Yes" : "No");
+    printf("%16.16s: %32.32s (Loaded: %s)\n", driver->m_url, (driver->m_image_path == nullptr) ? "Internal" : driver->m_image_path, ((driver->m_flags & DRV_LOADED) == DRV_LOADED) ? "Yes" : "No");
 
     FOREACH(i, driver->m_dev_list)
     {

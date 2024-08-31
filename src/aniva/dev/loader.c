@@ -401,8 +401,8 @@ static kerror_t __remove_installed_driver(driver_t* new_driver)
 
 static inline void _ctx_prepare_driver(struct loader_ctx* ctx)
 {
-    if (!ctx->driver->m_driver_file_path)
-        ctx->driver->m_driver_file_path = strdup(ctx->path);
+    if (!ctx->driver->m_image_path)
+        ctx->driver->m_image_path = strdup(ctx->path);
 }
 
 /*

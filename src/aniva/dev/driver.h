@@ -206,7 +206,7 @@ typedef struct driver {
     // void* m_private;
 
     /* Path to the binary of the driver, only on external drivers */
-    const char* m_driver_file_path;
+    const char* m_image_path;
 
     /* Loader information */
     vaddr_t load_base;

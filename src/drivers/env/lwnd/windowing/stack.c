@@ -45,7 +45,7 @@ void destroy_lwnd_wndstack(lwnd_wndstack_t* stack)
 static inline void __wndstack_do_update_background(lwnd_wndstack_t* stack)
 {
     /* Mark background as needing an update */
-    lwnd_window_full_update(stack->background_window);
+    lwnd_window_full_update_screen(stack->background_window, stack->screen);
 
     /* Do the update */
     lwnd_wndstack_update_background(stack);
@@ -287,7 +287,7 @@ int wndstack_cycle_windows(lwnd_wndstack_t* stack)
     /* Make sure all underlying windows are updated */
     do {
         /* Need to do a full update, since no sizes changed, only drawing order */
-        lwnd_window_full_update(new_top);
+        lwnd_window_full_update_screen(new_top, stack->screen);
         new_top = new_top->next_layer;
     } while (new_top);
 

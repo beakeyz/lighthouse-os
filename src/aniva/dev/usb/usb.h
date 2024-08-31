@@ -54,13 +54,20 @@ typedef struct usb_device {
     /* When we discover a device, this is the first descriptor we'll get back */
     usb_device_descriptor_t desc;
 
-    uint8_t hub_port; /* Port of the devices hub */
+    /* Port number of the devices hub device */
+    uint8_t hub_port;
+    /* Device address of this devices hub device */
     uint8_t hub_addr;
-    uint8_t dev_port; /* From 0 to 255, what is our index? (nth device found on the hub) */
+    /* From 0 to 255, what is our index? (nth device found on the hub) */
+    uint8_t dev_port;
+    /* This devices device address */
     uint8_t dev_addr;
     uint8_t slot;
+    /* Amount of endpoints this device has */
     uint8_t ep_count;
+    /* Amount of possible configurations on this device */
     uint8_t config_count;
+    /* ID of the current active config */
     uint8_t active_config;
 
     char* product;

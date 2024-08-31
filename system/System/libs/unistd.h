@@ -18,7 +18,7 @@ extern uint32_t usleep(uint32_t useconds);
 
 extern int pause(void);
 extern char* getcwd(char* buffer, unsigned int len);
-extern bool chdir(const char* newdir);
+extern int chdir(const char* newdir);
 
 #ifdef __cplusplus
 }

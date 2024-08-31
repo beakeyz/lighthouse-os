@@ -60,6 +60,15 @@ void lwnd_window_update(lwnd_window_t* wnd)
 }
 
 /*!
+ * @brief: Updates both the screen and the window
+ */
+void lwnd_window_update_screen(lwnd_window_t* wnd, struct lwnd_screen* screen)
+{
+    /* Update the window */
+    lwnd_window_update(wnd);
+}
+
+/*!
  * @brief: Mark a window as needing an update, without considiring the privious window state
  */
 void lwnd_window_full_update(lwnd_window_t* wnd)
@@ -71,6 +80,11 @@ void lwnd_window_full_update(lwnd_window_t* wnd)
 
     /* Also clear the default rect list */
     window_clear_rects(wnd);
+}
+
+void lwnd_window_full_update_screen(lwnd_window_t* wnd, struct lwnd_screen* screen)
+{
+    lwnd_window_full_update(wnd);
 }
 
 /*!
@@ -110,6 +124,7 @@ int lwnd_window_move(struct lwnd_screen* screen, lwnd_window_t* wnd, u32 newx, u
 
         wnd = wnd->next_layer;
     } while (wnd);
+
     return 0;
 }
 
@@ -157,17 +172,23 @@ static inline void __lwnd_redraw_rect(lwnd_window_t* wnd, lwnd_screen_t* screen,
     /* Calculate actual draw width and height */
     draw_height = rect->h - ((abs_rect_y + rect->h) > screen_info->height ? ((abs_rect_y + rect->h) - screen_info->height) : 0);
     draw_width = rect->w - ((abs_rect_x + rect->w) > screen_info->width ? ((abs_rect_x + rect->w) - screen_info->width) : 0);
+
     // KLOG_DBG("Trying to draw: x:%d y:%d (%dx%d)\n", rect->x, rect->y, rect->w, rect->h);
 
     /*
      * Our manual slow bitblt xD
      */
     for (uint32_t i = 0; i < draw_height; i++) {
-        for (uint32_t j = 0; j < draw_width; j++)
-            *(uint32_t volatile*)(screen_offset + j * screen_bytes_per_pixel) = *(uint32_t*)(rect_offset + j * wnd_bytes_per_pixel);
+        for (uint32_t j = 0; j < draw_width; j++) {
+            *(uint32_t volatile*)(screen_offset) = *(uint32_t*)(rect_offset);
 
-        screen_offset += screen_info->pitch;
-        rect_offset += wnd_info->pitch;
+            /* Add the offsets */
+            screen_offset += screen_bytes_per_pixel;
+            rect_offset += wnd_bytes_per_pixel;
+        }
+
+        screen_offset += screen_info->pitch - (draw_width * screen_bytes_per_pixel);
+        rect_offset += wnd_info->pitch - (draw_width * wnd_bytes_per_pixel);
     }
 }
 
@@ -244,6 +265,7 @@ int lwnd_window_request_fb(lwnd_window_t* wnd, lwnd_screen_t* screen)
         info->addr = info->kernel_addr;
 
     wnd->this_fb = info;
+
     return 0;
 
 dealloc_and_exit:

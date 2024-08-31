@@ -78,7 +78,9 @@ lwnd_window_t* create_window(proc_t* p, const char* title, u32 x, u32 y, u32 wid
 void destroy_window(lwnd_window_t* window);
 
 void lwnd_window_update(lwnd_window_t* wnd);
+void lwnd_window_update_screen(lwnd_window_t* wnd, struct lwnd_screen* screen);
 void lwnd_window_full_update(lwnd_window_t* wnd);
+void lwnd_window_full_update_screen(lwnd_window_t* wnd, struct lwnd_screen* screen);
 void lwnd_window_clear_update(lwnd_window_t* wnd);
 
 int lwnd_window_move(struct lwnd_screen* screen, lwnd_window_t* wnd, u32 newx, u32 newy);

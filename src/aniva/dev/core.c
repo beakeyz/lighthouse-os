@@ -482,6 +482,52 @@ struct driver* get_driver_from_type(enum DRIVER_TYPE type, uint32_t index)
     return nullptr;
 }
 
+struct __drv_from_addr_info {
+    driver_t* result;
+    vaddr_t addr;
+};
+
+static bool __get_drv_from_addr_cb(oss_node_t* node, oss_obj_t* obj, void* arg)
+{
+    driver_t* driver;
+    struct __drv_from_addr_info* info = arg;
+
+    if (node)
+        return !oss_node_itterate(node, __get_drv_from_addr_cb, arg);
+
+    if (!obj)
+        return true;
+
+    /* Grab the driver */
+    driver = oss_obj_unwrap(obj, driver_t);
+
+    /* Check if this object even is a driver */
+    if (obj->type != OSS_OBJ_TYPE_DRIVER || !driver)
+        return true;
+
+    /* If this address is not in the drivers range, go next */
+    if (info->addr < driver->load_base || info->addr > (driver->load_base + driver->load_size))
+        return true;
+
+    /* Found our driver, return */
+    info->result = driver;
+    return false;
+}
+
+struct driver* get_driver_from_address(vaddr_t addr)
+{
+    struct __drv_from_addr_info info;
+
+    /* Fill the result buffer */
+    info.addr = addr;
+    info.result = nullptr;
+
+    /* Call the itteration */
+    (void)foreach_driver(__get_drv_from_addr_cb, &info);
+
+    return info.result;
+}
+
 driver_t* try_driver_get(aniva_driver_t* driver, uint32_t flags)
 {
     dev_url_t path;

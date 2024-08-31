@@ -157,7 +157,7 @@ void ehci_init_qh(ehci_qh_t* qh, usb_xfer_t* xfer)
     if (xfer->device->speed == USB_HIGHSPEED)
         return;
 
-    qh->hw_info_0 |= (xfer->req_type == USB_CTL_XFER ? EHCI_QH_CONTROL_EP : 0);
+    qh->hw_info_0 |= ((xfer->req_type == USB_CTL_XFER) ? EHCI_QH_CONTROL_EP : 0);
     qh->hw_info_1 |= (EHCI_QH_HUBADDR(xfer->req_hubaddr) | EHCI_QH_HUBPORT(xfer->req_hubport));
 }
 

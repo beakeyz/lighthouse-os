@@ -57,7 +57,7 @@ static int usbmouse_irq(usb_xfer_t* xfer)
     event.type = HID_EVENT_MOUSE;
     event.device = mouse->hdev;
     event.mouse.deltax = mouse->resp.packet.x;
-    event.mouse.deltay = -mouse->resp.packet.y;
+    event.mouse.deltay = mouse->resp.packet.y;
     event.mouse.deltaz = mouse->resp.packet.z;
 
     if (mouse->resp.packet.button_flags & 0x01)

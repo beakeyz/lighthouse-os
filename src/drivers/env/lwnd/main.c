@@ -28,6 +28,10 @@ static video_device_t* _lwnd_vdev;
 static hid_device_t* _lwnd_kbddev;
 /* Mouse HID device for mouse input */
 static hid_device_t* _lwnd_mousedev;
+
+static u32 _lwnd_mouse_x;
+static u32 _lwnd_mouse_y;
+
 /*
  * Static framebuffer info
  * I don't really know how prone this is to change in the future, since
@@ -122,7 +126,16 @@ static int lwnd_on_key(hid_event_t* ctx)
 
 static int lwnd_on_mouse(hid_event_t* ctx)
 {
-    generic_draw_rect(_lwnd_0_screen->fbinfo, ctx->mouse.deltax, ctx->mouse.deltay, 3, 3, (fb_color_t) { { 0xff, 0, 0, 0xff } });
+    int newx = _lwnd_mouse_x + ctx->mouse.deltax;
+    int newy = _lwnd_mouse_y + ctx->mouse.deltay;
+
+    if (newx < 0 || newy < 0)
+        return -KERR_INVAL;
+
+    _lwnd_mouse_x = newx;
+    _lwnd_mouse_y = newy;
+
+    generic_draw_rect(_lwnd_0_screen->fbinfo, _lwnd_mouse_x, _lwnd_mouse_y, 3, 3, (fb_color_t) { { 0xff, 0, 0, 0xff } });
     return 0;
 }
 
@@ -207,6 +220,9 @@ static void USED lwnd_main()
 
         lwnd_wndstack_update_background(_lwnd_stack);
 
+        /* Clear the entire bitmap at this point lol */
+        memset(_lwnd_0_screen->screen_sector_bitmap->m_map, 0, _lwnd_0_screen->screen_sector_bitmap->m_size);
+
         /*
         _lwnd_stack->bottom_window->next_layer = _lwnd_stack->background_window;
 
@@ -249,6 +265,9 @@ int init_window_driver()
 
     if (!_lwnd_kbddev)
         _lwnd_kbddev = get_hid_device("i8042");
+
+    _lwnd_mouse_x = 0;
+    _lwnd_mouse_y = 0;
     /*
      * Try and get framebuffer info from the active video device
      * TODO: when we implement 2D acceleration, we probably need to do something else here
@@ -373,7 +392,7 @@ uintptr_t msg_window_driver(aniva_driver_t* this, dcc_t code, void* buffer, size
             return DRV_STAT_NOT_FOUND;
 
         /* Mark as needing updating */
-        lwnd_window_full_update(wnd);
+        lwnd_window_full_update_screen(wnd, _lwnd_0_screen);
         break;
     case LWND_DCC_GETKEY:
         // KLOG_DBG("Trying to get key event!\n");

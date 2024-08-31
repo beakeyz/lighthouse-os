@@ -279,8 +279,8 @@ void destroy_driver(driver_t* driver)
 
     /* Free strings and stuff */
     kfree((void*)driver->m_url);
-    if (driver->m_driver_file_path)
-        kfree((void*)driver->m_driver_file_path);
+    if (driver->m_image_path)
+        kfree((void*)driver->m_image_path);
     free_ddriver(driver);
 }
 

@@ -340,8 +340,8 @@ static int usbkbd_irq(usb_xfer_t* xfer)
     if (xfer->resp_transfer_size == 0)
         goto resubmit;
 
-    // KLOG("(%x %x %x %x) -> (%x %x %x %x)\n", kbd->prev_resp[2], kbd->prev_resp[3], kbd->prev_resp[4], kbd->prev_resp[5],
-    // kbd->this_resp[2], kbd->this_resp[3], kbd->this_resp[4], kbd->this_resp[5]);
+    KLOG("(%x %x %x %x) -> (%x %x %x %x)\n", kbd->prev_resp[2], kbd->prev_resp[3], kbd->prev_resp[4], kbd->prev_resp[5],
+     kbd->this_resp[2], kbd->this_resp[3], kbd->this_resp[4], kbd->this_resp[5]);
 
     // goto resubmit;
 

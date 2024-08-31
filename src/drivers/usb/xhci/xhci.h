@@ -261,6 +261,38 @@ typedef struct xhci_slot_ctx {
     uint32_t res[4];
 } xhci_slot_ctx_t;
 
+#define SLOT_0_ROUTE(x) ((x) & 0xFFFFF)
+#define SLOT_0_ROUTE_GET(x) ((x) & 0xFFFFF)
+#define SLOT_0_SPEED(x) (((x) & 0xF) << 20)
+#define SLOT_0_SPEED_GET(x) (((x) >> 20) & 0xF)
+#define SLOT_0_MTT_BIT (1U << 25)
+#define SLOT_0_HUB_BIT (1U << 26)
+#define SLOT_0_NUM_ENTRIES(x) (((x) & 0x1F) << 27)
+#define SLOT_0_NUM_ENTRIES_GET(x) (((x) >> 27) & 0x1F)
+
+#define SLOT_1_MAX_EXIT_LATENCY(x) ((x) & 0xFFFF)
+#define SLOT_1_MAX_EXIT_LATENCY_GET(x) ((x) & 0xFFFF)
+#define SLOT_1_RH_PORT(x) (((x) & 0xFF) << 16)
+#define SLOT_1_RH_PORT_GET(x) (((x) >> 16) & 0xFF)
+#define SLOT_1_NUM_PORTS(x) (((x) & 0xFF) << 24)
+#define SLOT_1_NUM_PORTS_GET(x) (((x) >> 24) & 0xFF)
+
+#define SLOT_2_TT_HUB_SLOT(x) ((x) & 0xFF)
+#define SLOT_2_TT_HUB_SLOT_GET(x) ((x) & 0xFF)
+#define SLOT_2_PORT_NUM(x) (((x) & 0xFF) << 8)
+#define SLOT_2_PORT_NUM_GET(x) (((x) >> 8) & 0xFF)
+#define SLOT_2_TT_TIME(x) (((x) & 0x3) << 16)
+#define SLOT_2_TT_TIME_GET(x) (((x) >> 16) & 0x3)
+#define SLOT_2_IRQ_TARGET(x) (((x) & 0x7F) << 22)
+#define SLOT_2_IRQ_TARGET_GET(x) (((x) >> 22) & 0x7F)
+
+#define SLOT_3_DEVICE_ADDRESS(x) ((x) & 0xFF)
+#define SLOT_3_DEVICE_ADDRESS_GET(x) ((x) & 0xFF)
+#define SLOT_3_SLOT_STATE(x) (((x) & 0x1F) << 27)
+#define SLOT_3_SLOT_STATE_GET(x) (((x) >> 27) & 0x1F)
+
+#define HUB_TTT_GET(x) (((x) >> 5) & 0x3)
+
 typedef struct xhci_endpoint_ctx {
     uint32_t ep_info;
     uint32_t ep_info2;
@@ -268,6 +300,42 @@ typedef struct xhci_endpoint_ctx {
     uint32_t tx_info;
     uint32_t res[3];
 } xhci_endpoint_ctx_t;
+
+#define ENDPOINT_0_STATE(x) ((x) & 0x7)
+#define ENDPOINT_0_STATE_GET(x) ((x) & 0x7)
+#define ENDPOINT_0_MULT(x) (((x) & 0x3) << 8)
+#define ENDPOINT_0_MULT_GET(x) (((x) >> 8) & 0x3)
+#define ENDPOINT_0_MAXPSTREAMS(x) (((x) & 0x1F) << 10)
+#define ENDPOINT_0_MAXPSTREAMS_GET(x) (((x) >> 10) & 0x1F)
+#define ENDPOINT_0_LSA_BIT (1U << 15)
+#define ENDPOINT_0_INTERVAL(x) (((x) & 0xFF) << 16)
+#define ENDPOINT_0_INTERVAL_GET(x) (((x) >> 16) & 0xFF)
+
+#define ENDPOINT_1_CERR(x) (((x) & 0x3) << 1)
+#define ENDPOINT_1_CERR_GET(x) (((x) >> 1) & 0x3)
+#define ENDPOINT_1_EPTYPE(x) (((x) & 0x7) << 3)
+#define ENDPOINT_1_EPTYPE_GET(x) (((x) >> 3) & 0x7)
+#define ENDPOINT_1_HID_BIT (1U << 7)
+#define ENDPOINT_1_MAXBURST(x) (((x) & 0xFF) << 8)
+#define ENDPOINT_1_MAXBURST_GET(x) (((x) >> 8) & 0xFF)
+#define ENDPOINT_1_MAXPACKETSIZE(x) (((x) & 0xFFFF) << 16)
+#define ENDPOINT_1_MAXPACKETSIZE_GET(x) (((x) >> 16) & 0xFFFF)
+
+#define ENDPOINT_2_DCS_BIT (1U << 0)
+
+#define ENDPOINT_4_AVGTRBLENGTH(x) ((x) & 0xFFFF)
+#define ENDPOINT_4_AVGTRBLENGTH_GET(x) ((x) & 0xFFFF)
+#define ENDPOINT_4_MAXESITPAYLOAD(x) (((x) & 0xFFFF) << 16)
+#define ENDPOINT_4_MAXESITPAYLOAD_GET(x) (((x) >> 16) & 0xFFFF)
+
+#define ENDPOINT_STATE_DISABLED 0
+#define ENDPOINT_STATE_RUNNING 1
+#define ENDPOINT_STATE_HALTED 2
+#define ENDPOINT_STATE_STOPPED 3
+#define ENDPOINT_STATE_ERROR 4
+#define ENDPOINT_STATE_RESERVED_5 5
+#define ENDPOINT_STATE_RESERVED_6 6
+#define ENDPOINT_STATE_RESERVED_7 7
 
 typedef struct xhci_ip_ctl_ctx {
     uint32_t drp_flags;
@@ -277,8 +345,14 @@ typedef struct xhci_ip_ctl_ctx {
 
 typedef struct xhci_device_ctx {
     xhci_slot_ctx_t slot_ctx;
-    xhci_endpoint_ctx_t eps_ctx[31];
+    xhci_endpoint_ctx_t eps_ctx[XHCI_MAX_EPS - 1];
 } xhci_device_ctx_t;
+
+typedef struct xhci_input_device_ctx {
+    xhci_ip_ctl_ctx_t input;
+    xhci_slot_ctx_t slot_ctx;
+    xhci_endpoint_ctx_t eps_ctx[XHCI_MAX_EPS - 1];
+} xhci_input_device_ctx_t;
 
 /*
  * DMA supporting 'context'

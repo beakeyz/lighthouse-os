@@ -138,7 +138,7 @@ const char* oss_obj_get_fullpath(oss_obj_t* obj)
         c_parent = c_parent->parent;
     } while (c_parent && c_parent->parent);
 
-    KLOG_DBG("oss_obj_get_fullpath: %s\n", ret);
+    // KLOG_DBG("oss_obj_get_fullpath: %s\n", ret);
 
     return ret;
 }

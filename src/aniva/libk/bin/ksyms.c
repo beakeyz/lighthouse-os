@@ -1,4 +1,6 @@
 #include "ksyms.h"
+#include "dev/core.h"
+#include "dev/driver.h"
 #include "mem/kmem_manager.h"
 #include <libk/string.h>
 
@@ -32,16 +34,33 @@ const char* get_ksym_name(uintptr_t address)
     return nullptr;
 }
 
+/*!
+ * @brief: Grab the best symbol from a driver for a specific address
+ */
+static const char* __get_driver_sym(driver_t* driver, uintptr_t address)
+{
+    /* TODO: */
+    return nullptr;
+}
+
 const char* get_best_ksym_name(uintptr_t address)
 {
     uint8_t* i = &__ksyms_table;
     ksym_t* c_symbol = (ksym_t*)i;
     ksym_t* best_symbol = nullptr;
     size_t best_addr = 0;
+    driver_t* driver;
 
     /* No kernel address, fuck off */
     if (address < KERNEL_MAP_BASE)
         return nullptr;
+
+    /* Try to fetch a driver for this address */
+    driver = get_driver_from_address(address);
+
+    /* Found a driver check */
+    if (driver)
+        return __get_driver_sym(driver, address);
 
     while (c_symbol->sym_len) {
         c_symbol = (ksym_t*)i;

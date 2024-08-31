@@ -445,10 +445,10 @@ usb_device_t* create_usb_device(struct usb_hcd* hcd, struct usb_hub* hub, enum U
     if (hub)
         device->hub_addr = hub->udev->hub_addr;
 
-    if (device->speed == USB_HIGHSPEED || device->speed == USB_SUPERSPEED) {
-        device->hub_addr = device->dev_addr;
-        device->hub_port = device->dev_port;
-    }
+    // if (device->speed == USB_HIGHSPEED || device->speed == USB_SUPERSPEED) {
+    // device->hub_addr = device->dev_addr;
+    // device->hub_port = device->dev_port;
+    //}
 
     group = _root_usbhub_group;
 
@@ -827,6 +827,7 @@ static inline int _handle_device_connect(usb_hub_t* hub, uint32_t i)
 {
     int error;
     usb_port_t* port;
+    usb_hub_t* new_hub;
     enum USB_SPEED speed;
     char namebuf[11] = { NULL };
 
@@ -851,7 +852,7 @@ static inline int _handle_device_connect(usb_hub_t* hub, uint32_t i)
     sfmt(namebuf, "usbdev%d", i);
 
     /* Create the device backend structs */
-    port->device = create_usb_device(hub->hcd, hub, speed, i, hub->udev->hub_port, namebuf);
+    port->device = create_usb_device(hub->hcd, hub, speed, i, hub->udev->dev_port, namebuf);
 
     /* Bruh */
     if (!port->device)
@@ -863,13 +864,13 @@ static inline int _handle_device_connect(usb_hub_t* hub, uint32_t i)
     /* Hub, we have to do more stuff */
     if (usb_device_is_hub(port->device)) {
         /* Create a new hub -_- */
-        error = create_usb_hub(&hub, port->device->hcd, port->device->hub->type, port->device->hub, port->device, NULL, false);
+        error = create_usb_hub(&new_hub, port->device->hcd, hub->type, hub, port->device, NULL, false);
 
         if (error)
             return error;
 
         /* 0o0 */
-        usb_hub_enumerate(hub);
+        usb_hub_enumerate(new_hub);
     }
 
     return 0;
