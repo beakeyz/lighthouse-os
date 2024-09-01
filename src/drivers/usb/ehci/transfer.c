@@ -287,7 +287,7 @@ static void _ehci_link_qtds(ehci_qtd_t* a, ehci_qtd_t* b, ehci_qtd_t* alt)
     a->hw_alt_next = (alt ? alt->qtd_dma_addr : EHCI_FLLP_TYPE_END);
 }
 
-static void _ehci_xfer_attach_data_qtds(ehci_hcd_t* ehci, ehci_qtd_t* alt, size_t bsize, enum USB_XFER_DIRECTION direction, ehci_qtd_t** start, ehci_qtd_t** end)
+static void _ehci_xfer_attach_data_qtds(ehci_hcd_t* ehci, bool data_toggle, ehci_qtd_t* alt, size_t bsize, enum USB_XFER_DIRECTION direction, ehci_qtd_t** start, ehci_qtd_t** end)
 {
     // Bind more descriptors to include the data
     ehci_qtd_t* b;
@@ -308,7 +308,8 @@ static void _ehci_xfer_attach_data_qtds(ehci_hcd_t* ehci, ehci_qtd_t* alt, size_
         if (!_start)
             _start = b;
 
-        b->hw_token |= EHCI_QTD_DATA_TOGGLE;
+        if (data_toggle)
+            b->hw_token |= EHCI_QTD_DATA_TOGGLE;
 
         if (_end)
             _ehci_link_qtds(_end, b, alt);
@@ -342,7 +343,7 @@ int ehci_init_ctl_queue(ehci_hcd_t* ehci, struct usb_xfer* xfer, ehci_xfer_t** e
 
     /* If there is a buffer, create a data segment in the packet chain */
     if (xfer->resp_buffer)
-        _ehci_xfer_attach_data_qtds(ehci, stat_desc, xfer->resp_size, xfer->req_direction, &data_start, &data_end);
+        _ehci_xfer_attach_data_qtds(ehci, true, stat_desc, xfer->resp_size, xfer->req_direction, &data_start, &data_end);
 
     if (data_start != setup_desc)
         _ehci_link_qtds(setup_desc, data_start, qh->qtd_alt);
@@ -376,7 +377,7 @@ int ehci_init_data_queue(ehci_hcd_t* ehci, struct usb_xfer* xfer, struct ehci_xf
     start = end = nullptr;
 
     /* Create a descriptor chain */
-    _ehci_xfer_attach_data_qtds(ehci, qh->qtd_alt, xfer->req_size, xfer->req_direction, &start, &end);
+    _ehci_xfer_attach_data_qtds(ehci, false, qh->qtd_alt, xfer->req_size, xfer->req_direction, &start, &end);
 
     if (!start || !end)
         return -KERR_INVAL;
@@ -425,6 +426,8 @@ int ehci_xfer_finalise(ehci_hcd_t* ehci, ehci_xfer_t* xfer)
         while (c_qtd && c_qtd->buffer) {
             /* Get the buffer size of this descriptor */
             c_read_size = c_qtd->len - ((c_qtd->hw_token >> EHCI_QTD_BYTES_SHIFT) & EHCI_QTD_BYTES_MASK);
+
+            // KLOG("ehci_xfer_finalise: c_read_size=%lld, c_qtd->len=%lld, token bytes=%lld\n", c_read_size, c_qtd->len, ((c_qtd->hw_token >> EHCI_QTD_BYTES_SHIFT) & EHCI_QTD_BYTES_MASK));
 
             /* Nothing transfered */
             if (!c_read_size || (int64_t)c_read_size < 0)

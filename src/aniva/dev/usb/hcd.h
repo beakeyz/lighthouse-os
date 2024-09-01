@@ -28,6 +28,7 @@ typedef struct usb_hcd_hw_ops {
  */
 typedef struct usb_hcd {
     flat_refc_t ref;
+    u32 id;
 
     void* private;
 

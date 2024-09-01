@@ -708,7 +708,13 @@ static int ehci_start(usb_hcd_t* hcd)
 
     KLOG_DBG("Starting ECHI controller!\n");
 
-    ehci_rh_device = create_usb_device(hcd, nullptr, USB_HIGHSPEED, 0, 0, "ehci_rh");
+    char rh_namebuffer[64] = { 0 };
+
+    /* Format the roothub name */
+    sfmt(rh_namebuffer, "%s_rh", hcd->pci_device->dev->name);
+
+    /* Create the roothub */
+    ehci_rh_device = create_usb_device(hcd, nullptr, USB_HIGHSPEED, 0, 0, rh_namebuffer);
 
     /* Fuckkk */
     if (!ehci_rh_device)
@@ -881,11 +887,11 @@ static int _ehci_add_async_int_xfer(ehci_hcd_t* ehci, ehci_xfer_t* e_xfer)
         break;
     case USB_LOWSPEED:
         qh->hw_info_1 |= (EHCI_QH_INTSCHED(0x01) | EHCI_QH_SPLITCOMP(0x1c));
-        // interval = 1;
+        interval = 1;
         break;
     case USB_FULLSPEED:
         qh->hw_info_1 |= (EHCI_QH_INTSCHED(0x01) | EHCI_QH_SPLITCOMP(0x1c));
-        // interval = 4;
+        interval = 8;
         break;
     default:
         break;
@@ -1022,6 +1028,9 @@ int ehci_probe(pci_device_t* device, pci_driver_t* driver)
 
     if (!hcd)
         return -KERR_NOMEM;
+
+    /* Give this hcd it's ID */
+    hcd->id = _ehci_hcd_count;
 
     /* Create the bitch */
     ehci = create_ehci_hcd(hcd);

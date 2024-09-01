@@ -208,6 +208,7 @@ static usb_config_buffer_t* _udev_create_config_buffer(usb_device_t* udev, usb_c
 
             c_if_entry = *c_if_entry_slot = kmalloc(sizeof(*c_if_entry));
             c_if_buffer->alt_count++;
+            c_if_buffer->config_val = ret->desc.config_value;
 
             memset(c_if_entry, 0, sizeof(*c_if_entry));
 
@@ -445,10 +446,10 @@ usb_device_t* create_usb_device(struct usb_hcd* hcd, struct usb_hub* hub, enum U
     if (hub)
         device->hub_addr = hub->udev->hub_addr;
 
-    // if (device->speed == USB_HIGHSPEED || device->speed == USB_SUPERSPEED) {
-    // device->hub_addr = device->dev_addr;
-    // device->hub_port = device->dev_port;
-    //}
+    if (device->speed == USB_HIGHSPEED || device->speed == USB_SUPERSPEED) {
+        device->hub_addr = device->dev_addr;
+        device->hub_port = device->dev_port;
+    }
 
     group = _root_usbhub_group;
 
@@ -666,7 +667,7 @@ int create_usb_hub(usb_hub_t** phub, struct usb_hcd* hcd, enum USB_HUB_TYPE type
     int error;
     usb_hub_t* hub;
     dgroup_t* parent_group;
-    char hubgroupname[4] = { NULL };
+    char hubgroupname[16] = { NULL };
 
     if (!device)
         return -1;
@@ -675,7 +676,7 @@ int create_usb_hub(usb_hub_t** phub, struct usb_hcd* hcd, enum USB_HUB_TYPE type
     if (phub)
         *phub = nullptr;
 
-    if (sfmt(hubgroupname, "%d", (device->dev_port - 1)))
+    if (sfmt(hubgroupname, "hub%d:%d", hcd->id, (device->dev_port - 1)))
         return -1;
 
     hub = kmalloc(sizeof(*hub));
@@ -852,7 +853,9 @@ static inline int _handle_device_connect(usb_hub_t* hub, uint32_t i)
     sfmt(namebuf, "usbdev%d", i);
 
     /* Create the device backend structs */
-    port->device = create_usb_device(hub->hcd, hub, speed, i, hub->udev->dev_port, namebuf);
+    port->device = create_usb_device(hub->hcd, hub, speed, i, hub->udev->dev_port - 1, namebuf);
+
+    KLOG_DBG("Creating USB device: %s, hubport: %d, devport: %d\n", namebuf, hub->udev->hub_port, port->device->dev_port);
 
     /* Bruh */
     if (!port->device)

@@ -207,6 +207,7 @@ static inline unsigned int usb_interface_get_ep_count(usb_interface_entry_t* ife
  */
 typedef struct usb_interface_buffer {
     uint8_t alt_count;
+    uint8_t config_val;
     usb_interface_entry_t* alt_list;
 } usb_interface_buffer_t;
 

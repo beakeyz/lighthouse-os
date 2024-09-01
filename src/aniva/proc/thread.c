@@ -184,7 +184,8 @@ ANIVA_STATUS destroy_thread(thread_t* thread)
     if (thread->m_user_stack_bottom)
         __kmem_dealloc(parent_proc->m_root_pd.m_root, parent_proc->m_resource_bundle, thread->m_user_stack_bottom, DEFAULT_STACK_SIZE);
 
-    destroy_mutex(thread->m_lock);
+    if (thread->m_lock)
+        destroy_mutex(thread->m_lock);
     kfree((void*)thread->m_name);
     deallocate_thread(thread);
     return ANIVA_SUCCESS;
