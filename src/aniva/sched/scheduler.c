@@ -475,7 +475,6 @@ void scheduler_yield()
 {
     scheduler_t* s;
     processor_t* current;
-    thread_t* current_thread;
 
     s = get_current_scheduler();
 
@@ -485,13 +484,9 @@ void scheduler_yield()
 
     CHECK_AND_DO_DISABLE_INTERRUPTS();
 
-    // prepare the next thread
     scheduler_do_tick(s, NULL, true);
 
     current = get_current_processor();
-    current_thread = get_current_scheduling_thread();
-
-    ASSERT_MSG(current_thread != nullptr, "trying to yield the scheduler while not having a current scheduling thread!");
 
     // in this case we don't have to wait for us to exit a
     // critical CPU section, since we are not being interrupted at all

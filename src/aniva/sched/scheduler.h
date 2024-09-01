@@ -330,7 +330,7 @@ static inline sthread_t* scheduler_get_new_thread(scheduler_t* s, sthread_t* c_a
 {
     sthread_t* walker;
 
-    if (c_active)
+    if (c_active && c_active->c_queue)
         walker = c_active->next;
     else
         walker = s->active_q->vec_threads[s->active_q->active_prio].list;

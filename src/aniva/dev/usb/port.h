@@ -14,14 +14,20 @@ typedef struct usb_port {
     struct usb_device* device;
 } usb_port_t;
 
+static inline bool usb_port_is_connected(usb_port_t* port)
+{
+    return ((port->status.status & USB_PORT_STATUS_CONNECTION) == USB_PORT_STATUS_CONNECTION);
+}
+
 static inline bool usb_port_has_connchange(usb_port_t* port)
 {
     return ((port->status.change & USB_PORT_STATUS_CONNECTION) == USB_PORT_STATUS_CONNECTION);
 }
 
-static inline bool usb_port_is_connected(usb_port_t* port)
+static inline bool usb_port_should_update(usb_port_t* port)
 {
-    return ((port->status.status & USB_PORT_STATUS_CONNECTION) == USB_PORT_STATUS_CONNECTION);
+    /* If we check a port and the connection status and device presence don't match up, we need to do a sync */
+    return (usb_port_is_connected(port) && !port->device) || (!usb_port_is_connected(port) && port->device);
 }
 
 static inline bool usb_port_is_uninitialised(usb_port_t* port)

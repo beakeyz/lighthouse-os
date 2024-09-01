@@ -294,7 +294,7 @@ static int usbkbd_fire_key(usbkbd_t* kbd, uint16_t keycode, bool pressed)
         break;
     }
 
-    // KLOG_DBG("%s %s\n", pressed ? "Pressed" : "Released", (u8[]) { kbd->c_ctx.key.pressed_char, 0 });
+    KLOG("%s %s\n", pressed ? "Pressed" : "Released", (u8[]) { kbd->c_ctx.key.pressed_char, 0 });
 
     usbkbd_set_keycode_buffer(kbd, kbd->c_ctx.key.scancode, pressed);
 
@@ -367,7 +367,6 @@ static int usbkbd_irq(usb_xfer_t* xfer)
     /* Copy the previous key response into a new buffer */
     memcpy(kbd->prev_resp, kbd->this_resp, sizeof(kbd->prev_resp));
 resubmit:
-    memset(kbd->this_resp, 0, sizeof(kbd->this_resp));
     /* Resubmit this xfer to the hcd in order to keep probing the device */
     return usb_xfer_enqueue(xfer, xfer->device->hcd);
 }

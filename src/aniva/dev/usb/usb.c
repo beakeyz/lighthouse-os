@@ -892,8 +892,9 @@ static inline int _handle_device_disconnect(usb_hub_t* hub, uint32_t i)
  */
 int usb_hub_handle_port_connection(usb_hub_t* hub, uint32_t i)
 {
-    /* Clear the connected change status */
-    usb_device_submit_ctl(hub->udev, USB_TYPE_CLASS | USB_TYPE_OTHER_OUT, USB_REQ_CLEAR_FEATURE, USB_FEATURE_C_PORT_CONNECTION, i + 1, NULL, NULL, NULL);
+    if (usb_port_has_connchange(&hub->ports[i]))
+        /* Clear the connected change status */
+        usb_device_submit_ctl(hub->udev, USB_TYPE_CLASS | USB_TYPE_OTHER_OUT, USB_REQ_CLEAR_FEATURE, USB_FEATURE_C_PORT_CONNECTION, i + 1, NULL, NULL, NULL);
 
     if (usb_port_is_connected(&hub->ports[i]))
         return _handle_device_connect(hub, i);
@@ -925,7 +926,7 @@ int usb_hub_enumerate(usb_hub_t* hub)
             (c_port->status.status & USB_PORT_STATUS_CONNECTION) ? "yes" : "no",
             (c_port->status.status & USB_PORT_STATUS_POWER) ? "yes" : "no");
 
-        if (usb_port_is_uninitialised(c_port) || usb_port_has_connchange(c_port))
+        if (usb_port_is_uninitialised(c_port) || usb_port_has_connchange(c_port) || usb_port_should_update(c_port))
             error = usb_hub_handle_port_connection(hub, i);
     }
 

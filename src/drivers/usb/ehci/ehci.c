@@ -887,11 +887,11 @@ static int _ehci_add_async_int_xfer(ehci_hcd_t* ehci, ehci_xfer_t* e_xfer)
         break;
     case USB_LOWSPEED:
         qh->hw_info_1 |= (EHCI_QH_INTSCHED(0x01) | EHCI_QH_SPLITCOMP(0x1c));
-        interval = 1;
+        interval = 4;
         break;
     case USB_FULLSPEED:
         qh->hw_info_1 |= (EHCI_QH_INTSCHED(0x01) | EHCI_QH_SPLITCOMP(0x1c));
-        interval = 8;
+        interval = 1;
         break;
     default:
         break;
