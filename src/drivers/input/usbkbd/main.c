@@ -294,7 +294,7 @@ static int usbkbd_fire_key(usbkbd_t* kbd, uint16_t keycode, bool pressed)
         break;
     }
 
-    KLOG("%s %s\n", pressed ? "Pressed" : "Released", (u8[]) { kbd->c_ctx.key.pressed_char, 0 });
+    // KLOG_DBG("%s %s\n", pressed ? "Pressed" : "Released", (u8[]) { kbd->c_ctx.key.pressed_char, 0 });
 
     usbkbd_set_keycode_buffer(kbd, kbd->c_ctx.key.scancode, pressed);
 
@@ -340,10 +340,16 @@ static int usbkbd_irq(usb_xfer_t* xfer)
     if (xfer->resp_transfer_size == 0)
         goto resubmit;
 
-    // KLOG("(%x %x %x %x) -> (%x %x %x %x)\n", kbd->prev_resp[2], kbd->prev_resp[3], kbd->prev_resp[4], kbd->prev_resp[5],
+    // KLOG_DBG("(%x %x %x %x) -> (%x %x %x %x)\n", kbd->prev_resp[2], kbd->prev_resp[3], kbd->prev_resp[4], kbd->prev_resp[5],
     // kbd->this_resp[2], kbd->this_resp[3], kbd->this_resp[4], kbd->this_resp[5]);
 
     // goto resubmit;
+
+    /* Check for key releases */
+    for (i = 2; i < 8; i++)
+        /* Check if there was a difference in a previous input in regard to the current input to check key releases */
+        if (kbd->prev_resp[i] > 3 && !has_pressed_key(kbd->this_resp + 2, kbd->prev_resp[i]))
+            usbkbd_fire_key(kbd, usb_kbd_keycode[kbd->prev_resp[i]], false);
 
     /* Check modifier keys */
     for (i = 0; i < 8; i++) {
@@ -354,15 +360,11 @@ static int usbkbd_irq(usb_xfer_t* xfer)
             usbkbd_fire_key(kbd, usb_kbd_keycode[224 + i], false);
     }
 
-    for (i = 2; i < 8; i++) {
-        /* Check if there was a difference in a previous input in regard to the current input to check key releases */
-        if (kbd->prev_resp[i] > 3 && !has_pressed_key(kbd->this_resp + 2, kbd->prev_resp[i]))
-            usbkbd_fire_key(kbd, usb_kbd_keycode[kbd->prev_resp[i]], false);
-
+    /* Check for key presses */
+    for (i = 2; i < 8; i++)
         /* The exact reverse for keypresses */
         if (kbd->this_resp[i] > 3 && !has_pressed_key(kbd->prev_resp + 2, kbd->this_resp[i]))
             usbkbd_fire_key(kbd, usb_kbd_keycode[kbd->this_resp[i]], true);
-    }
 
     /* Copy the previous key response into a new buffer */
     memcpy(kbd->prev_resp, kbd->this_resp, sizeof(kbd->prev_resp));
@@ -411,8 +413,6 @@ static int usbkbd_probe(driver_t* this, usb_device_t* udev, usb_interface_buffer
 
     /* Set the xfer context */
     kbd->probe_xfer->priv_ctx = kbd;
-
-    usb_xfer_enqueue(kbd->probe_xfer, kbd->dev->hcd);
 
     return 0;
 dealloc_and_exit:

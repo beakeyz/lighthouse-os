@@ -46,6 +46,8 @@ int ehci_enq_xfer(ehci_hcd_t* ehci, ehci_xfer_t* xfer)
 {
     mutex_lock(ehci->transfer_lock);
 
+    // KLOG_DBG("       -> Adding EHCI transfer(%d -> %d): device: %s\n", ehci->transfer_list->m_length, ehci->transfer_list->m_length + 1, xfer->xfer->device->device->name);
+
     list_append(ehci->transfer_list, xfer);
 
     mutex_unlock(ehci->transfer_lock);

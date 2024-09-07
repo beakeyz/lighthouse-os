@@ -255,7 +255,19 @@ static inline void _ehci_check_xfer_status(ehci_xfer_t* xfer)
         }
 
         /* Reached the end, transfer done */
-        if (c_qtd->hw_next == EHCI_FLLP_TYPE_END) {
+        if (!c_qtd->next) {
+            xfer->xfer->xfer_flags |= USB_XFER_FLAG_DONE;
+            break;
+        }
+
+        /* Short packet condition */
+        if (((c_qtd->hw_token >> EHCI_QTD_PID_SHIFT) & EHCI_QTD_PID_MASK) == EHCI_QTD_PID_IN && ((c_qtd->hw_token >> EHCI_QTD_BYTES_SHIFT) & EHCI_QTD_BYTES_MASK) != 0) {
+            if (c_qtd->alt_next) {
+                c_qtd = c_qtd->alt_next;
+                continue;
+            }
+
+            /* Transfer done, since there was no alternate qtd to move to */
             xfer->xfer->xfer_flags |= USB_XFER_FLAG_DONE;
             break;
         }
@@ -280,23 +292,19 @@ static inline int ehci_get_finished_transfer(ehci_hcd_t* ehci, ehci_xfer_t** p_x
         if (usb_xfer_is_done(c_e_xfer->xfer))
             break;
 
+        c_e_xfer = nullptr;
         idx++;
     }
-
-    /* Check if we have a finished transfer */
-    if (c_e_xfer && usb_xfer_is_done(c_e_xfer->xfer))
-        /* Remove from the local transfer list */
-        list_remove(ehci->transfer_list, idx);
-    else
-        /* No finished transfers, cycle */
-        c_e_xfer = nullptr;
-
-    /* Export */
-    *p_xfer = c_e_xfer;
 
     /* Nothing to do */
     if (!c_e_xfer)
         return -1;
+
+    /* Remove from the local transfer list */
+    ASSERT(list_remove(ehci->transfer_list, idx));
+
+    /* Export */
+    *p_xfer = c_e_xfer;
 
     return 0;
 }
@@ -309,6 +317,8 @@ static int ehci_transfer_finish_thread(ehci_hcd_t* ehci)
     while ((ehci->ehci_flags & EHCI_HCD_FLAG_STOPPING) != EHCI_HCD_FLAG_STOPPING) {
         c_e_xfer = nullptr;
         c_usb_xfer = nullptr;
+
+        // KLOG_DBG("Ehci transfer list size: %d\n", ehci->transfer_list->m_length);
 
         /* Spin until there are transfers to process */
         while (ehci->transfer_list->m_length == 0)
@@ -323,15 +333,15 @@ static int ehci_transfer_finish_thread(ehci_hcd_t* ehci)
 
         ehci_xfer_finalise(ehci, c_e_xfer);
 
+        // KLOG_DBG("Completing: %p\n", c_e_xfer);
+        /* Transmit the transfer complete */
+        (void)usb_xfer_complete(c_usb_xfer);
+
         /* Remove from the async link */
         _ehci_remove_async_qh(ehci, c_e_xfer->qh);
 
         /* Destroy our local transfer struct */
         destroy_ehci_xfer(ehci, c_e_xfer);
-
-        // KLOG_DBG("Completing: %p\n", c_e_xfer);
-        /* Transmit the transfer complete */
-        (void)usb_xfer_complete(c_usb_xfer);
     }
 
     return 0;
@@ -887,11 +897,9 @@ static int _ehci_add_async_int_xfer(ehci_hcd_t* ehci, ehci_xfer_t* e_xfer)
         break;
     case USB_LOWSPEED:
         qh->hw_info_1 |= (EHCI_QH_INTSCHED(0x01) | EHCI_QH_SPLITCOMP(0x1c));
-        interval = 4;
         break;
     case USB_FULLSPEED:
         qh->hw_info_1 |= (EHCI_QH_INTSCHED(0x01) | EHCI_QH_SPLITCOMP(0x1c));
-        interval = 1;
         break;
     default:
         break;

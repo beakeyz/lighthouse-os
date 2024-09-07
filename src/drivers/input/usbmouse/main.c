@@ -157,9 +157,6 @@ static int usbmouse_probe(driver_t* driver, usb_device_t* device, usb_interface_
     if (!usbmouse)
         return -KERR_NODEV;
 
-    /* Enqueue the probe xfer */
-    usb_xfer_enqueue(usbmouse->probe_xfer, device->hcd);
-
     return 0;
 }
 
