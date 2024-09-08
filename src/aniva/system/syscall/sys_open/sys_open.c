@@ -3,8 +3,6 @@
 #include "dev/device.h"
 #include "dev/driver.h"
 #include "dev/loader.h"
-#include "fs/dir.h"
-#include "fs/file.h"
 #include "kevent/event.h"
 #include "libk/flow/error.h"
 #include "lightos/driver/loader.h"
@@ -16,6 +14,7 @@
 #include "oss/obj.h"
 #include "proc/core.h"
 #include "proc/handle.h"
+#include "proc/hdrv/driver.h"
 #include "proc/proc.h"
 #include "sched/scheduler.h"
 #include "system/profile/profile.h"
@@ -32,6 +31,7 @@
 HANDLE sys_open(const char* __user path, HANDLE_TYPE type, uint32_t flags, uint32_t mode)
 {
     HANDLE ret;
+    khandle_driver_t* khndl_driver;
     khandle_t handle = { 0 };
     kerror_t error;
     proc_t* c_proc;
@@ -41,6 +41,16 @@ HANDLE sys_open(const char* __user path, HANDLE_TYPE type, uint32_t flags, uint3
     if (!c_proc || (path && (kmem_validate_ptr(c_proc, (uintptr_t)path, 1))))
         return HNDL_INVAL;
 
+    khndl_driver = nullptr;
+
+    /* Find the driver for this handle type */
+    if (khandle_driver_find(type, &khndl_driver) || !khndl_driver)
+        return HNDL_INVAL;
+
+    /* Just mark it as 'not found' if the driver fails to open */
+    if (khndl_driver->f_open(khndl_driver, path, flags, mode, &handle))
+        return HNDL_NOT_FOUND;
+
     /*
      * TODO: check for permissions and open with the appropriate flags
      *
@@ -49,32 +59,7 @@ HANDLE sys_open(const char* __user path, HANDLE_TYPE type, uint32_t flags, uint3
      */
 
     switch (type) {
-    case HNDL_TYPE_FILE: {
-        file_t* file;
-
-        if (!path)
-            return HNDL_INVAL;
-
-        file = file_open(path);
-
-        if (!file)
-            return HNDL_NOT_FOUND;
-
-        init_khandle(&handle, &type, file);
-        break;
-    }
     case HNDL_TYPE_DIR: {
-        dir_t* dir;
-
-        if (!path)
-            return HNDL_INVAL;
-
-        dir = dir_open(path);
-
-        if (!dir)
-            return HNDL_NOT_FOUND;
-
-        init_khandle(&handle, &type, dir);
         break;
     }
     case HNDL_TYPE_DEVICE: {
@@ -247,9 +232,6 @@ HANDLE sys_open(const char* __user path, HANDLE_TYPE type, uint32_t flags, uint3
 
     if (!handle.reference.kobj)
         return HNDL_NOT_FOUND;
-
-    /* Clear state bits */
-    khandle_set_flags(&handle, flags);
 
     /* Copy the handle into the map */
     error = bind_khandle(&c_proc->m_handle_map, &handle, (uint32_t*)&ret);

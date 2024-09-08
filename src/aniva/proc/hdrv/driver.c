@@ -112,4 +112,9 @@ void init_khandle_drivers()
 
     /* Second, make sure our mutex is initialized */
     __khandle_driver_lock = create_mutex(NULL);
+
+    /* Finally, initialize all the default handle drivers */
+    init_file_khandle_driver();
+
+    init_dir_khandle_driver();
 }

@@ -13,7 +13,6 @@
 #include "oss/node.h"
 #include "oss/obj.h"
 #include "sync/mutex.h"
-#include "sys/types.h"
 #include "system/acpi/acpi.h"
 #include <libk/string.h>
 

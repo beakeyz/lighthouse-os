@@ -293,13 +293,13 @@ int dir_read(dir_t* dir, uint64_t idx, direntry_t* bentry)
     return dir->ops->f_read(dir, idx, bentry);
 }
 
-dir_t* dir_open(const char* path)
+dir_t* dir_open_from(oss_node_t* rel, const char* path)
 {
     dir_t* ret;
     oss_node_t* orig_node;
     oss_node_t* node = NULL;
 
-    oss_resolve_node(path, &node);
+    oss_resolve_node_rel(rel, path, &node);
 
     if (!node)
         return nullptr;
@@ -346,6 +346,11 @@ dir_t* dir_open(const char* path)
 ref_and_exit:
     dir_ref(ret);
     return ret;
+}
+
+dir_t* dir_open(const char* path)
+{
+    return dir_open_from(NULL, path);
 }
 
 /*!

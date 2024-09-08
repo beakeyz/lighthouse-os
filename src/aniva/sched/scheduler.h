@@ -174,24 +174,6 @@ static inline void try_do_sthread_tick(sthread_t* t, stimeslice_t delta, bool fo
 
     /* Add a single stepping to the timeslice */
     t->elapsed_tslice += delta;
-
-    /*
-     * Check if this thread still has time left
-     * If the force flag is set, just always fuck over the thread
-     */
-    if (t->elapsed_tslice <= STIMESLICE_GRANULARITY && t->elapsed_tslice < t->tslice)
-        return;
-
-    /* If this was a pseudo-tick, don't affect the timeslices stats */
-    if (!delta)
-        return;
-
-    /*
-     * If we've overrun our time quota for this thread, force a reschedule
-     * and decrease the timeslice.
-     */
-    t->tslice -= t->elapsed_tslice;
-    t->elapsed_tslice = 0;
 }
 
 static inline bool sthread_needs_requeue(sthread_t* s)
@@ -247,6 +229,15 @@ static inline void squeue_next_prio(squeue_t* q)
 
     /* Set the current sthread */
     // q->c_ptr_sthread = &q->vec_threads[q->active_prio].list;
+}
+
+static inline sthread_t* squeue_next_priority_thread(squeue_t* q)
+{
+    /* Switch the priority level */
+    squeue_next_prio(q);
+
+    /* Get the first thread from this fucker */
+    return squeue_get_active_threadlist(q);
 }
 
 static inline void squeue_enqueue(scheduler_queue_t* queue, struct sthread* t)
@@ -328,23 +319,16 @@ typedef struct scheduler {
 
 static inline sthread_t* scheduler_get_new_thread(scheduler_t* s, sthread_t* c_active)
 {
-    sthread_t* walker;
+    /* Check if this priority has threads left */
+    if (!c_active || !c_active->c_queue || !squeue_get_active_threadlist(s->active_q))
+        return squeue_next_priority_thread(s->active_q);
 
-    if (c_active && c_active->c_queue)
-        walker = c_active->next;
-    else
-        walker = s->active_q->vec_threads[s->active_q->active_prio].list;
+    /* Grab the next fucker here */
+    if (c_active->next)
+        return c_active->next;
 
-    /* Check if this thread has a next broski */
-    if (!walker) {
-        /* Get the next priority level with a available thread */
-        squeue_next_prio(s->active_q);
-
-        /* Get the first thread for this priority level */
-        walker = s->active_q->vec_threads[s->active_q->active_prio].list;
-    }
-
-    return walker;
+    /* Start again at the start of this list */
+    return squeue_get_active_threadlist(s->active_q);
 }
 
 static inline bool scheduler_is_paused(scheduler_t* s)

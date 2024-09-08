@@ -12,6 +12,7 @@
 #include "mem/kmem_manager.h"
 #include "oss/obj.h"
 #include "proc/handle.h"
+#include "proc/hdrv/driver.h"
 #include "proc/proc.h"
 #include "sched/scheduler.h"
 #include "system/sysvar/var.h"
@@ -26,6 +27,7 @@ uint64_t sys_write(handle_t handle, uint8_t __user* buffer, size_t length)
 {
     proc_t* current_proc;
     khandle_t* khandle;
+    khandle_driver_t* khandle_driver;
 
     if (!buffer)
         return SYS_INV;
@@ -39,6 +41,17 @@ uint64_t sys_write(handle_t handle, uint8_t __user* buffer, size_t length)
 
     if ((khandle->flags & HNDL_FLAG_WRITEACCESS) != HNDL_FLAG_WRITEACCESS)
         return SYS_NOPERM;
+
+    /* If we can't find a driver, the system does not support writing to this type of handle
+     * in it's current state... */
+    if (khandle_driver_find(khandle->type, &khandle_driver))
+        return SYS_INV;
+
+    if (khandle_driver_write(khandle_driver, khandle, buffer, length))
+        return 0;
+
+    /* TODO: Return actual written length */
+    return length;
 
     switch (khandle->type) {
     case HNDL_TYPE_FILE: {
@@ -119,6 +132,7 @@ uint64_t sys_read(handle_t handle, uint8_t __user* buffer, size_t length)
     size_t read_len;
     proc_t* current_proc;
     khandle_t* khandle;
+    khandle_driver_t* khandle_driver;
 
     if (!buffer)
         return NULL;
@@ -133,6 +147,17 @@ uint64_t sys_read(handle_t handle, uint8_t __user* buffer, size_t length)
 
     if ((khandle->flags & HNDL_FLAG_READACCESS) != HNDL_FLAG_READACCESS)
         return SYS_NOPERM;
+
+    /* If we can't find a driver, the system does not support reading this type of handle
+     * in it's current state... */
+    if (khandle_driver_find(khandle->type, &khandle_driver))
+        return SYS_INV;
+
+    if (khandle_driver_read(khandle_driver, khandle, buffer, length))
+        return 0;
+
+    /* TODO: Return actual read length */
+    return length;
 
     switch (khandle->type) {
     case HNDL_TYPE_FILE: {
@@ -291,14 +316,17 @@ uint64_t sys_seek(handle_t handle, uintptr_t offset, uint32_t type)
  */
 uint64_t sys_dir_read(handle_t handle, uint32_t idx, lightos_direntry_t __user* b_dirent, size_t blen)
 {
-    dir_t* target_dir;
-    direntry_t target_entry;
-    const char* target_name;
     proc_t* c_proc;
     khandle_t* khandle;
+    khandle_driver_t* khandle_driver;
+
+    /* No driver to read directories, fuckkk */
+    if (khandle_driver_find(HNDL_TYPE_DIR, &khandle_driver))
+        return SYS_INV;
 
     c_proc = get_current_proc();
 
+    /* Check that our direntry is valid */
     if (kmem_validate_ptr(c_proc, (vaddr_t)b_dirent, 1))
         return SYS_INV;
 
@@ -306,6 +334,7 @@ uint64_t sys_dir_read(handle_t handle, uint32_t idx, lightos_direntry_t __user* 
     if ((vaddr_t)b_dirent >= KERNEL_MAP_BASE)
         return SYS_INV;
 
+    /* Find the right underlying dir object */
     khandle = find_khandle(&c_proc->m_handle_map, handle);
 
     if (!khandle || !khandle->reference.kobj)
@@ -314,46 +343,9 @@ uint64_t sys_dir_read(handle_t handle, uint32_t idx, lightos_direntry_t __user* 
     if (khandle->type != HNDL_TYPE_DIR)
         return SYS_INV;
 
-    target_dir = khandle->reference.dir;
+    /* Set the right offset */
+    khandle->offset = idx;
 
-    if (idx >= target_dir->child_capacity)
-        return SYS_INV;
-
-    /* Read into the entry */
-    if (!KERR_OK(dir_read(target_dir, idx, &target_entry)))
-        return SYS_INV;
-
-    /* Clear the buffer */
-    memset(b_dirent, 0, blen);
-
-    switch (target_entry.type) {
-    case LIGHTOS_DIRENT_TYPE_DIR:
-        target_name = target_entry.dir->name;
-        break;
-    case LIGHTOS_DIRENT_TYPE_FILE:
-        target_name = target_entry.file->m_obj->name;
-        break;
-    default:
-        target_name = target_entry.obj->name;
-        break;
-    }
-
-    if (!target_name)
-        goto close_and_fail;
-
-    /* Truncate the length */
-    if (strlen(target_name) < blen)
-        blen = strlen(target_name);
-
-    /* Copy */
-    strncpy(b_dirent->name, target_name, blen);
-
-    b_dirent->type = target_entry.type;
-
-    close_direntry(&target_entry);
-    return SYS_OK;
-
-close_and_fail:
-    close_direntry(&target_entry);
-    return SYS_INV;
+    /* bsize is unused by this syscall */
+    return khandle_driver_read(khandle_driver, khandle, b_dirent, NULL);
 }

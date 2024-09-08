@@ -333,15 +333,15 @@ static int ehci_transfer_finish_thread(ehci_hcd_t* ehci)
 
         ehci_xfer_finalise(ehci, c_e_xfer);
 
-        // KLOG_DBG("Completing: %p\n", c_e_xfer);
-        /* Transmit the transfer complete */
-        (void)usb_xfer_complete(c_usb_xfer);
-
         /* Remove from the async link */
         _ehci_remove_async_qh(ehci, c_e_xfer->qh);
 
         /* Destroy our local transfer struct */
         destroy_ehci_xfer(ehci, c_e_xfer);
+
+        // KLOG_DBG("Completing: %p\n", c_e_xfer);
+        /* Transmit the transfer complete */
+        (void)usb_xfer_complete(c_usb_xfer);
     }
 
     return 0;

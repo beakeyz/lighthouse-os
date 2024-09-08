@@ -60,6 +60,7 @@ struct oss_obj* dir_find(dir_t* dir, const char* path);
 int dir_read(dir_t* dir, uint64_t idx, struct direntry* bentry);
 
 dir_t* dir_open(const char* path);
+dir_t* dir_open_from(struct oss_node* rel, const char* path);
 kerror_t dir_close(dir_t* dir);
 
 /*

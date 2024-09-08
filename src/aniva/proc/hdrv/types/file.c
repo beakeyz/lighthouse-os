@@ -21,9 +21,6 @@ static int file_khandle_open(khandle_driver_t* driver, const char* path, u32 fla
 
     init_khandle(bHandle, &type, file);
 
-    /* Clear state bits */
-    khandle_set_flags(bHandle, flags);
-
     return 0;
 }
 
@@ -83,6 +80,9 @@ static int file_khandle_write(khandle_driver_t* driver, khandle_t* handle, void*
 
     if (!file)
         return -KERR_INVAL;
+
+    if (file->m_flags & FILE_READONLY)
+        return -KERR_NOPERM;
 
     write_len = file_write(file, buffer, bsize, handle->offset);
 

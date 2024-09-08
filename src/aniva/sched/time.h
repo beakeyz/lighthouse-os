@@ -23,7 +23,7 @@ typedef i64 stimeslice_t;
 /* A particular task may enjoy this as minimum number of ns of scheduler time */
 #define STIMESLICE_MIN 1
 /* Maximum number of nanoseconds a single thread may have */
-#define STIMESLICE_MAX 25000
+#define STIMESLICE_MAX 4000
 /* Steps of 1ms */
 #define STIMESLICE_STEPPING 1000
 /* After how much time should a thread get switched away from */
