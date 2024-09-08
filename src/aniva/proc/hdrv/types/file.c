@@ -102,8 +102,4 @@ khandle_driver_t file_khandle_drv = {
     .f_read = file_khandle_read,
     .f_write = file_khandle_write,
 };
-
-void init_file_khandle_driver()
-{
-    ASSERT(khandle_driver_register(nullptr, &file_khandle_drv) == 0);
-}
+EXPORT_KHANDLE_DRIVER(file_khandle_drv);

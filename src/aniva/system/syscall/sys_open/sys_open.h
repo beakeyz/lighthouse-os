@@ -6,7 +6,7 @@
 #include <lightos/handle_def.h>
 
 HANDLE sys_open(const char* __user path, HANDLE_TYPE type, uint32_t flags, uint32_t mode);
-HANDLE sys_open_rel(HANDLE rel_handle, const char* __user path, uint32_t flags, uint32_t mode);
+HANDLE sys_open_rel(HANDLE rel_handle, const char* __user path, HANDLE_TYPE type, uint32_t flags, uint32_t mode);
 vaddr_t sys_get_funcaddr(HANDLE lib_handle, const char __user* path);
 
 HANDLE sys_open_proc(const char* __user name, uint16_t flags, uint32_t mode);

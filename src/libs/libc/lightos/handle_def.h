@@ -57,7 +57,7 @@ typedef enum HANDLE_TYPE {
 #define HNDL_PROTECTED (-6) /* Handle target is protected and cant have handles right now */
 
 #define HNDL_FLAG_BUSY (0x0001) /* khandle is busy and we have given up waiting for it */
-#define HNDL_FLAG_WAITING (0x0002) /* khandle is busy but we are waiting for it to be free so opperations on this handle can be queued if needed */
+#define HNDL_FLAG_WAITING (0x0002) /* khandle is busy but we are waiting for it to be free so operations on this handle can be queued if needed */
 #define HNDL_FLAG_LOCKED (0x0004) /* khandle is locked by the kernel and can't be opperated by userspace (think of shared libraries and stuff) */
 #define HNDL_FLAG_READACCESS (0x0008)
 #define HNDL_FLAG_WRITEACCESS (0x0010)

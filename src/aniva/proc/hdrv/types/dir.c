@@ -114,13 +114,9 @@ close_and_fail:
 static khandle_driver_t dir_khandle_driver = {
     .name = "dir",
     .handle_type = HNDL_TYPE_DIR,
+    .function_flags = KHDRIVER_FUNC_OPEN | KHDRIVER_FUNC_OPEN_REL | KHDRIVER_FUNC_READ,
     .f_open = dir_khandle_open,
     .f_open_relative = dir_khandle_open_rel,
     .f_read = dir_khandle_read,
-    .f_write = NULL,
 };
-
-void init_dir_khandle_driver()
-{
-    khandle_driver_register(NULL, &dir_khandle_driver);
-}
+EXPORT_KHANDLE_DRIVER(dir_khandle_driver);

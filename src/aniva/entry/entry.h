@@ -31,7 +31,6 @@ extern pml_entry_t boot_pd0_p[0x40000];
 extern driver_version_t kernel_version;
 
 #define FOREACH_CORE_DRV(i) for (struct aniva_driver** i = _kernel_core_drvs_start; i < _kernel_core_drvs_end; i++)
-
 #define FOREACH_PCDRV(i) for (struct aniva_driver** i = _kernel_pcdrvs_start; i < _kernel_pcdrvs_end; i++)
 
 #define SYSFLAGS_HAS_FRAMEBUFFER (0x00000001)

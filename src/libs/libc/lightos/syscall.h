@@ -8,6 +8,8 @@
  *
  * IDs are prefixed with            SYSID_
  * status codes are prefixed with   SYS_
+ *
+ * TODO: Terminate reduntant syscall ids, due to the new khdriver model
  */
 
 enum SYSID {

@@ -48,7 +48,7 @@ HANDLE sys_open(const char* __user path, HANDLE_TYPE type, uint32_t flags, uint3
         return HNDL_INVAL;
 
     /* Just mark it as 'not found' if the driver fails to open */
-    if (khndl_driver->f_open(khndl_driver, path, flags, mode, &handle))
+    if (khandle_driver_open(khndl_driver, path, flags, mode, &handle))
         return HNDL_NOT_FOUND;
 
     /*
@@ -242,38 +242,33 @@ HANDLE sys_open(const char* __user path, HANDLE_TYPE type, uint32_t flags, uint3
     return ret;
 }
 
-HANDLE sys_open_rel(HANDLE rel_handle, const char* __user path, uint32_t flags, uint32_t mode)
+HANDLE sys_open_rel(HANDLE rel_handle, const char* __user path, HANDLE_TYPE type, uint32_t flags, uint32_t mode)
 {
+    HANDLE ret;
     proc_t* c_proc;
-    oss_obj_t* obj;
-    oss_node_t* rel_node;
     khandle_t* rel_khandle;
     khandle_t new_handle = { 0 };
-    HANDLE_TYPE type = HNDL_TYPE_OSS_OBJ;
-    HANDLE ret;
+    khandle_driver_t* khdriver;
 
+    /* If there is no driver for this type, we can't really do much lmao */
+    if (khandle_driver_find(type, &khdriver))
+        return HNDL_INVAL;
+
+    /* grab this proc */
     c_proc = get_current_proc();
 
     if (kmem_validate_ptr(c_proc, (u64)path, sizeof(const char*)))
         return HNDL_INVAL;
 
+    /* Find the handle which has our relative node */
     rel_khandle = find_khandle(&c_proc->m_handle_map, rel_handle);
 
     if (!rel_khandle || !rel_khandle->reference.kobj)
         return HNDL_INVAL;
 
-    /* Grab the relative node */
-    rel_node = khandle_get_relative_node(rel_khandle);
-
-    if (!rel_node)
-        return HNDL_INVAL;
-
-    /* Try to find an object here */
-    if (oss_resolve_obj_rel(rel_node, path, &obj))
-        return HNDL_INVAL;
-
-    /* Initialize the handle */
-    init_khandle(&new_handle, &type, obj);
+    /* Open the driver */
+    if (khandle_driver_open_relative(khdriver, rel_khandle, path, flags, mode, &new_handle))
+        return HNDL_NOT_FOUND;
 
     /* Bind the thing */
     if (bind_khandle(&c_proc->m_handle_map, &new_handle, (u32*)&ret))
@@ -426,6 +421,10 @@ bool sys_create_pvar(HANDLE handle, const char* __user name, enum SYSVAR_TYPE ty
     if (!khandle)
         return false;
 
+    /* Can't write to this handle =/ */
+    if ((khandle->flags & HNDL_FLAG_W) != HNDL_FLAG_W)
+        return false;
+
     switch (khandle->type) {
     case HNDL_TYPE_PROFILE:
         target_node = khandle->reference.profile->node;
@@ -441,10 +440,6 @@ bool sys_create_pvar(HANDLE handle, const char* __user name, enum SYSVAR_TYPE ty
     }
 
     if (!target_node)
-        return false;
-
-    /* Can't write to this handle =/ */
-    if ((khandle->flags & HNDL_FLAG_WRITEACCESS) != HNDL_FLAG_WRITEACCESS)
         return false;
 
     if (KERR_ERR(sysvar_attach(target_node, name, target_prv_lvl, type, flags, (uintptr_t)value)))

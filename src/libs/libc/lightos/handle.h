@@ -44,7 +44,7 @@ BOOL get_handle_type(
  * @brief: Tries to 'expand' the type of a certain handle into something more specific
  *
  * Some types (Like HNDL_TYPE_OSS_OBJ) are 'basic' handle types, which can have multiple underlying
- * objects, like files, devices, drivers, ect. 
+ * objects, like files, devices, drivers, ect.
  */
 BOOL handle_expand_type(HANDLE handle);
 BOOL handle_reclassify(HANDLE handle, HANDLE_TYPE type);
@@ -80,6 +80,7 @@ HANDLE open_handle(
 HANDLE open_handle_rel(
     __IN__ HANDLE rel_handle,
     __IN__ const char* path,
+    __IN__ HANDLE_TYPE type,
     __IN__ DWORD flags,
     __IN__ DWORD mode);
 

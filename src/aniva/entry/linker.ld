@@ -48,6 +48,11 @@ SECTIONS {
     *(.kpcdrvs*)
     _kernel_pcdrvs_end = .;
 
+    /* Internal khandle drivers get put here */
+    _kernel_khndl_drvs_start = .;
+    *(.khndl_drvs*)
+    _kernel_khndl_drvs_end = .;
+
     /* The symbols of the kernel will be placed here in a large symboltable */
     _start_ksyms = .;
     *(.ksyms*)

@@ -1,4 +1,5 @@
 #include "dir.h"
+#include "lightos/fs/shared.h"
 #include "lightos/handle.h"
 #include "lightos/handle_def.h"
 #include "lightos/syscall.h"
@@ -145,5 +146,10 @@ dealloc_and_exit:
 
 HANDLE dir_entry_open(Directory* parent, DirEntry* entry, DWORD flags, DWORD mode)
 {
-    return open_handle_rel(parent->handle, entry->entry.name, flags, mode);
+    HANDLE_TYPE type;
+
+    /* Grab the right handle type */
+    type = lightos_dirent_get_handletype(entry->entry.type);
+
+    return open_handle_rel(parent->handle, entry->entry.name, type, flags, mode);
 }

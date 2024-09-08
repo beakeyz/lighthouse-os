@@ -215,7 +215,7 @@ int lightos_pipe_connect(lightos_pipe_t* pipe, const char* path)
     if (!pipe || !path)
         return -EINVAL;
 
-    pipe_handle = open_handle(path, HNDL_TYPE_OSS_OBJ, HNDL_FLAG_RW, HNDL_MODE_NORMAL);
+    pipe_handle = open_handle(path, HNDL_TYPE_UPI_PIPE, HNDL_FLAG_RW, HNDL_MODE_NORMAL);
 
     /* Could not find this pipe */
     if (!handle_verify(pipe_handle))
@@ -241,7 +241,7 @@ int lightos_pipe_connect_rel(lightos_pipe_t* pipe, HANDLE rel_handle, const char
     if (!pipe || !name)
         return -EINVAL;
 
-    pipe_handle = open_handle_rel(rel_handle, name, HNDL_FLAG_RW, NULL);
+    pipe_handle = open_handle_rel(rel_handle, name, HNDL_TYPE_UPI_PIPE, HNDL_FLAG_RW, NULL);
 
     /* Could not find this pipe */
     if (!handle_verify(pipe_handle))

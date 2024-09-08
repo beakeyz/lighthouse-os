@@ -1,7 +1,6 @@
 #include "drivers/env/upi/upi.h"
 #include "dev/core.h"
 #include "dev/driver.h"
-#include "dev/driver.h"
 #include "libk/flow/error.h"
 #include "libk/stddef.h"
 #include "lightos/handle_def.h"
@@ -172,11 +171,11 @@ static void __destroy_upi_pipe(upi_pipe_t* pipe)
     __upi_unregister_pipe(pipe);
 
     /* Remove all instances of this pipe from the creator_procs handle map */
-    khandle_map_remove(&pipe->creator_proc->m_handle_map, HNDL_TYPE_OSS_OBJ, pipe->obj);
+    khandle_map_remove(&pipe->creator_proc->m_handle_map, HNDL_TYPE_UPI_PIPE, pipe);
 
     /* Make sure these fuckers aren't gonna fuck us either */
     for (upi_listener_t* i = pipe->listeners; i != nullptr; i = i->next)
-        khandle_map_remove(&i->proc->m_handle_map, HNDL_TYPE_OSS_OBJ, pipe->obj);
+        khandle_map_remove(&i->proc->m_handle_map, HNDL_TYPE_UPI_PIPE, pipe);
 
     if (pipe->uniform_allocator)
         destroy_zone_allocator(pipe->uniform_allocator, false);
@@ -299,7 +298,7 @@ void destroy_upi_pipe(upi_pipe_t* pipe)
 
 upi_pipe_t* get_upi_pipe(proc_t* proc, HANDLE handle, khandle_t** pkhandle)
 {
-    oss_obj_t* obj;
+    upi_pipe_t* pipe;
     khandle_t* pipe_khandle;
 
     if (!proc)
@@ -308,19 +307,29 @@ upi_pipe_t* get_upi_pipe(proc_t* proc, HANDLE handle, khandle_t** pkhandle)
     pipe_khandle = find_khandle(&proc->m_handle_map, handle);
 
     /* Invalid handle */
-    if (!pipe_khandle || pipe_khandle->type != HNDL_TYPE_OSS_OBJ)
+    if (!pipe_khandle || pipe_khandle->type != HNDL_TYPE_UPI_PIPE)
         return nullptr;
 
-    obj = pipe_khandle->reference.oss_obj;
+    /*
+     * Use the kobject reference, since this is the generic void*
+     * we use for referencing generic kernel objects XD
+     */
+    pipe = pipe_khandle->reference.kobj;
 
-    /* Still an invalid handle */
-    if (!obj || obj->type != OSS_OBJ_TYPE_PIPE)
+    /*
+     * Still an invalid handle
+     * We quickly check if the pipe is non-null and if it has
+     * a creator process. This indicates a valid object (lmao
+     * what is cyber security really right)
+     */
+    if (!pipe || !pipe->creator_proc)
         return nullptr;
 
+    /* Export the pipe */
     if (pkhandle)
         *pkhandle = pipe_khandle;
 
-    return oss_obj_unwrap(obj, upi_pipe_t);
+    return pipe;
 }
 
 u64 upi_msg(struct aniva_driver* this, driver_control_code_t dcc, void* in_buf, size_t in_bsize, void* out_buf, size_t out_bsize)

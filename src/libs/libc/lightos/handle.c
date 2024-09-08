@@ -67,13 +67,13 @@ open_handle(const char* path, HANDLE_TYPE type, DWORD flags, DWORD mode)
     return syscall_4(SYSID_OPEN, (uint64_t)path, type, flags, mode);
 }
 
-HANDLE 
-open_handle_rel(HANDLE rel_handle, const char* path, DWORD flags, DWORD mode)
+HANDLE
+open_handle_rel(HANDLE rel_handle, const char* path, HANDLE_TYPE type, DWORD flags, DWORD mode)
 {
     if (!path)
         return HNDL_INVAL;
 
-    return syscall_4(SYSID_OPEN_REL, rel_handle, (uintptr_t)path, flags, mode);
+    return syscall_5(SYSID_OPEN_REL, rel_handle, (uintptr_t)path, type, flags, mode);
 }
 
 BOOL handle_set_offset(HANDLE handle, QWORD offset)
