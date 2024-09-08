@@ -22,7 +22,6 @@
 #include "system/acpi/parser.h"
 #include <dev/loader.h>
 #include <proc/env.h>
-#include <stdio.h>
 
 static const char* __help_str = "Welcome to the Aniva kernel terminal application (kterm)\n"
                                 "kterm provides a few internal utilities and a way to execute binaries from the filesystem\n"

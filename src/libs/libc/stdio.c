@@ -1,8 +1,8 @@
 #include "stdio.h"
 #include "errno.h"
 #include "lightos/handle.h"
-#include "lightos/var/shared.h"
-#include "lightos/var/var.h"
+#include "lightos/sysvar/shared.h"
+#include "lightos/sysvar/var.h"
 #include "stdarg.h"
 #include "sys/types.h"
 #include <lightos/handle_def.h>
@@ -219,6 +219,10 @@ static int parse_modes(const char* modes, uint32_t* flags, uint32_t* mode)
         case 'w':
         case 'W':
             _flags |= HNDL_FLAG_WRITEACCESS;
+            break;
+        case 'c':
+        case 'C':
+            _mode = HNDL_MODE_CREATE;
             break;
         }
     }

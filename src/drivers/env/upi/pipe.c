@@ -12,7 +12,7 @@ u64 upi_create_pipe(proc_t* proc, lightos_pipe_t* upipe)
 {
     upi_pipe_t* pipe;
     khandle_t pipe_handle = { 0 };
-    khandle_type_t type = HNDL_TYPE_OSS_OBJ;
+    HANDLE_TYPE type = HNDL_TYPE_OSS_OBJ;
 
     pipe = create_upi_pipe(proc, upipe);
 

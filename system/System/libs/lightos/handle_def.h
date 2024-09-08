@@ -1,51 +1,53 @@
 #ifndef __LIGHTENV_HANDLE_DEF__
 #define __LIGHTENV_HANDLE_DEF__
 
-typedef int handle_t;
-typedef unsigned char handle_type_t;
-
-#define HANDLE handle_t
-#define HANDLE_TYPE handle_type_t
+typedef int handle_t, HANDLE;
 
 /*
  * TODO: get rid of KHNDL and make the kernel just
  * use these -_-
  */
 
-#define HNDL_TYPE_NONE (0)
-#define HNDL_TYPE_FILE (1)
-#define HNDL_TYPE_DIR (2)
-#define HNDL_TYPE_DRIVER (3)
-#define HNDL_TYPE_PROC (4)
-#define HNDL_TYPE_FS_ROOT (5)
-#define HNDL_TYPE_OSS_OBJ (6) /* A handle to a virtual object in the vfs */
-#define HNDL_TYPE_KOBJ (7) /* A handle to a kernel object */
-#define HNDL_TYPE_THREAD (8)
-/* Any profile that is present on the system */
-#define HNDL_TYPE_PROFILE (9)
+typedef enum HANDLE_TYPE {
+    HNDL_TYPE_NONE,
+    HNDL_TYPE_FILE,
+    HNDL_TYPE_DIR,
+    HNDL_TYPE_DRIVER,
+    HNDL_TYPE_PROC,
+    HNDL_TYPE_FS_ROOT,
+    HNDL_TYPE_OSS_OBJ, /* A handle to a virtual object in the vfs */
+    HNDL_TYPE_KOBJ, /* A handle to a kernel object */
+    HNDL_TYPE_THREAD,
+    /* Any profile that is present on the system */
+    HNDL_TYPE_PROFILE,
 
-/* Profile variable */
-#define HNDL_TYPE_SYSVAR (10)
+    /* Profile variable */
+    HNDL_TYPE_SYSVAR,
 
-/* These types are still to be implemented */
-/* A raw device attached to the device tree on the vfs at :/Devices/ */
-#define HNDL_TYPE_DEVICE (11)
-/* Raw buffer, managed by the kernel */
-#define HNDL_TYPE_BUFFER (12)
-/* Inter-process interface */
-#define HNDL_TYPE_IP_INTERF (13)
-/* Datastream for contiguous reading / writing of data */
-#define HNDL_TYPE_STREAM (14)
-/* Single event */
-#define HNDL_TYPE_EVENT (15)
-/* An eventsubscription */
-#define HNDL_TYPE_EVENTHOOK (16)
-/* ??? */
-#define HNDL_TYPE_RESOURCE (17)
-/* Shared library when there is a dynamic loaded driver loaded */
-#define HNDL_TYPE_SHARED_LIB (18)
-/* An entire process environment */
-#define HNDL_TYPE_PROC_ENV (19)
+    /* These types are still to be implemented */
+    /* A raw device attached to the device tree on the vfs at :/Devices/ */
+    HNDL_TYPE_DEVICE,
+    /* Raw buffer, managed by the kernel, stored in the processes environment */
+    HNDL_TYPE_BUFFER,
+    /* Inter-process pipe interface */
+    HNDL_TYPE_UPI_PIPE,
+    /* Datastream for contiguous reading / writing of data */
+    HNDL_TYPE_STREAM,
+    /* Single event */
+    HNDL_TYPE_EVENT,
+    /* An eventsubscription */
+    HNDL_TYPE_EVENTHOOK,
+    /* ??? */
+    HNDL_TYPE_RESOURCE,
+    /* Shared library when there is a dynamic loaded driver loaded */
+    HNDL_TYPE_SHARED_LIB,
+    /* An entire process environment */
+    HNDL_TYPE_PROC_ENV,
+
+} HANDLE_TYPE,
+    handle_type_t;
+
+#define N_HNDL_TYPES 20
 
 #define HNDL_INVAL (-1) /* Tried to get a handle from an invalid source */
 #define HNDL_NOT_FOUND (-2) /* Could not resolve the handle on the kernel side */

@@ -311,8 +311,6 @@ void D_Display(void)
 
 void D_BindVariables(void)
 {
-    int i;
-
     M_ApplyPlatformDefaults();
 
     I_BindVideoVariables();

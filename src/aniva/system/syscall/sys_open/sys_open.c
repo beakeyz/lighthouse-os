@@ -26,6 +26,8 @@
  * Generic open syscall
  *
  * TODO: Refactor
+ * We can make this much cleaner. Every handle type can have it's own sys_open implementation, which
+ * we just have to look up. This way we don't need this giant ugly switch statement
  */
 HANDLE sys_open(const char* __user path, HANDLE_TYPE type, uint32_t flags, uint32_t mode)
 {
@@ -278,26 +280,8 @@ HANDLE sys_open_rel(HANDLE rel_handle, const char* __user path, uint32_t flags, 
     if (!rel_khandle || !rel_khandle->reference.kobj)
         return HNDL_INVAL;
 
-    switch (rel_khandle->type) {
-    case HNDL_TYPE_PROC:
-        if (!rel_khandle->reference.process->m_env)
-            return HNDL_INVAL;
-
-        rel_node = rel_khandle->reference.process->m_env->node;
-        break;
-    case HNDL_TYPE_PROC_ENV:
-        rel_node = rel_khandle->reference.penv->node;
-        break;
-    case HNDL_TYPE_DIR:
-        rel_node = rel_khandle->reference.dir->node;
-        break;
-    case HNDL_TYPE_PROFILE:
-        rel_node = rel_khandle->reference.profile->node;
-        break;
-    default:
-        rel_node = nullptr;
-        break;
-    }
+    /* Grab the relative node */
+    rel_node = khandle_get_relative_node(rel_khandle);
 
     if (!rel_node)
         return HNDL_INVAL;
@@ -351,7 +335,7 @@ HANDLE sys_open_pvar(const char* __user name, HANDLE profile_handle, uint16_t fl
     oss_node_t* target_node;
     khandle_t* khndl;
     khandle_t pvar_khndl;
-    khandle_type_t type = HNDL_TYPE_SYSVAR;
+    HANDLE_TYPE type = HNDL_TYPE_SYSVAR;
 
     current_proc = get_current_proc();
 

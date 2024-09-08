@@ -107,6 +107,7 @@ size_t file_write(file_t* file, void* buffer, size_t size, uintptr_t offset);
 int file_sync(file_t* file);
 
 file_t* file_open(const char* path);
+file_t* file_open_from(struct oss_node* node, const char* path);
 int file_close(file_t* file);
 
 /*!

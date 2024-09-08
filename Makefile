@@ -42,8 +42,8 @@ export KERNEL_CFLAGS := \
 	-std=gnu11 -Werror -nostdlib -O2 -mno-sse -mno-sse2 -static \
 	-mno-mmx -mno-80387 -mno-red-zone -m64 -march=x86-64 -mcmodel=large \
 	-ffreestanding -fno-stack-protector -fno-stack-check -fshort-wchar \
-	-fno-lto -fno-exceptions -MMD -I$(SRC) -I$(SRC)/$(KERNEL_NAME) -I$(SRC)/libs -I$(SRC)/$(KERNEL_NAME)/libk \
-	-D'KERNEL'
+	-fno-lto -fno-exceptions -MMD -I$(SRC) -I$(SRC)/$(KERNEL_NAME) -I$(SRC)/libs -I$(SRC)/libs/libc -I$(SRC)/$(KERNEL_NAME)/libk \
+	-D'ANIVA_KERNEL'
 
 ifeq ($(KERNEL_DEBUG_LEVEL), verbose)
 	KERNEL_CFLAGS += -DDBG_VERBOSE=1

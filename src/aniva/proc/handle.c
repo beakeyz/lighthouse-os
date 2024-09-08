@@ -7,6 +7,7 @@
 #include "sync/mutex.h"
 #include <dev/driver.h>
 #include <mem/kmem_manager.h>
+#include <proc/env.h>
 #include <proc/proc.h>
 
 /*!
@@ -49,26 +50,25 @@ static void __on_handle_change(khandle_t* handle, bool bind)
         /* Close the object */
         ASSERT_MSG(oss_obj_close(obj) == 0, "Failed to close vobject!");
         break;
-    case HNDL_TYPE_SYSVAR: 
-        {
-            sysvar_t* pvar = handle->reference.pvar;
+    case HNDL_TYPE_SYSVAR: {
+        sysvar_t* pvar = handle->reference.pvar;
 
-            /*
-             * Make sure to release the reference of the variable
-             * since we took it when we opened it
-             */
-            if (!bind)
-                release_sysvar(pvar);
+        /*
+         * Make sure to release the reference of the variable
+         * since we took it when we opened it
+         */
+        if (!bind)
+            release_sysvar(pvar);
 
-            break;
-        }
+        break;
+    }
     case HNDL_TYPE_NONE:
     default:
         break;
     }
 }
 
-void init_khandle(khandle_t* out_handle, khandle_type_t* type, void* ref)
+void init_khandle(khandle_t* out_handle, HANDLE_TYPE* type, void* ref)
 {
     if (!ref)
         return;
@@ -115,6 +115,28 @@ void khandle_set_flags(khandle_t* handle, uint16_t flags)
 
     handle->flags = flags;
     handle->flags &= ~(HNDL_OPT_MASK);
+}
+
+struct oss_node* khandle_get_relative_node(khandle_t* handle)
+{
+    switch (handle->type) {
+    case HNDL_TYPE_PROC:
+        if (!handle->reference.process->m_env)
+            return NULL;
+
+        return handle->reference.process->m_env->node;
+    case HNDL_TYPE_PROC_ENV:
+        return handle->reference.penv->node;
+    case HNDL_TYPE_DIR:
+        return handle->reference.dir->node;
+    case HNDL_TYPE_PROFILE:
+        return handle->reference.profile->node;
+        break;
+    default:
+        break;
+    }
+
+    return NULL;
 }
 
 /*

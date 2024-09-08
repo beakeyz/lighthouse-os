@@ -14,13 +14,12 @@ struct thread;
 struct kevent;
 struct device;
 struct oss_obj;
+struct oss_node;
 struct kevent_hook;
 struct sysvar;
 struct user_profile;
 struct driver;
 struct virtual_namespace;
-
-typedef uint8_t khandle_type_t;
 
 /*
  * A kernel-side handle.
@@ -29,7 +28,7 @@ typedef uint8_t khandle_type_t;
  * simply act as indices to these kind of handles.
  */
 typedef struct kernel_handle {
-    khandle_type_t type;
+    HANDLE_TYPE type;
     uint8_t protection_lvl;
     uint16_t flags;
     uint32_t index;
@@ -59,10 +58,11 @@ typedef struct kernel_handle {
 #define KHDNL_PROT_LVL_LOW (50)
 #define KHDNL_PROT_LVL_LOWEST (0)
 
-void init_khandle(khandle_t* out_handle, khandle_type_t* type, void* ref);
+void init_khandle(khandle_t* out_handle, HANDLE_TYPE* type, void* ref);
 void destroy_khandle(khandle_t* handle);
-
 void khandle_set_flags(khandle_t* handle, uint16_t flags);
+
+struct oss_node* khandle_get_relative_node(khandle_t* handle);
 
 #define KHNDL_MAX_ENTRIES (1024) /* The current maximum amount of handles (same as linux) */
 #define KHNDL_DEFAULT_ENTRIES (512)

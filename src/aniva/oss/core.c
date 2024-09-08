@@ -387,6 +387,11 @@ int oss_resolve_obj_rel(struct oss_node* rel, const char* path, struct oss_obj**
 {
     int error;
 
+    if (!out || !path)
+        return -KERR_INVAL;
+
+    *out = NULL;
+
     mutex_lock(_core_lock);
 
     error = __oss_resolve_node_entry_rel_locked(rel, path, out, NULL);

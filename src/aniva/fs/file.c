@@ -305,7 +305,7 @@ static int _file_close(file_t* file)
     return error;
 }
 
-file_t* file_open(const char* path)
+file_t* file_open_from(struct oss_node* node, const char* path)
 {
     int error;
     file_t* ret;
@@ -314,7 +314,7 @@ file_t* file_open(const char* path)
     /*
      * File gets created by the filesystem driver
      */
-    error = oss_resolve_obj(path, &obj);
+    error = oss_resolve_obj_rel(node, path, &obj);
 
     if (error || !obj)
         return nullptr;
@@ -326,6 +326,11 @@ file_t* file_open(const char* path)
         oss_obj_close(obj);
 
     return ret;
+}
+
+file_t* file_open(const char* path)
+{
+    return file_open_from(nullptr, path);
 }
 
 int file_close(file_t* file)

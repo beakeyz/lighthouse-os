@@ -1,6 +1,8 @@
 #ifndef __LIGHTENV_LIBC_STDIO__
 #define __LIGHTENV_LIBC_STDIO__
 
+#ifndef ANIVA_KERNEL
+
 #include "stdarg.h"
 #include <stddef.h>
 #include <stdint.h>
@@ -101,4 +103,5 @@ extern int putchar(int c);
 }
 #endif
 
+#endif
 #endif // !__LIGHTENV_LIBC_STDIO__

@@ -87,6 +87,6 @@ typedef uint8_t byte;
 
 #endif
 
-#define arrlen(array) (sizeof(array) / sizeof(*array))
+#define arrlen(array) (sizeof(array) / sizeof(array[0]))
 
 #endif

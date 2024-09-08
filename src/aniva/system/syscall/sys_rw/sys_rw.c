@@ -2,7 +2,6 @@
 #include "sys_rw.h"
 #include "dev/device.h"
 #include "dev/driver.h"
-#include "dev/driver.h"
 #include "fs/dir.h"
 #include "fs/file.h"
 #include "libk/flow/error.h"
@@ -276,6 +275,8 @@ uint64_t sys_seek(handle_t handle, uintptr_t offset, uint32_t type)
         switch (khndl->type) {
         case HNDL_TYPE_FILE:
             khndl->offset = khndl->reference.file->m_total_size + offset;
+            break;
+        default:
             break;
         }
         break;
