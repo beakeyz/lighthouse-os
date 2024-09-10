@@ -54,6 +54,7 @@ static kerror_t khandle_device_driver_ctl(khandle_driver_t* driver, khandle_t* h
 static khandle_driver_t device_khandle_driver = {
     .name = "devices",
     .handle_type = HNDL_TYPE_DEVICE,
+    .function_flags = KHDRIVER_FUNC_ALL_IO,
     .f_open = khandle_driver_generic_oss_open,
     .f_open_relative = khandle_driver_generic_oss_open_from,
     .f_read = khandle_device_driver_read,

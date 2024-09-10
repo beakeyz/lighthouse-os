@@ -11,6 +11,7 @@
 #include "oss/node.h"
 #include "oss/obj.h"
 #include "proc/env.h"
+#include "proc/hdrv/driver.h"
 #include "proc/proc.h"
 #include "proc/thread.h"
 #include "sched/scheduler.h"
@@ -286,8 +287,26 @@ ANIVA_STATUS init_proc_core()
 {
     __thread_allocator = create_zone_allocator(128 * Kib, sizeof(thread_t), NULL);
 
+    /*
+     * System variables are an integral part of the process core,
+     * although they can be classified as part of multiple subsystems, as they
+     * cover a wide range of applications. We initialize their subsystem here
+     * however, since in order to run processes, we NEED sysvars and userprofiles.
+     * The process core also gets initialized really early and always before any
+     * real system configuration needs to be done, so initializing this here
+     * should not be an issue
+     */
     init_sysvars();
     init_user_profiles();
+
+    /*
+     * Initialize the hdrv subsystem
+     * These drivers are second order drivers (with first order drivers
+     * being device drivers), which are in charge of driving software-to-software
+     * services inside the OSes ABI. With these drivers, we're able to configure
+     * the software interaction with system objects.
+     */
+    init_khandle_drivers();
 
     return ANIVA_SUCCESS;
 }

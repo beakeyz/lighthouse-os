@@ -57,13 +57,14 @@ typedef enum HANDLE_TYPE {
 #define HNDL_PROTECTED (-6) /* Handle target is protected and cant have handles right now */
 
 #define HNDL_FLAG_BUSY (0x0001) /* khandle is busy and we have given up waiting for it */
-#define HNDL_FLAG_WAITING (0x0002) /* khandle is busy but we are waiting for it to be free so opperations on this handle can be queued if needed */
+#define HNDL_FLAG_WAITING (0x0002) /* khandle is busy but we are waiting for it to be free so operations on this handle can be queued if needed */
 #define HNDL_FLAG_LOCKED (0x0004) /* khandle is locked by the kernel and can't be opperated by userspace (think of shared libraries and stuff) */
 #define HNDL_FLAG_READACCESS (0x0008)
 #define HNDL_FLAG_WRITEACCESS (0x0010)
 #define HNDL_FLAG_R (HNDL_FLAG_READACCESS)
 #define HNDL_FLAG_W (HNDL_FLAG_WRITEACCESS)
 #define HNDL_FLAG_RW (HNDL_FLAG_READACCESS | HNDL_FLAG_WRITEACCESS)
+#define HNDL_FLAG_RECURSIVE (0x0020) /* Does recursive open/close/destroy/ect. operations on this handle */
 #define HNDL_FLAG_INVALID (0x8000) /* khandle is not pointing to anything and any accesses to it should be regarded as disbehaviour */
 
 /*
@@ -77,11 +78,15 @@ typedef enum HANDLE_TYPE {
  * Handle modes
  */
 enum HNDL_MODE {
+    /* Normal handle operation: Opens the handle if it exists, fails if not */
     HNDL_MODE_NORMAL,
+    /* Same as normal, but creates the object if it does not exist */
     HNDL_MODE_CREATE,
+    /* Creates an object, but fails if it already exists */
+    HNDL_MODE_CREATE_NEW,
     HNDL_MODE_CURRENT_PROFILE,
-    HNDL_MODE_SCAN_PROFILE,
     HNDL_MODE_CURRENT_ENV,
+    HNDL_MODE_SCAN_PROFILE,
     HNDL_MODE_SCAN_ENV,
 };
 

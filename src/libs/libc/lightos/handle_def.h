@@ -64,6 +64,7 @@ typedef enum HANDLE_TYPE {
 #define HNDL_FLAG_R (HNDL_FLAG_READACCESS)
 #define HNDL_FLAG_W (HNDL_FLAG_WRITEACCESS)
 #define HNDL_FLAG_RW (HNDL_FLAG_READACCESS | HNDL_FLAG_WRITEACCESS)
+#define HNDL_FLAG_RECURSIVE (0x0020) /* Does recursive open/close/destroy/ect. operations on this handle */
 #define HNDL_FLAG_INVALID (0x8000) /* khandle is not pointing to anything and any accesses to it should be regarded as disbehaviour */
 
 /*
@@ -77,11 +78,15 @@ typedef enum HANDLE_TYPE {
  * Handle modes
  */
 enum HNDL_MODE {
+    /* Normal handle operation: Opens the handle if it exists, fails if not */
     HNDL_MODE_NORMAL,
+    /* Same as normal, but creates the object if it does not exist */
     HNDL_MODE_CREATE,
+    /* Creates an object, but fails if it already exists */
+    HNDL_MODE_CREATE_NEW,
     HNDL_MODE_CURRENT_PROFILE,
-    HNDL_MODE_SCAN_PROFILE,
     HNDL_MODE_CURRENT_ENV,
+    HNDL_MODE_SCAN_PROFILE,
     HNDL_MODE_SCAN_ENV,
 };
 

@@ -8,6 +8,10 @@
  *
  * IDs are prefixed with            SYSID_
  * status codes are prefixed with   SYS_
+ *
+ * TODO: Terminate reduntant syscall ids, due to the new khdriver model
+ * TODO: Since SYSID_OPEN requires a HNDL_MODE to be passed, all SYSID_CREATE_*
+ * sysids must be terminated
  */
 
 enum SYSID {
@@ -18,8 +22,6 @@ enum SYSID {
     SYSID_WRITE, /* Write to a handle */
     SYSID_OPEN,
     SYSID_OPEN_REL,
-    SYSID_OPEN_PROC,
-    SYSID_OPEN_DRIVER,
     SYSID_SEND_MSG, /* Send a driver message */
     SYSID_SEND_CTL, /* Send a device control code */
     SYSID_CREATE_THREAD,
@@ -34,8 +36,6 @@ enum SYSID {
     SYSID_DESTROY_PROC,
     SYSID_DESTROY_FILE,
     SYSID_GET_HNDL_TYPE,
-    /* Open a profile variable on the handle of a profile */
-    SYSID_OPEN_SYSVAR,
     SYSID_GET_SYSVAR_TYPE,
     SYSID_CREATE_SYSVAR,
     /* Directory syscalls */

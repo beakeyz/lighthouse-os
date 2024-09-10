@@ -2,6 +2,7 @@
 #include "dev/driver.h"
 #include "libk/flow/error.h"
 #include "lightos/handle_def.h"
+#include "logging/log.h"
 #include "oss/core.h"
 #include "oss/node.h"
 #include "oss/obj.h"
@@ -23,10 +24,10 @@ struct khandle_driver_reg {
 static struct khandle_driver_reg __khandle_drivers[N_HNDL_TYPES];
 static mutex_t* __khandle_driver_lock;
 
-extern khandle_driver_t** _kernel_khdnl_drvs_start;
-extern khandle_driver_t** _kernel_khdnl_drvs_end;
+extern khandle_driver_t* _khdrv_start[];
+extern khandle_driver_t* _khdrv_end[];
 
-#define FOREACH_KHNDL_DRV(i) for (struct khandle_driver** p_##i = _kernel_khdnl_drvs_start, *i = *(p_##i); p_##i < _kernel_khdnl_drvs_end; p_##i++, i = *(p_##i))
+#define FOREACH_KHNDL_DRV(i) for (struct khandle_driver** p_##i = _khdrv_start, *i = *(p_##i); p_##i < _khdrv_end; p_##i++, i = *(p_##i))
 
 /**
  * @brief: Register a khandle driver
@@ -235,6 +236,11 @@ void init_khandle_drivers()
     /* Register all internal khandle drivers */
     FOREACH_KHNDL_DRV(i)
     {
+        KLOG_DBG("[khndl] Initializing khandle driver: %s\n", i->name);
+
+        /* Register this driver */
         khandle_driver_register(NULL, i);
     }
+
+    kernel_panic("TODO: Implement all base khandle driver types");
 }

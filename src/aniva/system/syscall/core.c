@@ -39,7 +39,6 @@ static syscall_t __static_syscalls[] = {
     [SYSID_WRITE] = { 0, SYSID_WRITE, (sys_fn_t)sys_write },
     [SYSID_OPEN] = { 0, SYSID_OPEN, (sys_fn_t)sys_open },
     [SYSID_OPEN_REL] = { 0, SYSID_OPEN_REL, (sys_fn_t)sys_open_rel },
-    [SYSID_OPEN_PROC] = { 0, SYSID_OPEN_PROC, (sys_fn_t)sys_open_proc },
     [SYSID_SEND_MSG] = {
         0,
         SYSID_SEND_MSG,
@@ -60,11 +59,6 @@ static syscall_t __static_syscalls[] = {
         0,
         SYSID_GET_HNDL_TYPE,
         (sys_fn_t)sys_get_handle_type,
-    },
-    [SYSID_OPEN_SYSVAR] = {
-        0,
-        SYSID_OPEN_SYSVAR,
-        (sys_fn_t)sys_open_pvar,
     },
     [SYSID_GET_SYSVAR_TYPE] = {
         0,

@@ -1,17 +1,11 @@
 #include "sys_open.h"
 #include "dev/core.h"
-#include "dev/device.h"
-#include "dev/driver.h"
-#include "dev/loader.h"
-#include "kevent/event.h"
 #include "libk/flow/error.h"
 #include "lightos/driver/loader.h"
 #include "lightos/handle_def.h"
 #include "lightos/syscall.h"
 #include "mem/kmem_manager.h"
-#include "oss/core.h"
 #include "oss/node.h"
-#include "oss/obj.h"
 #include "proc/core.h"
 #include "proc/handle.h"
 #include "proc/hdrv/driver.h"
@@ -44,8 +38,12 @@ HANDLE sys_open(const char* __user path, HANDLE_TYPE type, uint32_t flags, uint3
     khndl_driver = nullptr;
 
     /* Find the driver for this handle type */
-    if (khandle_driver_find(type, &khndl_driver) || !khndl_driver)
-        return HNDL_INVAL;
+    // if (khandle_driver_find(type, &khndl_driver) || !khndl_driver)
+    // return HNDL_INVAL;
+
+    // TEMP: Assert that we can find a khandle driver here until we have implemented all base
+    // khandle drivers
+    ASSERT_MSG(khandle_driver_find(type, &khndl_driver) == 0 && khndl_driver, "sys_open: Failed to find khandle driver");
 
     /* Just mark it as 'not found' if the driver fails to open */
     if (khandle_driver_open(khndl_driver, path, flags, mode, &handle))
@@ -58,178 +56,7 @@ HANDLE sys_open(const char* __user path, HANDLE_TYPE type, uint32_t flags, uint3
      * in that profile have access to this resource
      */
 
-    switch (type) {
-    case HNDL_TYPE_DIR: {
-        break;
-    }
-    case HNDL_TYPE_DEVICE: {
-        device_t* device;
-        oss_obj_t* obj;
-
-        if (oss_resolve_obj(path, &obj))
-            return HNDL_NOT_FOUND;
-
-        if (!obj)
-            return HNDL_NOT_FOUND;
-
-        /* Yikes */
-        if (!oss_obj_can_proc_access(obj, c_proc)) {
-            oss_obj_unref(obj);
-            return HNDL_NO_PERM;
-        }
-
-        device = oss_obj_get_device(obj);
-
-        if (!device) {
-            oss_obj_unref(obj);
-            return HNDL_INVAL;
-        }
-
-        init_khandle(&handle, &type, device);
-        break;
-    }
-    case HNDL_TYPE_PROC: {
-        /* Search through oss */
-        proc_t* proc = find_proc(path);
-
-        if (!proc)
-            return HNDL_NOT_FOUND;
-
-        /* Pretend we didn't find this one xD (If we're not admin) */
-        if ((proc->m_flags & PROC_KERNEL) == PROC_KERNEL && c_proc->m_env->priv_level < PRIV_LVL_ADMIN)
-            return HNDL_NOT_FOUND;
-
-        /* We do allow handles to drivers */
-        init_khandle(&handle, &type, proc);
-        break;
-    }
-    case HNDL_TYPE_DRIVER: {
-        driver_t* driver = NULL;
-
-        switch (mode) {
-        case HNDL_MODE_CREATE:
-            driver = load_external_driver(path);
-            break;
-        default:
-            driver = get_driver(path);
-            break;
-        }
-
-        if (!driver)
-            return HNDL_NOT_FOUND;
-
-        init_khandle(&handle, &type, driver);
-        break;
-    }
-    case HNDL_TYPE_PROFILE: {
-        user_profile_t* profile;
-
-        profile = nullptr;
-
-        switch (mode) {
-        case HNDL_MODE_CURRENT_PROFILE:
-            profile = c_proc->m_env->profile;
-            break;
-        case HNDL_MODE_SCAN_PROFILE:
-            if (KERR_ERR(profile_find(path, &profile)))
-                return HNDL_NOT_FOUND;
-            break;
-        }
-
-        if (!profile)
-            return HNDL_NOT_FOUND;
-
-        init_khandle(&handle, &type, profile);
-        break;
-    }
-    case HNDL_TYPE_PROC_ENV: {
-        penv_t* env;
-        oss_node_t* env_node;
-
-        env = nullptr;
-
-        switch (mode) {
-        case HNDL_MODE_CURRENT_PROFILE:
-            env = c_proc->m_env;
-            break;
-        case HNDL_MODE_SCAN_PROFILE:
-            /*
-             * TODO/FIXME: Should we extract this code into a routine inside
-             * proc/env.c?
-             */
-            if (KERR_ERR(oss_resolve_node(path, &env_node)))
-                return HNDL_NOT_FOUND;
-
-            if (env_node->type != OSS_PROC_ENV_NODE || !env_node->priv)
-                return HNDL_INVAL;
-
-            env = env_node->priv;
-            break;
-        }
-
-        init_khandle(&handle, &type, env);
-        break;
-    }
-    case HNDL_TYPE_SYSVAR: {
-        user_profile_t* c_profile;
-        penv_t* c_env;
-        sysvar_t* c_var;
-
-        c_env = c_proc->m_env;
-        c_profile = c_env->profile;
-
-        c_var = sysvar_get(c_env->node, path);
-
-        if (!c_var)
-            c_var = sysvar_get(c_profile->node, path);
-
-        if (!c_var)
-            return HNDL_NOT_FOUND;
-
-        init_khandle(&handle, &type, c_var);
-        break;
-    }
-    case HNDL_TYPE_EVENT: {
-        struct kevent* event;
-
-        event = kevent_get(path);
-
-        if (!event)
-            return HNDL_NOT_FOUND;
-
-        init_khandle(&handle, &type, event);
-        break;
-    }
-    case HNDL_TYPE_EVENTHOOK:
-        break;
-    case HNDL_TYPE_SHARED_LIB: {
-        /* We (the kernel) does not need to know about how dynamic_library memory is ordered */
-        dynamic_library_t* lib_addr = NULL;
-
-        if ((driver_send_msg_a(DYN_LDR_URL, DYN_LDR_LOAD_LIB, (void*)path, sizeof(path), &lib_addr, sizeof(void*))) || !lib_addr)
-            return HNDL_NOT_FOUND;
-
-        init_khandle(&handle, &type, lib_addr);
-        break;
-    }
-    case HNDL_TYPE_FS_ROOT:
-    case HNDL_TYPE_KOBJ:
-        break;
-    case HNDL_TYPE_OSS_OBJ: {
-        oss_obj_t* obj = NULL;
-
-        if (KERR_ERR(oss_resolve_obj(path, &obj)) || !obj)
-            return HNDL_NOT_FOUND;
-
-        init_khandle(&handle, &type, obj);
-        break;
-    }
-    case HNDL_TYPE_NONE:
-    default:
-        kernel_panic("Tried to open unimplemented handle!");
-        break;
-    }
-
+    /* Check if the handle was really initialized */
     if (!handle.reference.kobj)
         return HNDL_NOT_FOUND;
 
@@ -251,8 +78,12 @@ HANDLE sys_open_rel(HANDLE rel_handle, const char* __user path, HANDLE_TYPE type
     khandle_driver_t* khdriver;
 
     /* If there is no driver for this type, we can't really do much lmao */
-    if (khandle_driver_find(type, &khdriver))
-        return HNDL_INVAL;
+    // if (khandle_driver_find(type, &khdriver))
+    // return HNDL_INVAL;
+
+    // TEMP: Assert that we can find a khandle driver here until we have implemented all base
+    // khandle drivers
+    ASSERT_MSG(khandle_driver_find(type, &khdriver) == 0 && khdriver, "sys_open: Failed to find khandle driver");
 
     /* grab this proc */
     c_proc = get_current_proc();
@@ -295,80 +126,6 @@ vaddr_t sys_get_funcaddr(HANDLE lib_handle, const char __user* path)
         return NULL;
 
     return out;
-}
-
-/*!
- * @brief Open a handle to a profile variable from a certain profile handle
- *
- * We don't check for any permissions here, since anyone may recieve a handle to any profile or any profile handle
- * (except if its hidden or something else prevents the opening of pvars)
- */
-HANDLE sys_open_pvar(const char* __user name, HANDLE profile_handle, uint16_t flags)
-{
-    HANDLE ret;
-    kerror_t error;
-    proc_t* current_proc;
-    sysvar_t* svar;
-    oss_node_t* target_node;
-    khandle_t* khndl;
-    khandle_t pvar_khndl;
-    HANDLE_TYPE type = HNDL_TYPE_SYSVAR;
-
-    current_proc = get_current_proc();
-
-    /* Validate pointers */
-    if (!current_proc || kmem_validate_ptr(current_proc, (uint64_t)name, 1))
-        return HNDL_INVAL;
-
-    /* Grab the kernel handle to the target profile */
-    khndl = find_khandle(&current_proc->m_handle_map, profile_handle);
-
-    if (!khndl)
-        return HNDL_INVAL;
-
-    target_node = nullptr;
-
-    switch (khndl->type) {
-    case HNDL_TYPE_PROFILE:
-        target_node = khndl->reference.profile->node;
-        break;
-    case HNDL_TYPE_PROC_ENV:
-        target_node = khndl->reference.penv->node;
-        break;
-    default:
-        break;
-    }
-
-    if (!target_node)
-        return HNDL_NOT_FOUND;
-
-    svar = sysvar_get(target_node, name);
-
-    if (!svar)
-        return HNDL_NOT_FOUND;
-
-    if (!oss_obj_can_proc_access(svar->obj, current_proc))
-        return HNDL_NOT_FOUND;
-
-    /* Create a kernel handle */
-    init_khandle(&pvar_khndl, &type, svar);
-
-    /* Set the flags we want */
-    khandle_set_flags(&pvar_khndl, flags);
-
-    /* Copy the handle into the map */
-    error = bind_khandle(&current_proc->m_handle_map, &pvar_khndl, (uint32_t*)&ret);
-
-    if (error)
-        return HNDL_INVAL;
-
-    return ret;
-}
-
-HANDLE sys_open_proc(const char* __user name, uint16_t flags, uint32_t mode)
-{
-    kernel_panic("Tried to open driver!");
-    return HNDL_INVAL;
 }
 
 uintptr_t sys_close(HANDLE handle)

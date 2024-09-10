@@ -1,7 +1,7 @@
 #include "cmdline.h"
 #include "lightos/handle.h"
 #include "lightos/handle_def.h"
-#include "lightos/var/var.h"
+#include "lightos/sysvar/var.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

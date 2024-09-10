@@ -15,9 +15,12 @@ struct driver;
 #define KHDRIVER_FUNC_WRITE 0x00000008
 #define KHDRIVER_FUNC_CTL 0x00000010
 
+/* Indicates that this driver implements all khandle I/O functions */
+#define KHDRIVER_FUNC_ALL_IO 0x0000ffff
+
 /* These are internal functions, but they should still be marked as present in the flags */
-#define KHDRIVER_FUNC_INIT 0x00000020
-#define KHDRIVER_FUNC_FINI 0x00000040
+#define KHDRIVER_FUNC_INIT 0x00020000
+#define KHDRIVER_FUNC_FINI 0x00040000
 #define KHDRIVER_FUNCS_FINIT (KHDRIVER_FUNC_INIT | KHDRIVER_FUNC_FINI)
 
 /* Indicates that this driver implements all khandle functions */
@@ -83,8 +86,10 @@ static inline void khandle_driver_fini(khandle_driver_t* driver)
 }
 
 /* Macro that puts a khandle driver pointer into the .khndl_drvs section */
-#define KHNDL_DRVS_SECTION_NAME ".khndl_drvs"
-#define EXPORT_KHANDLE_DRIVER(driver) USED ALIGN(8) SECTION(KHNDL_DRVS_SECTION_NAME) khandle_driver_t* exported_##driver = &(driver)
+#define KHNDL_DRVS_SECTION_NAME ".khdrv"
+#define EXPORT_KHANDLE_DRIVER(driver)     \
+    USED SECTION(KHNDL_DRVS_SECTION_NAME) \
+    khandle_driver_t* exported_##driver = &(driver)
 
 kerror_t khandle_driver_register(struct driver* parent, khandle_driver_t* driver);
 kerror_t khandle_driver_remove(khandle_driver_t* driver);

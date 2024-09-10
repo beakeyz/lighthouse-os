@@ -9,7 +9,7 @@ HANDLE open_sysvar_ex(HANDLE handle, char* key, uint16_t flags)
     if (!key)
         return HNDL_INVAL;
 
-    return syscall_3(SYSID_OPEN_SYSVAR, (uint64_t)key, handle, flags);
+    return open_handle_rel(handle, key, HNDL_TYPE_SYSVAR, flags, HNDL_MODE_NORMAL);
 }
 
 HANDLE open_sysvar(char* key, uint16_t flags)

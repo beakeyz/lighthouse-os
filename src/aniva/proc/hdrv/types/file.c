@@ -97,6 +97,7 @@ static int file_khandle_write(khandle_driver_t* driver, khandle_t* handle, void*
 khandle_driver_t file_khandle_drv = {
     .name = "files",
     .handle_type = HNDL_TYPE_FILE,
+    .function_flags = KHDRIVER_FUNC_OPEN | KHDRIVER_FUNC_OPEN_REL | KHDRIVER_FUNC_READ | KHDRIVER_FUNC_WRITE,
     .f_open = file_khandle_open,
     .f_open_relative = file_khandle_open_rel,
     .f_read = file_khandle_read,

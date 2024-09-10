@@ -2,7 +2,7 @@
 #define __LIGHTOS_VAR_SYSVAR__
 
 #include "lightos/handle_def.h"
-#include "lightos/var/shared.h"
+#include "lightos/sysvar/shared.h"
 #include "lightos/system.h"
 
 /*!
