@@ -4,6 +4,8 @@
 #include "mem/heap.h"
 #include "mem/zalloc/zalloc.h"
 #include "oss/obj.h"
+#include "proc/proc.h"
+#include "sched/scheduler.h"
 #include "sync/atomic_ptr.h"
 #include <libk/string.h>
 
@@ -233,6 +235,70 @@ bool sysvar_write(sysvar_t* var, uint64_t value)
     }
 
     return true;
+}
+
+int sysvar_read(sysvar_t* var, u8* buffer, size_t length)
+{
+    proc_t* current_proc;
+    size_t data_size = NULL;
+    size_t minimal_buffersize = 1;
+
+    /* Get the current process */
+    current_proc = get_current_proc();
+
+    if (!current_proc)
+        return -KERR_INVAL;
+
+    /* Check if the current environment actualy has permission to read from this var */
+    if (oss_obj_can_proc_read(var->obj, current_proc))
+        return NULL;
+
+    switch (var->type) {
+    case SYSVAR_TYPE_STRING:
+        /* We need at least the null-byte */
+        minimal_buffersize = 1;
+        data_size = strlen(var->str_value) + 1;
+        break;
+    case SYSVAR_TYPE_QWORD:
+        data_size = minimal_buffersize = sizeof(uint64_t);
+        break;
+    case SYSVAR_TYPE_DWORD:
+        data_size = minimal_buffersize = sizeof(uint32_t);
+        break;
+    case SYSVAR_TYPE_WORD:
+        data_size = minimal_buffersize = sizeof(uint16_t);
+        break;
+    case SYSVAR_TYPE_BYTE:
+        data_size = minimal_buffersize = sizeof(uint8_t);
+        break;
+    default:
+        break;
+    }
+
+    /* Check if we have enough space to store the value */
+    if (!data_size || length < minimal_buffersize)
+        return NULL;
+
+    /* Make sure we are not going to copy too much into the user buffer */
+    if (data_size > length)
+        data_size = length;
+
+    /*
+     * TODO: move these raw memory opperations
+     * to a controlled environment for safe copies and
+     * 'memsets' into userspace
+     */
+
+    if (var->type == SYSVAR_TYPE_STRING) {
+        /* Copy the string */
+        memcpy(buffer, var->str_value, data_size);
+
+        /* Make sure it's legal */
+        buffer[length - 1] = '\0';
+    } else
+        memcpy(buffer, &var->value, data_size);
+
+    return 0;
 }
 
 void init_sysvars(void)

@@ -1,6 +1,8 @@
 #ifndef __ANIVA_OSS_OBJ__
 #define __ANIVA_OSS_OBJ__
 
+#include "lightos/handle_def.h"
+#include "proc/env.h"
 #include "sync/atomic_ptr.h"
 #include "sync/mutex.h"
 #include <libk/stddef.h>
@@ -29,11 +31,13 @@ enum OSS_OBJ_TYPE {
     OSS_OBJ_TYPE_VAR,
     /* Processes */
     OSS_OBJ_TYPE_PROC,
-    /* This boi links to another oss_obj */
-    OSS_OBJ_TYPE_LINK,
     /* This mofo has a upipe (probably managed by upi?) */
     OSS_OBJ_TYPE_PIPE,
+
+    NR_OSS_OBJ_TYPES,
 };
+
+HANDLE_TYPE oss_obj_type_to_handle_type(enum OSS_OBJ_TYPE type);
 
 #define OSS_OBJ_IMMUTABLE 0x00000001 /* Can we change the data that this object holds? */
 #define OSS_OBJ_CONFIG 0x00000002 /* Does this object point to configuration? */

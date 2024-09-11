@@ -67,6 +67,10 @@ typedef enum HANDLE_TYPE {
 #define HNDL_FLAG_RECURSIVE (0x0020) /* Does recursive open/close/destroy/ect. operations on this handle */
 #define HNDL_FLAG_INVALID (0x8000) /* khandle is not pointing to anything and any accesses to it should be regarded as disbehaviour */
 
+#define HNDL_FLAG_PERM_MASK 0xff
+#define HNDL_FLAG_PERM_OFFSET 23
+#define HNDL_FLAGS_GET_PERM(flags) ((flags) >> HNDL_FLAG_PERM_OFFSET) & HNDL_FLAG_PERM_MASK
+
 /*
  * We use this mask to easily clear out any flags that indicate a certain state of the handle
  * Since permissions (Like Read/Write) and state (locked/waiting) are stored in the same dword,

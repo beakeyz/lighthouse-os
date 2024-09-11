@@ -31,11 +31,6 @@ struct oss_node;
 
 #define MAX_VARS 4096
 
-/* Processes in this profile may load drivers */
-#define PRF_PERM_LOAD_DRV (1ULL << 0)
-/* Processes in this profile may unload drivers */
-#define PRF_PERM_UNLOAD_DRV (1ULL << 1)
-
 /* This profile has a password in the hash */
 #define PROFILE_FLAG_HAS_PASSWD 0x00000001UL
 
@@ -122,6 +117,7 @@ int profiles_lock_activation(uint32_t* key);
 int profiles_unlock_activation(uint32_t key);
 
 int profile_find(const char* name, user_profile_t** bprofile);
+int profile_find_from(struct oss_node* node, const char* name, user_profile_t** bprofile);
 int profile_find_var(const char* path, struct sysvar** var);
 int profile_get_var(user_profile_t* profile, const char* key, struct sysvar** var);
 int profile_add_penv(user_profile_t* profile, struct penv* env);

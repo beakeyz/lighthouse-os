@@ -50,14 +50,19 @@ int init_proc_profile(user_profile_t* profile, char* name, uint32_t level)
     profile->lock = create_mutex(NULL);
     profile->node = create_oss_node(name, OSS_PROFILE_NODE, NULL, NULL);
 
+    /* Lock the profile in preperation for the attach */
+    mutex_lock(profile->lock);
+
     /* FIXME: Error handle */
-    (void)oss_attach_node("Runtime", profile->node);
+    (void)oss_node_add_node(_runtime_node, profile->node);
 
     /* Set the private field */
     profile->node->priv = profile;
 
     profile_set_priv_lvl(profile, level);
 
+    /* Release the lock */
+    mutex_unlock(profile->lock);
     return 0;
 }
 
@@ -215,14 +220,14 @@ int profiles_unlock_activation(uint32_t key)
     return 0;
 }
 
-int profile_find(const char* name, user_profile_t** bprofile)
+int profile_find_from(struct oss_node* rel_node, const char* name, user_profile_t** bprofile)
 {
     int error;
     user_profile_t* profile;
     oss_node_t* node;
     oss_node_entry_t* entry;
 
-    error = oss_node_find(_runtime_node, name, &entry);
+    error = oss_node_find(rel_node, name, &entry);
 
     if (error)
         return error;
@@ -241,6 +246,11 @@ int profile_find(const char* name, user_profile_t** bprofile)
         *bprofile = profile;
 
     return 0;
+}
+
+int profile_find(const char* name, user_profile_t** bprofile)
+{
+    return profile_find_from(_runtime_node, name, bprofile);
 }
 
 /*!

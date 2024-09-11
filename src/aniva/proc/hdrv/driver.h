@@ -14,6 +14,7 @@ struct driver;
 #define KHDRIVER_FUNC_READ 0x00000004
 #define KHDRIVER_FUNC_WRITE 0x00000008
 #define KHDRIVER_FUNC_CTL 0x00000010
+#define KHDRIVER_FUNC_DESTROY 0x00000020
 
 /* Indicates that this driver implements all khandle I/O functions */
 #define KHDRIVER_FUNC_ALL_IO 0x0000ffff
@@ -51,6 +52,7 @@ typedef struct khandle_driver {
     int (*f_read)(struct khandle_driver* driver, khandle_t* hndl, void* buffer, size_t bsize);
     int (*f_write)(struct khandle_driver* driver, khandle_t* hndl, void* buffer, size_t bsize);
     int (*f_ctl)(struct khandle_driver* driver, khandle_t* hndl, enum DEVICE_CTLC ctl, u64 offset, void* buffer, size_t bsize);
+    int (*f_destroy)(struct khandle_driver* driver, khandle_t* handle);
 } khandle_driver_t;
 
 static inline bool khandle_driver_has_init(khandle_driver_t* driver)

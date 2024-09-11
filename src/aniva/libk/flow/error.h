@@ -66,6 +66,8 @@ typedef int kerror_t;
 #define KERR_TIMEOUT 16
 /* Range check failed */
 #define KERR_RANGE 17
+/* Types mismatch */
+#define KERR_TYPE_MISMATCH 18
 
 #define KERR_OK(err) ((err) == KERR_NONE)
 #define KERR_ERR(err) ((kerror_t)(err) < KERR_NONE)

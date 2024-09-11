@@ -207,6 +207,12 @@ kerror_t khandle_driver_generic_oss_open_from(khandle_driver_t* driver, khandle_
     if (error)
         return error;
 
+    /* Check it this object is of the type we want */
+    if (oss_obj_type_to_handle_type(out_obj->type) != type) {
+        oss_obj_close(out_obj);
+        return -KERR_TYPE_MISMATCH;
+    }
+
     switch (type) {
     case HNDL_TYPE_OSS_OBJ:
         handle_ref = out_obj;

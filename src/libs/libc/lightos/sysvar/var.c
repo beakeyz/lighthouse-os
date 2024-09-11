@@ -17,7 +17,7 @@ HANDLE open_sysvar(char* key, uint16_t flags)
     if (!key)
         return HNDL_INVAL;
 
-    return open_handle(key, HNDL_TYPE_SYSVAR, flags, 0);
+    return open_handle(key, HNDL_TYPE_SYSVAR, flags, HNDL_MODE_CURRENT_ENV);
 }
 
 BOOL create_sysvar(HANDLE handle, const char* key, enum SYSVAR_TYPE type, DWORD flags, VOID* value)

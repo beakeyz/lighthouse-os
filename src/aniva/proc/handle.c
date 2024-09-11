@@ -85,6 +85,13 @@ void init_khandle(khandle_t* out_handle, HANDLE_TYPE* type, void* ref)
     __on_handle_change(out_handle, true);
 }
 
+void init_khandle_ex(khandle_t* bHandle, HANDLE_TYPE type, u32 flags, void* ref)
+{
+    init_khandle(bHandle, &type, ref);
+
+    khandle_set_flags(bHandle, flags);
+}
+
 static inline void __destroy_khandle(khandle_t* handle)
 {
     memset(handle, 0, sizeof(khandle_t));
@@ -108,7 +115,7 @@ void destroy_khandle(khandle_t* handle)
  *
  * Nothing to add here...
  */
-void khandle_set_flags(khandle_t* handle, uint16_t flags)
+void khandle_set_flags(khandle_t* handle, uint32_t flags)
 {
     if (!handle)
         return;

@@ -29,9 +29,10 @@ struct virtual_namespace;
  */
 typedef struct kernel_handle {
     HANDLE_TYPE type;
-    uint8_t protection_lvl;
-    uint16_t flags;
     uint32_t index;
+    uint8_t protection_lvl;
+    uint8_t res;
+    uint32_t flags;
     uintptr_t offset;
     union {
         struct file* file;
@@ -59,8 +60,9 @@ typedef struct kernel_handle {
 #define KHDNL_PROT_LVL_LOWEST (0)
 
 void init_khandle(khandle_t* out_handle, HANDLE_TYPE* type, void* ref);
+void init_khandle_ex(khandle_t* bHandle, HANDLE_TYPE type, u32 flags, void* ref);
 void destroy_khandle(khandle_t* handle);
-void khandle_set_flags(khandle_t* handle, uint16_t flags);
+void khandle_set_flags(khandle_t* handle, uint32_t flags);
 
 struct oss_node* khandle_get_relative_node(khandle_t* handle);
 

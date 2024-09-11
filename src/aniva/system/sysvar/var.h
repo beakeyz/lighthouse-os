@@ -61,5 +61,6 @@ bool sysvar_get_word_value(sysvar_t* var, uint16_t* buffer);
 bool sysvar_get_byte_value(sysvar_t* var, uint8_t* buffer);
 
 bool sysvar_write(sysvar_t* var, uint64_t value);
+int sysvar_read(sysvar_t* var, u8* buffer, size_t length);
 
 #endif // !__ANIVA_VARIABLE__

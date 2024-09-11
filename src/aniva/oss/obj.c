@@ -10,6 +10,30 @@
 #include <libk/string.h>
 #include <proc/env.h>
 
+static const enum HANDLE_TYPE ___oss_obj_type_to_handle_type_map[] = {
+    [OSS_OBJ_TYPE_EMPTY] = HNDL_TYPE_NONE,
+    [OSS_OBJ_TYPE_FILE] = HNDL_TYPE_FILE,
+    [OSS_OBJ_TYPE_DIR] = HNDL_TYPE_DIR,
+    [OSS_OBJ_TYPE_DEVICE] = HNDL_TYPE_DEVICE,
+    [OSS_OBJ_TYPE_DRIVER] = HNDL_TYPE_DRIVER,
+    [OSS_OBJ_TYPE_VAR] = HNDL_TYPE_SYSVAR,
+    [OSS_OBJ_TYPE_PROC] = HNDL_TYPE_PROC,
+    [OSS_OBJ_TYPE_PIPE] = HNDL_TYPE_UPI_PIPE,
+};
+
+HANDLE_TYPE oss_obj_type_to_handle_type(enum OSS_OBJ_TYPE type)
+{
+    /*
+     * Check that we haven't missed any types
+     * A user process should be able to hold handles to any oss object, so
+     * every oss object type should have a associated handle type
+     */
+    ASSERT_MSG(sizeof(___oss_obj_type_to_handle_type_map) == (NR_OSS_OBJ_TYPES * sizeof(enum OSS_OBJ_TYPE)), "Size mismatch! Every oss object type should have a handle type!");
+
+    /* Index into the oss-to-handle type map */
+    return ___oss_obj_type_to_handle_type_map[type];
+}
+
 static void init_oss_obj_priv(oss_obj_t* obj, uint32_t priv_lvl)
 {
     uint8_t obj_priv_lvl;
