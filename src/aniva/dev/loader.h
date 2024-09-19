@@ -32,6 +32,7 @@ bool file_contains_driver(file_t* file);
 
 driver_t* install_external_driver(const char* path);
 driver_t* load_external_driver(const char* path);
+driver_t* load_external_driver_ex(file_t* file);
 
 driver_t* load_external_driver_from_var(const char* varpath);
 

@@ -247,6 +247,4 @@ void init_khandle_drivers()
         /* Register this driver */
         khandle_driver_register(NULL, i);
     }
-
-    kernel_panic("TODO: Implement all base khandle driver types");
 }

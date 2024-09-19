@@ -1,6 +1,7 @@
 #include "var.h"
 #include "libk/flow/error.h"
 #include "lightos/sysvar/shared.h"
+#include "logging/log.h"
 #include "mem/heap.h"
 #include "mem/zalloc/zalloc.h"
 #include "oss/obj.h"
@@ -248,10 +249,6 @@ int sysvar_read(sysvar_t* var, u8* buffer, size_t length)
 
     if (!current_proc)
         return -KERR_INVAL;
-
-    /* Check if the current environment actualy has permission to read from this var */
-    if (oss_obj_can_proc_read(var->obj, current_proc))
-        return NULL;
 
     switch (var->type) {
     case SYSVAR_TYPE_STRING:

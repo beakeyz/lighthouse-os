@@ -54,6 +54,30 @@ static int sysvar_khdriver_open(khandle_driver_t* driver, const char* path, u32 
     return 0;
 }
 
+static int sysvar_khdriver_open_rel(khandle_driver_t* driver, khandle_t* rel_hndl, const char* path, u32 flags, enum HNDL_MODE mode, khandle_t* bHandle)
+{
+    int error;
+    sysvar_t* var;
+
+    ASSERT_MSG(mode == HNDL_MODE_NORMAL, "TODO (sysvar_khdriver_open_rel): implement different handlemodes");
+
+    /* Open the variable from the relative source */
+    error = khandle_driver_generic_oss_open_from(driver, rel_hndl, path, flags, mode, bHandle);
+
+    if (error)
+        return error;
+
+    /* Grab the thing */
+    var = bHandle->reference.pvar;
+
+    if (!var)
+        return -KERR_INVAL;
+
+    /* Reference it */
+    get_sysvar(var);
+    return 0;
+}
+
 static int sysvar_khdriver_read(khandle_driver_t* driver, khandle_t* handle, void* buffer, size_t bsize)
 {
     sysvar_t* var;
@@ -80,7 +104,7 @@ khandle_driver_t sysvar_khdriver = {
     .handle_type = HNDL_TYPE_SYSVAR,
     .function_flags = KHDRIVER_FUNC_OPEN | KHDRIVER_FUNC_OPEN_REL | KHDRIVER_FUNC_READ | KHDRIVER_FUNC_WRITE,
     .f_open = sysvar_khdriver_open,
-    .f_open_relative = khandle_driver_generic_oss_open_from,
+    .f_open_relative = sysvar_khdriver_open_rel,
     .f_read = sysvar_khdriver_read,
     .f_write = sysvar_khdriver_write,
 };

@@ -10,6 +10,7 @@
 #include "logging/log.h"
 #include "mem/heap.h"
 #include "mem/kmem_manager.h"
+#include "oss/obj.h"
 #include "system/profile/profile.h"
 #include "system/sysvar/var.h"
 
@@ -485,14 +486,18 @@ static kerror_t __load_ext_driver(struct loader_ctx* ctx, bool install)
  */
 driver_t* load_external_driver(const char* path)
 {
+    file_t* file = file_open(path);
+
+    return load_external_driver_ex(file);
+}
+
+driver_t* load_external_driver_ex(file_t* file)
+{
     kerror_t error;
     uintptr_t driver_load_base;
     size_t read_size;
-    file_t* file;
     driver_t* out;
     struct loader_ctx ctx = { 0 };
-
-    file = file_open(path);
 
     if (!file || !file->m_total_size)
         return nullptr;
@@ -523,7 +528,8 @@ driver_t* load_external_driver(const char* path)
     ctx.hdr = (struct elf64_hdr*)driver_load_base;
     ctx.size = read_size;
     ctx.driver = out;
-    ctx.path = strdup(path);
+    /* NOTE: This strdups the full path */
+    ctx.path = oss_obj_get_fullpath(file->m_obj);
 
     error = __load_ext_driver(&ctx, false);
 

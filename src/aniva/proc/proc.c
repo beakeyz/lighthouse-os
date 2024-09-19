@@ -516,9 +516,10 @@ int proc_schedule(proc_t* proc, struct user_profile* profile, const char* cmd, c
 
     /* Attach needed sysvars to the environment */
     sysvar_attach(env_node, SYSVAR_CMDLINE, 0, SYSVAR_TYPE_STRING, NULL, PROFILE_STR(cmd));
+    /* TODO: Remove SYSVAR_PROCNAME, since every env can only have one process... */
     sysvar_attach(env_node, SYSVAR_PROCNAME, 0, SYSVAR_TYPE_STRING, NULL, PROFILE_STR(proc->m_name));
     sysvar_attach(env_node, SYSVAR_STDIO, 0, SYSVAR_TYPE_STRING, NULL, PROFILE_STR(stdio_path));
-    sysvar_attach(env_node, SYSVAR_STDIO_HANDLE_TYPE, 0, SYSVAR_TYPE_BYTE, NULL, stdio_type);
+    sysvar_attach(env_node, SYSVAR_STDIO_HANDLE_TYPE, 0, SYSVAR_TYPE_DWORD, NULL, stdio_type);
 
     /* Try to add all threads of this process to the scheduler */
     return scheduler_add_proc(proc, prio);
