@@ -51,6 +51,22 @@ static int file_khandle_open_rel(khandle_driver_t* driver, khandle_t* rel, const
     return 0;
 }
 
+static int file_khdrv_close(khandle_driver_t* driver, khandle_t* handle)
+{
+    file_t* f;
+
+    if (!handle)
+        return -KERR_INVAL;
+
+    f = handle->reference.file;
+
+    if (!f)
+        return -KERR_INVAL;
+
+    file_close(f);
+    return 0;
+}
+
 static int file_khandle_read(khandle_driver_t* driver, khandle_t* handle, void* buffer, size_t bsize)
 {
     size_t read_len;
@@ -97,9 +113,10 @@ static int file_khandle_write(khandle_driver_t* driver, khandle_t* handle, void*
 khandle_driver_t file_khandle_drv = {
     .name = "files",
     .handle_type = HNDL_TYPE_FILE,
-    .function_flags = KHDRIVER_FUNC_OPEN | KHDRIVER_FUNC_OPEN_REL | KHDRIVER_FUNC_READ | KHDRIVER_FUNC_WRITE,
+    .function_flags = KHDRIVER_FUNC_OPEN | KHDRIVER_FUNC_OPEN_REL | KHDRIVER_FUNC_CLOSE | KHDRIVER_FUNC_READ | KHDRIVER_FUNC_WRITE,
     .f_open = file_khandle_open,
     .f_open_relative = file_khandle_open_rel,
+    .f_close = file_khdrv_close,
     .f_read = file_khandle_read,
     .f_write = file_khandle_write,
 };

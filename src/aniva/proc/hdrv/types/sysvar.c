@@ -78,6 +78,19 @@ static int sysvar_khdriver_open_rel(khandle_driver_t* driver, khandle_t* rel_hnd
     return 0;
 }
 
+static int sysvar_khdriver_close(khandle_driver_t* driver, khandle_t* handle)
+{
+    sysvar_t* var;
+
+    var = handle->reference.pvar;
+
+    if (!var)
+        return -KERR_INVAL;
+
+    release_sysvar(var);
+    return 0;
+}
+
 static int sysvar_khdriver_read(khandle_driver_t* driver, khandle_t* handle, void* buffer, size_t bsize)
 {
     sysvar_t* var;
@@ -102,9 +115,10 @@ static int sysvar_khdriver_write(khandle_driver_t* driver, khandle_t* handle, vo
 khandle_driver_t sysvar_khdriver = {
     .name = "sysvar",
     .handle_type = HNDL_TYPE_SYSVAR,
-    .function_flags = KHDRIVER_FUNC_OPEN | KHDRIVER_FUNC_OPEN_REL | KHDRIVER_FUNC_READ | KHDRIVER_FUNC_WRITE,
+    .function_flags = KHDRIVER_FUNC_OPEN | KHDRIVER_FUNC_OPEN_REL | KHDRIVER_FUNC_CLOSE | KHDRIVER_FUNC_READ | KHDRIVER_FUNC_WRITE,
     .f_open = sysvar_khdriver_open,
     .f_open_relative = sysvar_khdriver_open_rel,
+    .f_close = sysvar_khdriver_close,
     .f_read = sysvar_khdriver_read,
     .f_write = sysvar_khdriver_write,
 };

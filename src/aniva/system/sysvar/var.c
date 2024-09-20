@@ -1,7 +1,6 @@
 #include "var.h"
 #include "libk/flow/error.h"
 #include "lightos/sysvar/shared.h"
-#include "logging/log.h"
 #include "mem/heap.h"
 #include "mem/zalloc/zalloc.h"
 #include "oss/obj.h"

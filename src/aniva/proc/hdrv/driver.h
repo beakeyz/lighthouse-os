@@ -11,10 +11,11 @@ struct driver;
 
 #define KHDRIVER_FUNC_OPEN 0x00000001
 #define KHDRIVER_FUNC_OPEN_REL 0x00000002
-#define KHDRIVER_FUNC_READ 0x00000004
-#define KHDRIVER_FUNC_WRITE 0x00000008
-#define KHDRIVER_FUNC_CTL 0x00000010
-#define KHDRIVER_FUNC_DESTROY 0x00000020
+#define KHDRIVER_FUNC_CLOSE 0x00000004
+#define KHDRIVER_FUNC_READ 0x00000008
+#define KHDRIVER_FUNC_WRITE 0x00000010
+#define KHDRIVER_FUNC_CTL 0x00000020
+#define KHDRIVER_FUNC_DESTROY 0x00000040
 
 /* Indicates that this driver implements all khandle I/O functions */
 #define KHDRIVER_FUNC_ALL_IO 0x0000ffff
@@ -48,6 +49,8 @@ typedef struct khandle_driver {
 
     int (*f_open)(struct khandle_driver* driver, const char* path, u32 flags, enum HNDL_MODE mode, khandle_t* bHandle);
     int (*f_open_relative)(struct khandle_driver* driver, khandle_t* rel_hndl, const char* path, u32 flags, enum HNDL_MODE mode, khandle_t* bHandle);
+
+    int (*f_close)(struct khandle_driver* driver, khandle_t* handle);
 
     int (*f_read)(struct khandle_driver* driver, khandle_t* hndl, void* buffer, size_t bsize);
     int (*f_write)(struct khandle_driver* driver, khandle_t* hndl, void* buffer, size_t bsize);
@@ -102,6 +105,7 @@ kerror_t khandle_driver_find(HANDLE_TYPE type, khandle_driver_t** pDriver);
 /* Wrappers for the khandle driver default functions */
 kerror_t khandle_driver_open(khandle_driver_t* driver, const char* path, u32 flags, enum HNDL_MODE mode, khandle_t* bHandle);
 kerror_t khandle_driver_open_relative(khandle_driver_t* driver, khandle_t* rel_hndl, const char* path, u32 flags, enum HNDL_MODE mode, khandle_t* bHandle);
+kerror_t khandle_driver_close(khandle_driver_t* driver, khandle_t* handle);
 kerror_t khandle_driver_read(khandle_driver_t* driver, khandle_t* hndl, void* buffer, size_t bsize);
 kerror_t khandle_driver_write(khandle_driver_t* driver, khandle_t* hndl, void* buffer, size_t bsize);
 kerror_t khandle_driver_ctl(khandle_driver_t* driver, khandle_t* hndl, enum DEVICE_CTLC ctl, u64 offset, void* buffer, size_t bsize);

@@ -145,6 +145,17 @@ kerror_t khandle_driver_open_relative(khandle_driver_t* driver, khandle_t* rel_h
     return driver->f_open_relative(driver, rel_hndl, path, flags, mode, bHandle);
 }
 
+kerror_t khandle_driver_close(khandle_driver_t* driver, khandle_t* handle)
+{
+    if (!driver || !driver->f_close)
+        return -KERR_INVAL;
+
+    if ((driver->function_flags & KHDRIVER_FUNC_CLOSE) != KHDRIVER_FUNC_CLOSE)
+        return -KERR_NOT_FOUND;
+
+    return driver->f_close(driver, handle);
+}
+
 kerror_t khandle_driver_read(khandle_driver_t* driver, khandle_t* hndl, void* buffer, size_t bsize)
 {
     if (!driver || !driver->f_read)

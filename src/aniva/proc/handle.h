@@ -103,9 +103,4 @@ kerror_t khandle_map_remove(khandle_map_t* map, HANDLE_TYPE type, void* addr);
 
 khandle_t* find_khandle(khandle_map_t* map, uint32_t index);
 
-/*
- * Mutate the handle that lives in the index specified
- */
-kerror_t mutate_khandle(khandle_map_t* map, khandle_t handle, uint32_t index);
-
 #endif // !__ANIVA_HANDLE__

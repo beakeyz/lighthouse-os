@@ -5,7 +5,6 @@
 #include "lightos/fs/shared.h"
 #include "lightos/handle_def.h"
 #include "lightos/syscall.h"
-#include "logging/log.h"
 #include "mem/kmem_manager.h"
 #include "oss/obj.h"
 #include "proc/handle.h"
@@ -24,7 +23,6 @@ uint64_t sys_write(handle_t handle, uint8_t __user* buffer, size_t length)
     proc_t* current_proc;
     khandle_t* khandle;
     khandle_driver_t* khandle_driver;
-    KLOG_DBG("AAAAA: %d\n", handle);
 
     if (!buffer)
         return SYS_INV;
@@ -67,8 +65,6 @@ uint64_t sys_read(handle_t handle, uint8_t __user* buffer, size_t length)
     if (!buffer)
         return NULL;
 
-    KLOG_DBG("REeading...\n");
-
     current_proc = get_current_proc();
 
     if (!current_proc || kmem_validate_ptr(current_proc, (uintptr_t)buffer, length))
@@ -78,14 +74,12 @@ uint64_t sys_read(handle_t handle, uint8_t __user* buffer, size_t length)
 
     if ((khandle->flags & HNDL_FLAG_READACCESS) != HNDL_FLAG_READACCESS)
         return SYS_NOPERM;
-    KLOG_DBG("ddadafdadf...\n");
 
     /* If we can't find a driver, the system does not support reading this type of handle
      * in it's current state... */
     if (khandle_driver_find(khandle->type, &khandle_driver))
         return SYS_INV;
 
-    KLOG_DBG("ddadafdadf...\n");
     if (khandle_driver_read(khandle_driver, khandle, buffer, length))
         return 0;
 

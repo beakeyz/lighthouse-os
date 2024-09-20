@@ -4,7 +4,6 @@
 #include "lightos/driver/loader.h"
 #include "lightos/handle_def.h"
 #include "lightos/syscall.h"
-#include "logging/log.h"
 #include "mem/kmem_manager.h"
 #include "oss/node.h"
 #include "proc/core.h"
@@ -30,7 +29,6 @@ HANDLE sys_open(const char* __user path, HANDLE_TYPE type, uint32_t flags, uint3
     khandle_t handle = { 0 };
     kerror_t error;
     proc_t* c_proc;
-    KLOG_DBG("AA: %s\n", path);
 
     c_proc = get_current_proc();
 
@@ -64,7 +62,6 @@ HANDLE sys_open(const char* __user path, HANDLE_TYPE type, uint32_t flags, uint3
     if (error)
         ret = HNDL_NOT_FOUND;
 
-    KLOG_DBG("CCCCCCC %d %s\n", ret, path);
     return ret;
 }
 
@@ -77,13 +74,8 @@ HANDLE sys_open_rel(HANDLE rel_handle, const char* __user path, HANDLE_TYPE type
     khandle_driver_t* khdriver;
 
     /* If there is no driver for this type, we can't really do much lmao */
-    // if (khandle_driver_find(type, &khdriver))
-    // return HNDL_INVAL;
-    KLOG_DBG("AAAAA: %s\n", path);
-
-    // TEMP: Assert that we can find a khandle driver here until we have implemented all base
-    // khandle drivers
-    ASSERT_MSG(khandle_driver_find(type, &khdriver) == 0 && khdriver, "sys_open: Failed to find khandle driver");
+    if (khandle_driver_find(type, &khdriver))
+        return HNDL_INVAL;
 
     /* grab this proc */
     c_proc = get_current_proc();
@@ -107,7 +99,6 @@ HANDLE sys_open_rel(HANDLE rel_handle, const char* __user path, HANDLE_TYPE type
     if (bind_khandle(&c_proc->m_handle_map, &new_handle, (u32*)&ret))
         return HNDL_INVAL;
 
-    KLOG_DBG("RELLLLLLLL %d %s\n", ret, path);
     return ret;
 }
 

@@ -4,69 +4,13 @@
 #include "libk/flow/error.h"
 #include "lightos/handle_def.h"
 #include "oss/obj.h"
+#include "proc/hdrv/driver.h"
 #include "sync/mutex.h"
+#include "system/sysvar/var.h"
 #include <dev/driver.h>
 #include <mem/kmem_manager.h>
 #include <proc/env.h>
 #include <proc/proc.h>
-
-/*!
- * @brief: Called when a handle changes to a new type
- *
- * This handles any state changes on the handles like binding and unbinding. We should
- * do things like release references and stuff here
- */
-static void __on_handle_change(khandle_t* handle, bool bind)
-{
-    oss_obj_t* obj = nullptr;
-    /*
-     * FIXME: drivers, processes, ect. can have more than one handle,
-     * so flags are useless in this case lmao
-     */
-    switch (handle->type) {
-    case HNDL_TYPE_DRIVER:
-    case HNDL_TYPE_PROC:
-    case HNDL_TYPE_FS_ROOT:
-    case HNDL_TYPE_KOBJ:
-        break;
-    case HNDL_TYPE_DIR:
-        if (bind)
-            break;
-
-        dir_close(handle->reference.dir);
-        break;
-    case HNDL_TYPE_FILE:
-        if (bind)
-            break;
-
-        file_close(handle->reference.file);
-        break;
-    case HNDL_TYPE_OSS_OBJ:
-        obj = handle->reference.oss_obj;
-
-        if (bind)
-            break;
-
-        /* Close the object */
-        ASSERT_MSG(oss_obj_close(obj) == 0, "Failed to close vobject!");
-        break;
-    case HNDL_TYPE_SYSVAR: {
-        sysvar_t* pvar = handle->reference.pvar;
-
-        /*
-         * Make sure to release the reference of the variable
-         * since we took it when we opened it
-         */
-        if (!bind)
-            release_sysvar(pvar);
-
-        break;
-    }
-    case HNDL_TYPE_NONE:
-    default:
-        break;
-    }
-}
 
 void init_khandle(khandle_t* out_handle, HANDLE_TYPE* type, void* ref)
 {
@@ -78,11 +22,6 @@ void init_khandle(khandle_t* out_handle, HANDLE_TYPE* type, void* ref)
     out_handle->index = KHNDL_INVALID_INDEX;
     out_handle->type = *type;
     out_handle->reference.kobj = ref;
-
-    /*
-     * Update for the 'type change'
-     */
-    __on_handle_change(out_handle, true);
 }
 
 void init_khandle_ex(khandle_t* bHandle, HANDLE_TYPE type, u32 flags, void* ref)
@@ -100,12 +39,18 @@ static inline void __destroy_khandle(khandle_t* handle)
 
 void destroy_khandle(khandle_t* handle)
 {
+    khandle_driver_t* hdrv;
+
     if (!handle)
         return;
 
-    /* Make sure to handle the state change on this handle inside the object */
-    __on_handle_change(handle, false);
+    if (khandle_driver_find(handle->type, &hdrv))
+        goto destroy_and_exit;
 
+    /* Make sure to handle the state change on this handle inside the object */
+    khandle_driver_close(hdrv, handle);
+
+destroy_and_exit:
     /* Actually clear the handle internally */
     __destroy_khandle(handle);
 }
@@ -444,23 +389,4 @@ kerror_t khandle_map_remove(khandle_map_t* map, HANDLE_TYPE type, void* addr)
     mutex_unlock(map->lock);
 
     return 0;
-}
-
-kerror_t mutate_khandle(khandle_map_t* map, khandle_t handle, uint32_t index)
-{
-    if (!map)
-        return -1;
-
-    /* Make sure we don't yeet away the index */
-    handle.index = index;
-
-    if (index >= map->max_count)
-        return -1;
-
-    /* unbind */
-    __on_handle_change(&map->handles[index], false);
-
-    map->handles[index] = handle;
-
-    return (0);
 }

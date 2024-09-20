@@ -53,6 +53,22 @@ static int dir_khandle_open_rel(khandle_driver_t* driver, khandle_t* rel, const 
     return 0;
 }
 
+static int dir_khdrv_close(khandle_driver_t* driver, khandle_t* handle)
+{
+    dir_t* d;
+
+    if (!handle)
+        return -KERR_INVAL;
+
+    d = handle->reference.dir;
+
+    if (!d)
+        return -KERR_INVAL;
+
+    dir_close(d);
+    return 0;
+}
+
 static int dir_khandle_read(khandle_driver_t* driver, khandle_t* handle, void* buffer, size_t bsize)
 {
     u32 idx;
@@ -114,9 +130,10 @@ close_and_fail:
 static khandle_driver_t dir_khandle_driver = {
     .name = "dir",
     .handle_type = HNDL_TYPE_DIR,
-    .function_flags = KHDRIVER_FUNC_OPEN | KHDRIVER_FUNC_OPEN_REL | KHDRIVER_FUNC_READ,
+    .function_flags = KHDRIVER_FUNC_OPEN | KHDRIVER_FUNC_OPEN_REL | KHDRIVER_FUNC_CLOSE | KHDRIVER_FUNC_READ,
     .f_open = dir_khandle_open,
     .f_open_relative = dir_khandle_open_rel,
+    .f_close = dir_khdrv_close,
     .f_read = dir_khandle_read,
 };
 EXPORT_KHANDLE_DRIVER(dir_khandle_driver);
