@@ -285,7 +285,7 @@ void processor_exit_interruption(registers_t* registers)
     /* call events or deferred calls here too? */
 
     if (current->m_irq_depth == 0)
-        scheduler_try_execute(current);
+        scheduler_try_execute(current, false);
 }
 
 static ALWAYS_INLINE void init_smep(processor_info_t* info)

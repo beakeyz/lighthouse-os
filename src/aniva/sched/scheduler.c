@@ -408,11 +408,11 @@ static inline void scheduler_end_epoch(scheduler_t* scheduler, sthread_t** pSThr
  * TODO: This function seems to be quite heavy and gets called quite often. We need to check
  * if we can simplify this to make it faster.
  */
-int scheduler_try_execute(struct processor* p)
+int scheduler_try_execute(struct processor* p, bool force_rq)
 {
     scheduler_t* s;
     thread_t* c_thread;
-    sthread_t* target_thread;
+    sthread_t* target_thread = NULL;
 
     s = get_current_scheduler();
 
@@ -436,14 +436,11 @@ int scheduler_try_execute(struct processor* p)
     // KLOG_DBG("%s: tslice: %d, elapsed: %d\n", c_thread->m_name, c_thread->sthread->tslice, c_thread->sthread->elapsed_tslice);
 
     /* We need to requeue the current sthread lolol */
-    if (!sthread_needs_requeue(c_thread->sthread))
+    if (sthread_needs_requeue(c_thread->sthread))
+        /* Do the requeue */
+        scheduler_do_requeue(s, c_thread->sthread_slot);
+    else if (!force_rq)
         return KERR_HANDLED;
-
-    /* Do the requeue */
-    scheduler_do_requeue(s, c_thread->sthread_slot);
-
-    /* Clear target thread */
-    target_thread = NULL;
 
     /*
      * If there are no threads left in the active queue, we need to end this epoch,
@@ -504,7 +501,7 @@ void scheduler_yield()
     // in this case we don't have to wait for us to exit a
     // critical CPU section, since we are not being interrupted at all
     if (current->m_irq_depth == 0)
-        scheduler_try_execute(current);
+        scheduler_try_execute(current, true);
 
     CHECK_AND_TRY_ENABLE_INTERRUPTS();
 }

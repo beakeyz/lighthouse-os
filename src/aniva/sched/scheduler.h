@@ -192,8 +192,6 @@ typedef struct sthread_list_head {
 typedef struct squeue {
     /* An array of sthread lists */
     sthread_list_head_t vec_threads[N_SCHED_PRIO];
-    /* Pointer to the current sthread inside vec_threads[thread_base_prio] */
-    // struct sthread** c_ptr_sthread;
 
     /* The current active priority that's being scheduled */
     u32 active_prio;
@@ -226,17 +224,12 @@ static inline void squeue_next_prio(squeue_t* q)
         if (squeue_get_active_threadlist(q))
             break;
     }
-
-    /* Set the current sthread */
-    // q->c_ptr_sthread = &q->vec_threads[q->active_prio].list;
 }
 
 static inline sthread_t* squeue_next_priority_thread(squeue_t* q)
 {
-    /* Switch the priority level */
     squeue_next_prio(q);
 
-    /* Get the first thread from this fucker */
     return squeue_get_active_threadlist(q);
 }
 
@@ -362,7 +355,7 @@ ANIVA_STATUS pause_scheduler();
  * yield to the scheduler and let it switch to a new thread
  */
 void scheduler_yield();
-int scheduler_try_execute(struct processor* processor);
+int scheduler_try_execute(struct processor* p, bool force_rq);
 
 kerror_t scheduler_add_thread(thread_t* thread, enum SCHEDULER_PRIORITY prio);
 kerror_t scheduler_add_thread_ex(scheduler_t* s, thread_t* thread, enum SCHEDULER_PRIORITY prio);
