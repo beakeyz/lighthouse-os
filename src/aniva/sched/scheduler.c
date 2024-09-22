@@ -19,11 +19,8 @@
 
 // --- inline functions ---
 static inline void scheduler_do_tick(scheduler_t* sched, u64 tick_delta, bool force);
-static ALWAYS_INLINE void set_previous_thread(thread_t* thread);
-static ALWAYS_INLINE void set_current_proc(proc_t* proc);
-
-/* Default scheduler tick function */
-static void sched_tick(scheduler_t* s, registers_t* registers_ptr, u64 timeticks);
+static void set_previous_thread(thread_t* thread);
+static void set_current_proc(proc_t* proc);
 
 /*!
  * @brief: Helper to easily track interrupt disables and disable
@@ -55,6 +52,13 @@ static inline void scheduler_try_enable_interrupts(scheduler_t* s)
         enable_interrupts();
 }
 
+#define SET_GS_REGISTER_VAR(offset, ptr)              \
+    processor_t* p = get_current_processor();         \
+    ASSERT(p);                                        \
+    scheduler_try_disable_interrupts(p->m_scheduler); \
+    p->offset = ptr;                                  \
+    scheduler_try_enable_interrupts(p->m_scheduler)
+
 /*!
  * @brief: Sets the current thread for the current processor
  * doing this means we have two pointers that point to the
@@ -63,58 +67,20 @@ static inline void scheduler_try_enable_interrupts(scheduler_t* s)
  */
 void set_current_handled_thread(thread_t* thread)
 {
-    scheduler_t* s;
-
-    s = get_current_scheduler();
-
-    if (!s)
-        return;
-
-    scheduler_try_disable_interrupts(s);
-
-    processor_t* current_processor = get_current_processor();
-    current_processor->m_current_thread = thread;
-
-    scheduler_try_enable_interrupts(s);
+    SET_GS_REGISTER_VAR(m_current_thread, thread);
 }
 
 /*!
  * @brief: Sets the current proc for the current processor
  */
-static ALWAYS_INLINE void set_current_proc(proc_t* proc)
+static void set_current_proc(proc_t* proc)
 {
-    scheduler_t* s;
-
-    s = get_current_scheduler();
-
-    if (!s)
-        return;
-
-    scheduler_try_disable_interrupts(s);
-
-    processor_t* current_processor = get_current_processor();
-    current_processor->m_current_proc = proc;
-
-    scheduler_try_enable_interrupts(s);
+    SET_GS_REGISTER_VAR(m_current_proc, proc);
 }
 
-ALWAYS_INLINE void set_previous_thread(thread_t* thread)
+static void set_previous_thread(thread_t* thread)
 {
-    scheduler_t* s;
-    processor_t* current_processor;
-
-    s = get_current_scheduler();
-
-    if (!s)
-        return;
-
-    current_processor = get_current_processor();
-
-    scheduler_try_disable_interrupts(s);
-
-    current_processor->m_previous_thread = thread;
-
-    scheduler_try_enable_interrupts(s);
+    SET_GS_REGISTER_VAR(m_previous_thread, thread);
 }
 
 thread_t* get_current_scheduling_thread()
@@ -185,7 +151,6 @@ ANIVA_STATUS init_scheduler(uint32_t cpu)
     this->lock = create_spinlock(0);
     this->sthread_allocator = create_zone_allocator(64 * Kib, sizeof(sthread_t), NULL);
     this->idle = create_sthread(this, __kernel_idle_thread, SCHED_PRIO_LOWEST);
-    this->f_tick = sched_tick;
 
     this->idle->tslice = 0;
 
@@ -196,9 +161,7 @@ ANIVA_STATUS init_scheduler(uint32_t cpu)
     init_squeue(&this->queues[0]);
     init_squeue(&this->queues[1]);
 
-    /* Initialize the queue pointers */
-    this->active_q = &this->queues[0];
-    this->expired_q = &this->queues[1];
+    this->active_q_idx = 0;
 
     set_current_handled_thread(nullptr);
     set_current_proc(nullptr);
@@ -341,8 +304,8 @@ static inline void scheduler_move_thread_to_inactive(scheduler_t* scheduler, sth
     sthread_calc_stimeslice(p_thread);
 
     /* Remove it from the active queue and add it to the inactive queue */
-    squeue_remove(scheduler->active_q, active_thread);
-    squeue_enqueue(scheduler->expired_q, p_thread);
+    squeue_remove(&scheduler->queues[scheduler->active_q_idx], active_thread);
+    squeue_enqueue(&scheduler->queues[!scheduler->active_q_idx], p_thread);
 }
 
 /*!
@@ -351,26 +314,36 @@ static inline void scheduler_move_thread_to_inactive(scheduler_t* scheduler, sth
  * If the scheduler thread still has timeslice left, it simply advances the queue. Otherwise
  *
  * @active_thread: The active thread we want to requeue
+ *
+ * @returns: Zero if we need a reschedule, positive error code otherwise
  */
-static inline void scheduler_do_requeue(scheduler_t* scheduler, sthread_t** active_thread)
+static inline int scheduler_do_requeue(scheduler_t* scheduler, sthread_t** active_thread)
 {
     sthread_t* sthread;
 
     /* Just to be sure */
     if (!active_thread || !(*active_thread))
-        return;
+        return 0;
 
     sthread = *active_thread;
     // KLOG_DBG("Doing requeue for %s:%s\n", (*active_thread)->t->m_parent_proc->m_name, (*active_thread)->t->m_name);
 
     /* Does this thread still have time in this epoch? */
-    if (sthread->c_queue && sthread->tslice <= 0)
+    if (sthread->c_queue && sthread->tslice <= 0) {
         /* Thread has used up it's timeslice, recalculate it and move the thread to expired */
         scheduler_move_thread_to_inactive(scheduler, active_thread);
-    else {
-        sthread->tslice -= sthread->elapsed_tslice;
-        sthread->elapsed_tslice = 0;
+
+        return 0;
     }
+
+    /* We're still within the timeslice granularity? No need to reschedule */
+    if (sthread->elapsed_tslice <= STIMESLICE_GRANULARITY)
+        return 0;
+
+    sthread->tslice -= sthread->elapsed_tslice;
+    sthread->elapsed_tslice = 0;
+
+    return KERR_HANDLED;
 }
 
 /*!
@@ -382,23 +355,23 @@ static inline void scheduler_do_requeue(scheduler_t* scheduler, sthread_t** acti
  */
 static inline void scheduler_end_epoch(scheduler_t* scheduler, sthread_t** pSThread)
 {
+    squeue_t* q;
+
+    q = &scheduler->queues[!scheduler->active_q_idx];
+
     // KLOG_DBG("Scheduler: Ending epoch!\n");
-    if (!scheduler->expired_q->n_sthread)
+    if (!q->n_sthread)
         return;
 
     /* Switch the two queue pointers around, if the inactive_q does have threads */
     scheduler_switch_queues(scheduler);
 
     /* Make sure the active thread is reset propperly */
-    scheduler->active_q->active_prio = SCHED_PRIO_7;
-
-    /* Try to find the correct active prio in the active scheduler queue */
-    while (scheduler->active_q->active_prio && !squeue_get_active_threadlist(scheduler->active_q))
-        scheduler->active_q->active_prio--;
+    q->active_prio = SCHED_PRIO_7;
 
     /* Export the current active thread */
     if (pSThread)
-        *pSThread = squeue_get_active_threadlist(scheduler->active_q);
+        *pSThread = squeue_next_prio(q);
 }
 
 /*!
@@ -435,21 +408,22 @@ int scheduler_try_execute(struct processor* p, bool force_rq)
 
     // KLOG_DBG("%s: tslice: %d, elapsed: %d\n", c_thread->m_name, c_thread->sthread->tslice, c_thread->sthread->elapsed_tslice);
 
-    /* We need to requeue the current sthread lolol */
-    if (sthread_needs_requeue(c_thread->sthread))
-        /* Do the requeue */
-        scheduler_do_requeue(s, c_thread->sthread_slot);
-    else if (!force_rq)
-        return KERR_HANDLED;
+    /* Do the requeue */
+    if (scheduler_do_requeue(s, c_thread->sthread_slot))
+        return 0;
 
     /*
      * If there are no threads left in the active queue, we need to end this epoch,
      * which switches the expired and active queues and resets the active priority
      */
-    if (!s->active_q->n_sthread)
+    if (!s->queues[s->active_q_idx].n_sthread) {
         scheduler_end_epoch(s, &target_thread);
 
-    if (!target_thread || !target_thread->c_queue)
+        if (!target_thread) {
+            kernel_panic("yikes");
+        }
+        // ASSERT_MSG(target_thread, "Could not find a thread to run at the end of an epoch");
+    } else
         /* Grab the current target thread */
         target_thread = scheduler_get_new_thread(s, c_thread->sthread);
 
@@ -462,13 +436,13 @@ int scheduler_try_execute(struct processor* p, bool force_rq)
         KLOG_INFO("Scheduler: Switching to idle thread!\n");
     }
 
-    /* No thread change, don't do a context switch */
-    if (c_thread == target_thread->t)
-        return -1;
-
     ASSERT_MSG(target_thread->c_queue, "Tried to enqueue a thread with no queue");
 
     // KLOG_DBG("Scheduler: Switching contexts! (%s:%s -> %s:%s)\n", c_thread->m_parent_proc->m_name, c_thread->m_name, target_thread->t->m_parent_proc->m_name, target_thread->t->m_name);
+
+    /* Make sure we don't switch to the current thread */
+    if (target_thread->t == c_thread)
+        return 0;
 
     /* Set the previous and current threads */
     set_previous_thread(c_thread);
@@ -539,13 +513,13 @@ static inline void scheduler_do_tick(scheduler_t* sched, u64 tick_delta, bool fo
 /*!
  * @brief: The beating heart of the scheduler
  */
-static void sched_tick(scheduler_t* s, registers_t* registers_ptr, u64 timeticks)
+void scheduler_tick(scheduler_t* s, u64 elapsed_ticks)
 {
     /* Do a scheduler tick */
-    scheduler_do_tick(s, (timeticks - s->last_nr_ticks) * STIMESLICE_STEPPING, false);
+    scheduler_do_tick(s, (elapsed_ticks - s->last_nr_ticks) * STIMESLICE_STEPPING, false);
 
     /* Update the previous tick count */
-    s->last_nr_ticks = timeticks;
+    s->last_nr_ticks = elapsed_ticks;
 }
 
 /*!
@@ -584,7 +558,7 @@ kerror_t scheduler_add_thread_ex(scheduler_t* s, thread_t* thread, enum SCHEDULE
      * Enqueue the bitch in the expired list. This way we don't mess up
      * the current epoch
      */
-    squeue_enqueue(s->active_q, thread->sthread);
+    squeue_enqueue(scheduler_get_active_q(s), thread->sthread);
 
     /* Recalculate the timeslice, just in case */
     sthread_calc_stimeslice(thread->sthread);

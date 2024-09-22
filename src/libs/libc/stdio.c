@@ -206,7 +206,7 @@ int __read_bytes(FILE* stream, uint8_t* buffer, size_t size)
 static int parse_modes(const char* modes, uint32_t* flags, uint32_t* mode)
 {
     uint32_t _flags = NULL;
-    uint32_t _mode = NULL;
+    enum HNDL_MODE _mode = HNDL_MODE_NORMAL;
 
     for (uint32_t i = 0; i < strlen(modes); i++) {
         char c = modes[i];

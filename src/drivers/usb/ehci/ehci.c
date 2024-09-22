@@ -278,7 +278,6 @@ static inline void _ehci_check_xfer_status(ehci_xfer_t* xfer)
 
 static inline int ehci_get_finished_transfer(ehci_hcd_t* ehci, ehci_xfer_t** p_xfer)
 {
-    uint64_t idx = 0;
     ehci_xfer_t* c_e_xfer = nullptr;
 
     FOREACH(i, ehci->transfer_list)
@@ -293,7 +292,6 @@ static inline int ehci_get_finished_transfer(ehci_hcd_t* ehci, ehci_xfer_t** p_x
             break;
 
         c_e_xfer = nullptr;
-        idx++;
     }
 
     /* Nothing to do */
@@ -301,7 +299,7 @@ static inline int ehci_get_finished_transfer(ehci_hcd_t* ehci, ehci_xfer_t** p_x
         return -1;
 
     /* Remove from the local transfer list */
-    ASSERT(list_remove(ehci->transfer_list, idx));
+    ehci_deq_xfer(ehci, c_e_xfer);
 
     /* Export */
     *p_xfer = c_e_xfer;
@@ -326,7 +324,7 @@ static int ehci_transfer_finish_thread(ehci_hcd_t* ehci)
 
         /* Find a finished transfer */
         while (ehci_get_finished_transfer(ehci, &c_e_xfer))
-            continue;
+            scheduler_yield();
 
         // KLOG_DBG("EHCI: Finished a transfer\n");
         c_usb_xfer = c_e_xfer->xfer;
@@ -701,7 +699,7 @@ static int ehci_setup(usb_hcd_t* hcd)
     ehci->transfer_finish_thread = spawn_thread("EHCI Transfer Finisher", SCHED_PRIO_HIGHEST, (FuncPtr)ehci_transfer_finish_thread, (uintptr_t)ehci);
     ehci->qhead_cleanup_thread = spawn_thread("EHCI Qhead cleanup", SCHED_PRIO_HIGHEST, (FuncPtr)ehci_qhead_cleanup_thread, (uintptr_t)ehci);
     /* TODO: Setup actual interrupts */
-    ehci->interrupt_polling_thread = spawn_thread("EHCI Polling", SCHED_PRIO_HIGHEST, (FuncPtr)ehci_interrupt_poll, (uint64_t)ehci);
+    ehci->interrupt_polling_thread = spawn_thread("EHCI Polling", SCHED_PRIO_HIGH, (FuncPtr)ehci_interrupt_poll, (uint64_t)ehci);
 
     ASSERT_MSG(ehci->interrupt_polling_thread, "Failed to spawn the EHCI Polling thread!");
 

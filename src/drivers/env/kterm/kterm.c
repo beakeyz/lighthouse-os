@@ -1240,7 +1240,7 @@ int kterm_init(driver_t* driver)
     mode = KTERM_MODE_TERMINAL;
 
     /* Spawn the key thread before we prompt for login */
-    __kterm_key_watcher_thread = spawn_thread("kterm_key_watcher", SCHED_PRIO_3, kterm_key_watcher, NULL);
+    __kterm_key_watcher_thread = spawn_thread("kterm_key_watcher", SCHED_PRIO_HIGHEST, kterm_key_watcher, NULL);
 
     // memset((void*)KTERM_FB_ADDR, 0, kterm_fb_info.used_pages * SMALL_PAGE_SIZE);
     kterm_print(" -*- Welcome to the aniva kterm driver -*-\n");
@@ -1263,7 +1263,7 @@ int kterm_init(driver_t* driver)
     kterm_handle_login();
 
     /* TODO: we should probably have some kind of kernel-managed structure for async work */
-    __kterm_worker_thread = spawn_thread("kterm_cmd_worker", SCHED_PRIO_4, kterm_command_worker, NULL);
+    __kterm_worker_thread = spawn_thread("kterm_cmd_worker", SCHED_PRIO_0, kterm_command_worker, NULL);
 
     /* Make sure we create this fucker */
     ASSERT_MSG(__kterm_worker_thread, "Failed to create kterm command worker!");

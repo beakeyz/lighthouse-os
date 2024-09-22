@@ -1,20 +1,26 @@
 #ifndef __ANIVA_TREE__
 #define __ANIVA_TREE__
 
-#include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"
 
 struct binary_tree;
 struct binary_tree_node;
 
-typedef bool (*f_bin_tree_comperator_t)(void* left, void* right);
+/*
+ * Function description for a binary tree comperator
+ *
+ * This gives the user of this datastructure some control over how the tree gets constructed
+ */
+typedef bool (*f_bin_tree_comperator_t)(struct binary_tree_node* current, void* data, struct binary_tree_node*** pTarget);
 
 typedef struct binary_tree {
-    size_t m_depth;
-    size_t m_node_count;
+    u32 m_depth;
+    u32 m_node_count;
 
-    f_bin_tree_comperator_t m_comperator;
+    /* Node comperator */
+    f_bin_tree_comperator_t f_comperator;
 
+    /* Root node */
     struct binary_tree_node* m_root;
 } binary_tree_t;
 
@@ -30,6 +36,6 @@ void destroy_binary_tree(binary_tree_t* tree);
 kerror_t binary_tree_insert(binary_tree_t* tree, void* data);
 kerror_t binary_tree_remove(binary_tree_t* tree, void* data);
 
-kerror_t binary_tree_find(binary_tree_t* tree, void* data);
+kerror_t binary_tree_find(binary_tree_t* tree, void* target, void** pData);
 
 #endif // !__ANIVA_TREE__

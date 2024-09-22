@@ -2,6 +2,7 @@
 #include "fs/file.h"
 #include "libk/flow/error.h"
 #include "lightos/handle_def.h"
+#include "logging/log.h"
 #include "oss/node.h"
 #include "proc/handle.h"
 #include "proc/hdrv/driver.h"
@@ -19,7 +20,7 @@ static int file_khandle_open(khandle_driver_t* driver, const char* path, u32 fla
     if (!file)
         return -KERR_NOT_FOUND;
 
-    init_khandle(bHandle, &type, file);
+    init_khandle_ex(bHandle, type, flags, file);
 
     return 0;
 }
@@ -44,9 +45,7 @@ static int file_khandle_open_rel(khandle_driver_t* driver, khandle_t* rel, const
     if (!file)
         return -KERR_NOT_FOUND;
 
-    init_khandle(bHandle, &type, file);
-
-    khandle_set_flags(bHandle, flags);
+    init_khandle_ex(bHandle, type, flags, file);
 
     return 0;
 }

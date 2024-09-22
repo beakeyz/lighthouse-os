@@ -20,4 +20,43 @@ kerror_t init_squeue(scheduler_queue_t* out)
     return 0;
 }
 
-kerror_t squeue_clear(scheduler_queue_t* queue);
+void squeue_enqueue(scheduler_queue_t* queue, struct sthread* t)
+{
+    /* Set the threads next pointer */
+    t->next = nullptr;
+    t->c_queue = queue;
+    /* Update the threads scheduler thread link */
+    t->t->sthread_slot = queue->vec_threads[t->base_prio].enq;
+
+    /* Put the thread inside the correct list */
+    *queue->vec_threads[t->base_prio].enq = t;
+    queue->vec_threads[t->base_prio].enq = &t->next;
+
+    /* Increase the threads count */
+    queue->n_sthread++;
+}
+
+void squeue_remove(scheduler_queue_t* queue, struct sthread** t)
+{
+    sthread_t* drf_thread = *t;
+
+    /* If *t->next is null, we know that the queue enqueue pointer points to it */
+    if (!(*t)->next)
+        queue->vec_threads[(*t)->base_prio].enq = t;
+
+    /* If *t->next is null, we know that the queue enqueue pointer points to it */
+    if (drf_thread->next)
+        /* Make sure the link of the next thread doesn't break */
+        drf_thread->next->t->sthread_slot = t;
+
+    /* Close the link */
+    *t = drf_thread->next;
+
+    /* Update the threads queue status */
+    drf_thread->next = nullptr;
+    drf_thread->c_queue = nullptr;
+    drf_thread->t->sthread_slot = &drf_thread->t->sthread;
+
+    /* Decrease the threads count */
+    queue->n_sthread--;
+}

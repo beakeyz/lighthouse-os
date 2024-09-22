@@ -15,6 +15,7 @@ sthread_t* create_sthread(struct scheduler* s, thread_t* t, enum SCHEDULER_PRIOR
 
     ret->t = t;
     ret->base_prio = p;
+
     /* Calculate the initial scheduler priority */
     ret->actual_prio = SCHEDULER_CALC_PRIO(ret);
     /* Calculate the initial timeslice */
