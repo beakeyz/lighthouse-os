@@ -38,7 +38,6 @@ interrupt_asm_entry_%1:
 
   mov rdi, rsp
   call irq_handler
-  mov rsp, rax
 
   jmp asm_common_irq_exit
 %endmacro
@@ -74,7 +73,6 @@ interrupt_excp_asm_entry_%1:
 
   mov rdi, rsp
   call exception_handler
-  mov rsp, rax
 
   jmp asm_common_irq_exit
 %endmacro
@@ -111,7 +109,6 @@ interrupt_excp_asm_entry_%1:
 
   mov rdi, rsp
   call exception_handler
-  mov rsp, rax
 
   jmp asm_common_irq_exit
 %endmacro
