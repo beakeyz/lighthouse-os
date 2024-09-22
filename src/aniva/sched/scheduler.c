@@ -408,6 +408,9 @@ int scheduler_try_execute(struct processor* p, bool force_rq)
 
     // KLOG_DBG("%s: tslice: %d, elapsed: %d\n", c_thread->m_name, c_thread->sthread->tslice, c_thread->sthread->elapsed_tslice);
 
+    if (!c_thread->sthread_slot)
+        KLOG_DBG("Scheduler: Switching contexts! (%s:%s (%d) -> \n", c_thread->m_parent_proc->m_name, c_thread->m_name, c_thread->m_current_state);
+
     /* Do the requeue */
     if (scheduler_do_requeue(s, c_thread->sthread_slot))
         return 0;
@@ -437,8 +440,6 @@ int scheduler_try_execute(struct processor* p, bool force_rq)
     }
 
     ASSERT_MSG(target_thread->c_queue, "Tried to enqueue a thread with no queue");
-
-    // KLOG_DBG("Scheduler: Switching contexts! (%s:%s -> %s:%s)\n", c_thread->m_parent_proc->m_name, c_thread->m_name, target_thread->t->m_parent_proc->m_name, target_thread->t->m_name);
 
     /* Make sure we don't switch to the current thread */
     if (target_thread->t == c_thread)

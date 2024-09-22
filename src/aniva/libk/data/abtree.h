@@ -5,7 +5,6 @@
 #include "libk/stddef.h"
 
 struct abt_node;
-struct abt_cluster;
 
 /*
  * Root object for a single AB-tree
@@ -22,7 +21,14 @@ typedef struct {
      * if it is not a leaf, between 2 and b children
      */
     u32 a, b;
-    struct abt_cluster* root;
+    struct abt_node* root;
 } ab_tree_t;
+
+ab_tree_t* create_ab_tree(u32 a, u32 b);
+void destroy_ab_tree(ab_tree_t* tree);
+
+int abt_find(ab_tree_t* tree, u64 key, void** pData);
+int abt_insert(ab_tree_t* tree, u64 key, void* data);
+int abt_delete(ab_tree_t* tree, u64 key);
 
 #endif // !__ANIVA_LIBK_AB_TREE_H__

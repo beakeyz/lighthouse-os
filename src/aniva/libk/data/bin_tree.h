@@ -6,19 +6,10 @@
 struct binary_tree;
 struct binary_tree_node;
 
-/*
- * Function description for a binary tree comperator
- *
- * This gives the user of this datastructure some control over how the tree gets constructed
- */
-typedef bool (*f_bin_tree_comperator_t)(struct binary_tree_node* current, void* data, struct binary_tree_node*** pTarget);
-
 typedef struct binary_tree {
-    u32 m_depth;
-    u32 m_node_count;
-
-    /* Node comperator */
-    f_bin_tree_comperator_t f_comperator;
+    u64 m_node_count;
+    u32 m_left_bias;
+    u32 m_right_bias;
 
     /* Root node */
     struct binary_tree_node* m_root;
@@ -26,16 +17,17 @@ typedef struct binary_tree {
 
 typedef struct binary_tree_node {
     void* m_data;
+    u64 id;
     struct binary_tree_node* m_left;
     struct binary_tree_node* m_right;
 } binary_tree_node_t;
 
-binary_tree_t* create_binary_tree(f_bin_tree_comperator_t comperator);
+binary_tree_t* create_binary_tree();
 void destroy_binary_tree(binary_tree_t* tree);
 
-kerror_t binary_tree_insert(binary_tree_t* tree, void* data);
-kerror_t binary_tree_remove(binary_tree_t* tree, void* data);
+kerror_t binary_tree_insert(binary_tree_t* tree, u64 id, void* data);
+kerror_t binary_tree_remove(binary_tree_t* tree, u64 id);
 
-kerror_t binary_tree_find(binary_tree_t* tree, void* target, void** pData);
+kerror_t binary_tree_find(binary_tree_t* tree, u64 id, void** pData);
 
 #endif // !__ANIVA_TREE__

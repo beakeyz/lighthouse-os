@@ -208,6 +208,17 @@ static inline sthread_t* squeue_next_prio(squeue_t* q)
     }
 
     KLOG_DBG("q_thing=%d\n", q->n_sthread);
+
+    for (u32 i = 0; i < (N_SCHED_PRIO + 1); i++) {
+        if (q->active_prio)
+            q->active_prio--;
+        else
+            q->active_prio = SCHED_PRIO_MAX;
+
+        ret = squeue_get_active_threadlist(q);
+
+        KLOG_DBG("PRIO %d has tl=0x%p\n", q->active_prio, ret);
+    }
     kernel_panic("what");
     return nullptr;
 }
@@ -267,15 +278,16 @@ static inline squeue_t* scheduler_get_active_q(scheduler_t* s)
 
 static inline sthread_t* scheduler_get_new_thread(scheduler_t* s, sthread_t* c_active)
 {
-    squeue_t* active = scheduler_get_active_q(s);
+    squeue_t* active;
 
+    /* Grab the next fucker here */
+    if (c_active && c_active->next)
+        return c_active->next;
+
+    active = scheduler_get_active_q(s);
     /* Check if this priority has threads left */
     if (!c_active || !c_active->c_queue || !squeue_get_active_threadlist(active))
         return squeue_next_priority_thread(active);
-
-    /* Grab the next fucker here */
-    if (c_active->next)
-        return c_active->next;
 
     /* Start again at the start of this list */
     return squeue_get_active_threadlist(active);

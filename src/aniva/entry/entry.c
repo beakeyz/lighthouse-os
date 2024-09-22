@@ -35,6 +35,7 @@
 #include <mem/heap.h>
 #include <mem/kmem_manager.h>
 #include <sched/scheduler.h>
+#include <stdio.h>
 
 system_info_t g_system_info;
 static proc_t* root_proc;

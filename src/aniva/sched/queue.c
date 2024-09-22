@@ -20,17 +20,19 @@ kerror_t init_squeue(scheduler_queue_t* out)
     return 0;
 }
 
-void squeue_enqueue(scheduler_queue_t* queue, struct sthread* t)
+void squeue_enqueue(scheduler_queue_t* queue, struct sthread* st)
 {
+    ASSERT_MSG(!st->c_queue, "TRIED TO ENQUEUE while in a q");
+
     /* Set the threads next pointer */
-    t->next = nullptr;
-    t->c_queue = queue;
+    st->next = nullptr;
+    st->c_queue = queue;
     /* Update the threads scheduler thread link */
-    t->t->sthread_slot = queue->vec_threads[t->base_prio].enq;
+    st->t->sthread_slot = queue->vec_threads[st->base_prio].enq;
 
     /* Put the thread inside the correct list */
-    *queue->vec_threads[t->base_prio].enq = t;
-    queue->vec_threads[t->base_prio].enq = &t->next;
+    *queue->vec_threads[st->base_prio].enq = st;
+    queue->vec_threads[st->base_prio].enq = &st->next;
 
     /* Increase the threads count */
     queue->n_sthread++;
@@ -40,12 +42,12 @@ void squeue_remove(scheduler_queue_t* queue, struct sthread** t)
 {
     sthread_t* drf_thread = *t;
 
-    /* If *t->next is null, we know that the queue enqueue pointer points to it */
-    if (!(*t)->next)
-        queue->vec_threads[(*t)->base_prio].enq = t;
+    ASSERT_MSG(drf_thread->c_queue, "TRIED TO DEQUEUE while not in a queue");
 
     /* If *t->next is null, we know that the queue enqueue pointer points to it */
-    if (drf_thread->next)
+    if (!drf_thread->next)
+        queue->vec_threads[drf_thread->base_prio].enq = t;
+    else
         /* Make sure the link of the next thread doesn't break */
         drf_thread->next->t->sthread_slot = t;
 
@@ -53,9 +55,8 @@ void squeue_remove(scheduler_queue_t* queue, struct sthread** t)
     *t = drf_thread->next;
 
     /* Update the threads queue status */
-    drf_thread->next = nullptr;
     drf_thread->c_queue = nullptr;
-    drf_thread->t->sthread_slot = &drf_thread->t->sthread;
+    drf_thread->t->sthread_slot = nullptr;
 
     /* Decrease the threads count */
     queue->n_sthread--;
