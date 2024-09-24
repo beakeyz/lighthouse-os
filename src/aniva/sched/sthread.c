@@ -1,5 +1,4 @@
 #include "mem/zalloc/zalloc.h"
-#include "sched/time.h"
 #include "scheduler.h"
 
 sthread_t* create_sthread(struct scheduler* s, thread_t* t, enum SCHEDULER_PRIORITY p)
@@ -16,14 +15,10 @@ sthread_t* create_sthread(struct scheduler* s, thread_t* t, enum SCHEDULER_PRIOR
     ret->t = t;
     ret->base_prio = p;
 
-    /* Calculate the initial scheduler priority */
-    ret->actual_prio = SCHEDULER_CALC_PRIO(ret);
-    /* Calculate the initial timeslice */
-    ret->tslice = STIMESLICE(ret);
+    /* NOTE: no need to calculate a timeslice, since this gets done anyway when a thread gets added to the scheduler */
 
     /* Pre-set the sthread slot */
     t->sthread = ret;
-    t->sthread_slot = &t->sthread;
 
     return ret;
 }

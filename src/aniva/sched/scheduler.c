@@ -161,7 +161,8 @@ ANIVA_STATUS init_scheduler(uint32_t cpu)
     init_squeue(&this->queues[0]);
     init_squeue(&this->queues[1]);
 
-    this->active_q_idx = 0;
+    this->active_q = &this->queues[0];
+    this->expired_q = &this->queues[1];
 
     set_current_handled_thread(nullptr);
     set_current_proc(nullptr);
@@ -291,21 +292,16 @@ ANIVA_STATUS resume_scheduler()
     return ANIVA_SUCCESS;
 }
 
-static inline void scheduler_move_thread_to_inactive(scheduler_t* scheduler, sthread_t** active_thread)
+static inline void scheduler_move_thread_to_inactive(scheduler_t* scheduler, sthread_t* p_thread)
 {
-    sthread_t* p_thread;
-
-    /* Grab the direct pointer */
-    p_thread = *active_thread;
-
-    // KLOG_DBG("Moving %s to inactive. New tslice: %d\n", p_thread->t->m_name, p_thread->tslice);
-
     /* Calculate the new timeslice for this thread */
     sthread_calc_stimeslice(p_thread);
 
+    // KLOG_DBG("Moving %s to inactive. New tslice: %d\n", p_thread->t->m_name, p_thread->tslice);
+
     /* Remove it from the active queue and add it to the inactive queue */
-    squeue_remove(&scheduler->queues[scheduler->active_q_idx], active_thread);
-    squeue_enqueue(&scheduler->queues[!scheduler->active_q_idx], p_thread);
+    squeue_remove(scheduler->active_q, p_thread);
+    squeue_enqueue(scheduler->expired_q, p_thread);
 }
 
 /*!
@@ -317,31 +313,28 @@ static inline void scheduler_move_thread_to_inactive(scheduler_t* scheduler, sth
  *
  * @returns: Zero if we need a reschedule, positive error code otherwise
  */
-static inline int scheduler_do_requeue(scheduler_t* scheduler, sthread_t** active_thread)
+static inline int scheduler_do_requeue(scheduler_t* scheduler, sthread_t* sthread)
 {
-    sthread_t* sthread;
-
     /* Just to be sure */
-    if (!active_thread || !(*active_thread))
+    if (!sthread)
         return 0;
 
-    sthread = *active_thread;
-    // KLOG_DBG("Doing requeue for %s:%s\n", (*active_thread)->t->m_parent_proc->m_name, (*active_thread)->t->m_name);
-
-    /* Does this thread still have time in this epoch? */
-    if (sthread->c_queue && sthread->tslice <= 0) {
-        /* Thread has used up it's timeslice, recalculate it and move the thread to expired */
-        scheduler_move_thread_to_inactive(scheduler, active_thread);
-
-        return 0;
-    }
+    // KLOG_DBG("Doing requeue for %s:%s %d\n", sthread->t->m_parent_proc->m_name, sthread->t->m_name, sthread->tslice);
 
     /* We're still within the timeslice granularity? No need to reschedule */
-    if (sthread->elapsed_tslice <= STIMESLICE_GRANULARITY)
+    if (!sthread->c_queue || !sthread_needs_requeue(sthread))
         return 0;
 
     sthread->tslice -= sthread->elapsed_tslice;
     sthread->elapsed_tslice = 0;
+
+    /* Does this thread still have time in this epoch? */
+    if (sthread->c_queue && sthread->tslice <= 0) {
+        /* Thread has used up it's timeslice, recalculate it and move the thread to expired */
+        scheduler_move_thread_to_inactive(scheduler, sthread);
+
+        return 0;
+    }
 
     return KERR_HANDLED;
 }
@@ -357,7 +350,7 @@ static inline void scheduler_end_epoch(scheduler_t* scheduler, sthread_t** pSThr
 {
     squeue_t* q;
 
-    q = &scheduler->queues[!scheduler->active_q_idx];
+    q = scheduler->expired_q;
 
     // KLOG_DBG("Scheduler: Ending epoch!\n");
     if (!q->n_sthread)
@@ -371,7 +364,7 @@ static inline void scheduler_end_epoch(scheduler_t* scheduler, sthread_t** pSThr
 
     /* Export the current active thread */
     if (pSThread)
-        *pSThread = squeue_next_prio(q);
+        *pSThread = squeue_get_next_thread(q);
 }
 
 /*!
@@ -406,20 +399,23 @@ int scheduler_try_execute(struct processor* p, bool force_rq)
     if (!c_thread)
         return -KERR_INVAL;
 
+    if (force_rq)
+        c_thread->sthread->elapsed_tslice = STIMESLICE_GRANULARITY;
+
     // KLOG_DBG("%s: tslice: %d, elapsed: %d\n", c_thread->m_name, c_thread->sthread->tslice, c_thread->sthread->elapsed_tslice);
 
-    if (!c_thread->sthread_slot)
-        KLOG_DBG("Scheduler: Switching contexts! (%s:%s (%d) -> \n", c_thread->m_parent_proc->m_name, c_thread->m_name, c_thread->m_current_state);
+    // if (!sthread_is_in_scheduler(c_thread->sthread))
+    // KLOG_DBG("Scheduler: Switching contexts! (%s:%s (%d) -> \n", c_thread->m_parent_proc->m_name, c_thread->m_name, c_thread->m_current_state);
 
     /* Do the requeue */
-    if (scheduler_do_requeue(s, c_thread->sthread_slot))
+    if (scheduler_do_requeue(s, c_thread->sthread))
         return 0;
 
     /*
      * If there are no threads left in the active queue, we need to end this epoch,
      * which switches the expired and active queues and resets the active priority
      */
-    if (!s->queues[s->active_q_idx].n_sthread) {
+    if (!s->active_q->n_sthread) {
         scheduler_end_epoch(s, &target_thread);
 
         if (!target_thread) {
@@ -428,7 +424,7 @@ int scheduler_try_execute(struct processor* p, bool force_rq)
         // ASSERT_MSG(target_thread, "Could not find a thread to run at the end of an epoch");
     } else
         /* Grab the current target thread */
-        target_thread = scheduler_get_new_thread(s, c_thread->sthread);
+        target_thread = squeue_get_next_thread(s->active_q);
 
     // KLOG_DBG("Active thread: %d, Inactive threads: %d\n", s->active_q->n_sthread, s->expired_q->n_sthread);
 
@@ -468,8 +464,6 @@ void scheduler_yield()
     ASSERT_MSG(!s->pause_depth, "Tried to yield to a paused scheduler!");
 
     CHECK_AND_DO_DISABLE_INTERRUPTS();
-
-    scheduler_do_tick(s, NULL, true);
 
     current = get_current_processor();
 
@@ -583,18 +577,17 @@ kerror_t scheduler_remove_thread_ex(scheduler_t* s, thread_t* thread)
     pause_scheduler();
 
     /* This would mean this thread is not anywhere in this shceduler */
-    if (!thread->sthread || !thread->sthread_slot)
+    if (!thread->sthread && !sthread_is_in_scheduler(thread->sthread))
         goto resume_and_error;
 
     /* Remove the thread from it's queue, if it's in one */
     if (thread->sthread->c_queue)
-        squeue_remove(thread->sthread->c_queue, thread->sthread_slot);
+        squeue_remove(thread->sthread->c_queue, thread->sthread);
 
     /* Destroy the sthread, we don't need it anymore */
     destroy_sthread(s, thread->sthread);
 
     /* Removed, xD */
-    thread->sthread_slot = NULL;
     thread->sthread = NULL;
 
     error = 0;
@@ -620,17 +613,12 @@ kerror_t scheduler_inactivate_thread_ex(scheduler_t* s, thread_t* thread)
     if (!s || !thread)
         return -KERR_INVAL;
 
-    if (!thread->sthread_slot)
+    if (!sthread_is_in_scheduler(thread->sthread))
         return -KERR_INVAL;
 
     pause_scheduler();
 
     sthread = thread->sthread;
-
-    if (!sthread || !thread->sthread_slot) {
-        resume_scheduler();
-        return -KERR_INVAL;
-    }
 
     /*
      * Remove the scheduler thread from it's queue
@@ -638,7 +626,7 @@ kerror_t scheduler_inactivate_thread_ex(scheduler_t* s, thread_t* thread)
      * This will remove the thread from the schedule and link the thread
      * to itself. This indicates an inactive thread
      */
-    squeue_remove(sthread->c_queue, thread->sthread_slot);
+    squeue_remove(sthread->c_queue, sthread);
 
     resume_scheduler();
     return 0;

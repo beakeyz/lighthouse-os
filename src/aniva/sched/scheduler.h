@@ -2,7 +2,6 @@
 #define __ANIVA_SCHEDULER__
 
 #include "libk/flow/error.h"
-#include "logging/log.h"
 #include "proc/proc.h"
 #include "proc/thread.h"
 #include "sched/time.h"
@@ -119,11 +118,17 @@ typedef struct sthread {
 
     /* sthreads with the same scheduler priority are put into a linked list */
     struct sthread* next;
+    struct sthread* previous;
 } sched_thread_t, sthread_t;
 
 /* sthread.c */
 extern sthread_t* create_sthread(struct scheduler* s, thread_t* t, enum SCHEDULER_PRIORITY p);
 extern void destroy_sthread(struct scheduler* s, sthread_t* st);
+
+static inline bool sthread_is_in_scheduler(sthread_t* st)
+{
+    return (st && st->next && st->previous);
+}
 
 static inline void sthread_calc_stimeslice(sthread_t* st)
 {
@@ -148,7 +153,7 @@ static inline void try_do_sthread_tick(sthread_t* t, stimeslice_t delta, bool fo
 {
     /* Force us to add an entire granularity of timeslice, which forces context switch */
     if (force)
-        delta = STIMESLICE_GRANULARITY;
+        delta = STIMESLICE_MAX;
 
     /* Add a single stepping to the timeslice */
     t->elapsed_tslice += delta;
@@ -156,12 +161,17 @@ static inline void try_do_sthread_tick(sthread_t* t, stimeslice_t delta, bool fo
 
 static inline bool sthread_needs_requeue(sthread_t* s)
 {
-    return (!s || !s->c_queue || s->tslice <= 0 || s->elapsed_tslice >= s->tslice || s->elapsed_tslice >= STIMESLICE_GRANULARITY);
+    return (!s || s->tslice <= 0 || s->elapsed_tslice >= s->tslice || s->elapsed_tslice >= STIMESLICE_GRANULARITY);
 }
 
+/*
+ * Every sthread list head will contain a circular list of threads
+ * the list is empty when list == nullptr
+ */
 typedef struct sthread_list_head {
     struct sthread* list;
-    struct sthread** enq;
+    u8 max_cycles;
+    u8 nr_cycles;
 } sthread_list_head_t;
 
 /*
@@ -181,57 +191,9 @@ typedef struct squeue {
 extern kerror_t init_squeue(scheduler_queue_t* out);
 extern kerror_t squeue_clear(scheduler_queue_t* queue);
 
-static inline sthread_t* squeue_get_active_threadlist(squeue_t* q)
-{
-    return q->vec_threads[q->active_prio].list;
-}
-
-/*!
- * @brief: Do a single scheduler priority shift
- *
- * The scheduler runs from high priority down to lower priority, with wraparound
- */
-static inline sthread_t* squeue_next_prio(squeue_t* q)
-{
-    sthread_t* ret;
-
-    for (u32 i = 0; i < (N_SCHED_PRIO + 1); i++) {
-        if (q->active_prio)
-            q->active_prio--;
-        else
-            q->active_prio = SCHED_PRIO_MAX;
-
-        ret = squeue_get_active_threadlist(q);
-
-        if (ret)
-            return ret;
-    }
-
-    KLOG_DBG("q_thing=%d\n", q->n_sthread);
-
-    for (u32 i = 0; i < (N_SCHED_PRIO + 1); i++) {
-        if (q->active_prio)
-            q->active_prio--;
-        else
-            q->active_prio = SCHED_PRIO_MAX;
-
-        ret = squeue_get_active_threadlist(q);
-
-        KLOG_DBG("PRIO %d has tl=0x%p\n", q->active_prio, ret);
-    }
-    kernel_panic("what");
-    return nullptr;
-}
-
-static inline sthread_t* squeue_next_priority_thread(squeue_t* q)
-{
-    ASSERT(q->n_sthread);
-
-    return squeue_next_prio(q);
-}
-
-void squeue_remove(scheduler_queue_t* queue, struct sthread** t);
-void squeue_enqueue(scheduler_queue_t* queue, struct sthread* t);
+extern void squeue_remove(scheduler_queue_t* queue, struct sthread* t);
+extern void squeue_enqueue(scheduler_queue_t* queue, struct sthread* t);
+extern sthread_t* squeue_get_next_thread(squeue_t* q);
 
 /*
  * This is the structure that holds information about a processors
@@ -246,8 +208,6 @@ typedef struct scheduler {
     uint32_t int_disable_depth;
     /* Scheduler status flags */
     uint32_t flags;
-    /* How many timer ticks left until the scheduler gets called again */
-    uint32_t active_q_idx;
 
     /* How many systicks had elapsed last scheduler tick */
     u64 last_nr_ticks;
@@ -261,6 +221,9 @@ typedef struct scheduler {
      */
     squeue_t queues[2];
 
+    squeue_t* active_q;
+    squeue_t* expired_q;
+
     /* The idle thread for this CPU/scheduler */
     sthread_t* idle;
 
@@ -273,24 +236,7 @@ typedef struct scheduler {
 
 static inline squeue_t* scheduler_get_active_q(scheduler_t* s)
 {
-    return &s->queues[s->active_q_idx];
-}
-
-static inline sthread_t* scheduler_get_new_thread(scheduler_t* s, sthread_t* c_active)
-{
-    squeue_t* active;
-
-    /* Grab the next fucker here */
-    if (c_active && c_active->next)
-        return c_active->next;
-
-    active = scheduler_get_active_q(s);
-    /* Check if this priority has threads left */
-    if (!c_active || !c_active->c_queue || !squeue_get_active_threadlist(active))
-        return squeue_next_priority_thread(active);
-
-    /* Start again at the start of this list */
-    return squeue_get_active_threadlist(active);
+    return s->active_q;
 }
 
 static inline bool scheduler_is_paused(scheduler_t* s)
@@ -303,7 +249,9 @@ static inline bool scheduler_is_paused(scheduler_t* s)
  */
 static inline void scheduler_switch_queues(scheduler_t* s)
 {
-    s->active_q_idx = (s->active_q_idx + 1) & 1;
+    s->active_q = (squeue_t*)((u64)s->active_q ^ (u64)s->expired_q);
+    s->expired_q = (squeue_t*)((u64)s->expired_q ^ (u64)s->active_q);
+    s->active_q = (squeue_t*)((u64)s->active_q ^ (u64)s->expired_q);
 }
 
 /*

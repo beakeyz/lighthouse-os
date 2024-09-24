@@ -195,8 +195,8 @@ static int ehci_interrupt_poll(ehci_hcd_t* ehci)
 
     while ((ehci->ehci_flags & EHCI_HCD_FLAG_STOPPING) != EHCI_HCD_FLAG_STOPPING) {
 
-        if (ehci->transfer_list->m_length == 0)
-            goto yield_and_cycle;
+        while (ehci->transfer_list->m_length == 0)
+            scheduler_yield();
 
         usbsts = mmio_read_dword(ehci->opregs + EHCI_OPREG_USBSTS) & 0x3f;
 
@@ -227,9 +227,6 @@ static int ehci_interrupt_poll(ehci_hcd_t* ehci)
         }
 
         mmio_write_dword(ehci->opregs + EHCI_OPREG_USBSTS, usbsts);
-
-    yield_and_cycle:
-        scheduler_yield();
     }
     return 0;
 }
@@ -696,8 +693,8 @@ static int ehci_setup(usb_hcd_t* hcd)
     ehci->transfer_lock = create_mutex(NULL);
     ehci->async_lock = create_mutex(NULL);
     // ehci->cleanup_lock = create_mutex(NULL);
-    ehci->transfer_finish_thread = spawn_thread("EHCI Transfer Finisher", SCHED_PRIO_HIGHEST, (FuncPtr)ehci_transfer_finish_thread, (uintptr_t)ehci);
-    ehci->qhead_cleanup_thread = spawn_thread("EHCI Qhead cleanup", SCHED_PRIO_HIGHEST, (FuncPtr)ehci_qhead_cleanup_thread, (uintptr_t)ehci);
+    ehci->transfer_finish_thread = spawn_thread("EHCI Transfer Finisher", SCHED_PRIO_HIGH, (FuncPtr)ehci_transfer_finish_thread, (uintptr_t)ehci);
+    ehci->qhead_cleanup_thread = spawn_thread("EHCI Qhead cleanup", SCHED_PRIO_HIGH, (FuncPtr)ehci_qhead_cleanup_thread, (uintptr_t)ehci);
     /* TODO: Setup actual interrupts */
     ehci->interrupt_polling_thread = spawn_thread("EHCI Polling", SCHED_PRIO_HIGH, (FuncPtr)ehci_interrupt_poll, (uint64_t)ehci);
 

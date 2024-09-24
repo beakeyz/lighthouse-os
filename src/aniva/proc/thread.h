@@ -13,7 +13,6 @@
 
 struct proc;
 struct thread;
-struct sthread;
 struct mutex;
 struct threaded_socket;
 struct driver;
@@ -41,7 +40,6 @@ typedef struct thread {
 
     /* The scheduler thread for this thread */
     struct sthread* sthread;
-    struct sthread** sthread_slot;
 
     /* The ID this thread has */
     thread_id_t m_tid;
@@ -59,12 +57,6 @@ typedef struct thread {
     uintptr_t m_user_stack_bottom;
     uintptr_t m_user_stack_top;
 } ALIGN(0x400) thread_t;
-
-static inline bool thread_is_inactive(thread_t* t)
-{
-    /* If the thread is linked into itself, it's not active inside the scheduler */
-    return t->sthread_slot == &t->sthread;
-}
 
 /*
  * create a thread structure
