@@ -16,20 +16,14 @@ kerror_t init_squeue(scheduler_queue_t* out)
 
     /* Prepare the maximum cycles per thread vector */
     for (u32 i = 0; i < N_SCHED_PRIO; i++)
-        out->vec_threads[i].max_cycles = 0x1;
+        out->vec_threads[i].max_cycles = (i + 1);
 
     return 0;
 }
 
-void squeue_enqueue(scheduler_queue_t* queue, struct sthread* st)
+static inline void __squeue_enqueue(scheduler_queue_t* queue, struct sthread* st)
 {
     sthread_list_head_t* lh = &queue->vec_threads[st->base_prio];
-
-    /* Increase the threads count preemptively */
-    queue->n_sthread++;
-
-    /* Set the threads queue pointer */
-    st->c_queue = queue;
 
     /* If there are no threads in this ring yet, no need to do weird shit */
     if (!lh->list) {
@@ -53,21 +47,38 @@ void squeue_enqueue(scheduler_queue_t* queue, struct sthread* st)
     lh->list->previous = st;
 }
 
-void squeue_remove(scheduler_queue_t* queue, struct sthread* t)
+static inline void __squeue_remove(scheduler_queue_t* queue, struct sthread* t)
 {
     sthread_list_head_t* lh = &queue->vec_threads[t->base_prio];
 
     /* Make sure this bastard is in the scheduler */
     ASSERT(sthread_is_in_scheduler(t));
 
-    t->previous->next = t->next;
-    t->next->previous = t->previous;
+    /* Clear the list if this was the last thread */
+    if (t->next == t)
+        lh->cur_thread = lh->list = nullptr;
+    else {
+        if (lh->cur_thread == t)
+            lh->cur_thread = lh->cur_thread->next;
 
-    /* Cycle the list */
-    if (t->next != t)
-        lh->list = lh->list->next;
-    else
-        lh->list = nullptr;
+        t->previous->next = t->next;
+        t->next->previous = t->previous;
+    }
+}
+
+void squeue_enqueue(scheduler_queue_t* queue, struct sthread* st)
+{
+    __squeue_enqueue(queue, st);
+
+    /* Set the threads queue pointer */
+    st->c_queue = queue;
+
+    queue->n_sthread++;
+}
+
+void squeue_remove(scheduler_queue_t* queue, struct sthread* t)
+{
+    __squeue_remove(queue, t);
 
     /* Clear the threads own next and previous pointers */
     t->next = nullptr;
@@ -78,6 +89,17 @@ void squeue_remove(scheduler_queue_t* queue, struct sthread* t)
 
     /* Decrease the threads count */
     queue->n_sthread--;
+}
+
+void squeue_requeue(scheduler_queue_t* old, scheduler_queue_t* new, struct sthread* t)
+{
+    __squeue_remove(old, t);
+    __squeue_enqueue(new, t);
+
+    old->n_sthread--;
+    new->n_sthread++;
+
+    t->c_queue = new;
 }
 
 /*!
@@ -133,7 +155,6 @@ static inline bool __squeue_need_switch_next_tl(sthread_list_head_t* lh)
  */
 sthread_t* squeue_get_next_thread(squeue_t* q)
 {
-    sthread_t* ret;
     sthread_list_head_t* lh;
 
     lh = &q->vec_threads[q->active_prio];
@@ -143,13 +164,14 @@ sthread_t* squeue_get_next_thread(squeue_t* q)
         lh = __squeue_handle_empty_tl(q);
 
     /* Cycle the list */
-    lh->list = lh->list->next;
-    lh->nr_cycles++;
+    if (!lh->cur_thread)
+        lh->cur_thread = lh->list;
+    else
+        lh->cur_thread = lh->cur_thread->next;
 
-    /* Grab our new thread */
-    ret = lh->list;
+    lh->nr_cycles++;
 
     // KLOG_DBG("Next t: %s\n", ret->t->m_name);
 
-    return ret;
+    return lh->cur_thread;
 }

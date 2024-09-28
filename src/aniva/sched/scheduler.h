@@ -162,7 +162,12 @@ static inline void try_do_sthread_tick(sthread_t* t, stimeslice_t delta, bool fo
 
 static inline bool sthread_needs_requeue(sthread_t* s)
 {
-    return (!s || s->tslice <= 0 || s->elapsed_tslice >= s->tslice || s->elapsed_tslice >= STIMESLICE_GRANULARITY);
+    return (!s || s->tslice <= 0 || s->elapsed_tslice >= s->tslice);
+}
+
+static inline bool sthread_needs_reschedule(sthread_t* s)
+{
+    return (sthread_needs_requeue(s) || s->elapsed_tslice >= STIMESLICE_GRANULARITY);
 }
 
 /*
@@ -171,6 +176,7 @@ static inline bool sthread_needs_requeue(sthread_t* s)
  */
 typedef struct sthread_list_head {
     struct sthread* list;
+    struct sthread* cur_thread;
     u8 max_cycles;
     u8 nr_cycles;
 } sthread_list_head_t;
@@ -194,6 +200,7 @@ extern kerror_t squeue_clear(scheduler_queue_t* queue);
 
 extern void squeue_remove(scheduler_queue_t* queue, struct sthread* t);
 extern void squeue_enqueue(scheduler_queue_t* queue, struct sthread* t);
+extern void squeue_requeue(scheduler_queue_t* old, scheduler_queue_t* new, struct sthread* t);
 extern sthread_t* squeue_get_next_thread(squeue_t* q);
 
 /*

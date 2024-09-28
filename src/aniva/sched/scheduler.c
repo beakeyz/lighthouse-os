@@ -300,8 +300,7 @@ static inline void scheduler_move_thread_to_inactive(scheduler_t* scheduler, sth
     // KLOG_DBG("Moving %s to inactive. New tslice: %d\n", p_thread->t->m_name, p_thread->tslice);
 
     /* Remove it from the active queue and add it to the inactive queue */
-    squeue_remove(scheduler->active_q, p_thread);
-    squeue_enqueue(scheduler->expired_q, p_thread);
+    squeue_requeue(scheduler->active_q, scheduler->expired_q, p_thread);
 }
 
 /*!
@@ -316,27 +315,24 @@ static inline void scheduler_move_thread_to_inactive(scheduler_t* scheduler, sth
 static inline int scheduler_do_requeue(scheduler_t* scheduler, sthread_t* sthread)
 {
     /* Just to be sure */
-    if (!sthread)
+    if (!sthread || !sthread->c_queue)
         return 0;
 
     // KLOG_DBG("Doing requeue for %s:%s %d\n", sthread->t->m_parent_proc->m_name, sthread->t->m_name, sthread->tslice);
 
     /* We're still within the timeslice granularity? No need to reschedule */
-    if (!sthread->c_queue || !sthread_needs_requeue(sthread))
-        return 0;
+    if (!sthread_needs_reschedule(sthread))
+        return KERR_HANDLED;
 
     sthread->tslice -= sthread->elapsed_tslice;
     sthread->elapsed_tslice = 0;
 
     /* Does this thread still have time in this epoch? */
-    if (sthread->c_queue && sthread->tslice <= 0) {
+    if (sthread_needs_requeue(sthread))
         /* Thread has used up it's timeslice, recalculate it and move the thread to expired */
         scheduler_move_thread_to_inactive(scheduler, sthread);
 
-        return 0;
-    }
-
-    return KERR_HANDLED;
+    return 0;
 }
 
 /*!
