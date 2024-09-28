@@ -1263,7 +1263,7 @@ int kterm_init(driver_t* driver)
     kterm_handle_login();
 
     /* TODO: we should probably have some kind of kernel-managed structure for async work */
-    __kterm_worker_thread = spawn_thread("kterm_cmd_worker", SCHED_PRIO_MID, kterm_command_worker, NULL);
+    __kterm_worker_thread = spawn_thread("kterm_cmd_worker", SCHED_PRIO_HIGH, kterm_command_worker, NULL);
 
     /* Make sure we create this fucker */
     ASSERT_MSG(__kterm_worker_thread, "Failed to create kterm command worker!");

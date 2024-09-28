@@ -2,6 +2,7 @@
 #define __ANIVA_SCHEDULER__
 
 #include "libk/flow/error.h"
+#include "libk/stddef.h"
 #include "proc/proc.h"
 #include "proc/thread.h"
 #include "sched/time.h"
@@ -119,7 +120,7 @@ typedef struct sthread {
     /* sthreads with the same scheduler priority are put into a linked list */
     struct sthread* next;
     struct sthread* previous;
-} sched_thread_t, sthread_t;
+} ALIGN(64) sched_thread_t, sthread_t;
 
 /* sthread.c */
 extern sthread_t* create_sthread(struct scheduler* s, thread_t* t, enum SCHEDULER_PRIORITY p);
