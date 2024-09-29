@@ -6,6 +6,8 @@
 #include <dev/usb/driver.h>
 #include <dev/usb/usb.h>
 
+#include "priv.h"
+
 usb_device_ident_t usbdisk_ident[] = {
     /* ATAPI */
     USB_DEV_IDENT(0, 0, 0x8, 0x2, 0, 0),
@@ -19,11 +21,6 @@ usb_device_ident_t usbdisk_ident[] = {
     USB_DEV_IDENT(0, 0, 0x8, 0x50, 0, 0),
     USB_END_IDENT,
 };
-
-struct usbdisk_dev;
-
-extern int usbdisk_create(driver_t* driver, usb_device_t* dev, usb_interface_buffer_t* intrf);
-extern int usbdisk_destroy(struct usbdisk_dev* dev);
 
 /*!
  * @brief: Checks if we are able to drive this device lol

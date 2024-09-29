@@ -676,8 +676,6 @@ kerror_t proc_add_thread(proc_t* proc, struct thread* thread)
     /* Fire the create event */
     kevent_fire("thread", &thread_ctx, sizeof(thread_ctx));
 
-    pause_scheduler();
-
     /* If this is the first thread, we need to make sure it gets ran first */
     if (proc->m_threads->m_length == 0 && proc->m_init_thread == nullptr) {
         proc->m_init_thread = thread;
@@ -687,8 +685,6 @@ kerror_t proc_add_thread(proc_t* proc, struct thread* thread)
 
     /* Add the thread to the processes list (NOTE: ->m_thread_count has already been updated at this point) */
     list_append(proc->m_threads, thread);
-
-    resume_scheduler();
 
 unlock_and_exit:
     mutex_unlock(proc->m_lock);

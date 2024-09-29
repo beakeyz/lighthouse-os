@@ -429,7 +429,7 @@ int ehci_xfer_finalise(ehci_hcd_t* ehci, ehci_xfer_t* xfer)
             /* Get the buffer size of this descriptor */
             c_read_size = c_qtd->len - ((c_qtd->hw_token >> EHCI_QTD_BYTES_SHIFT) & EHCI_QTD_BYTES_MASK);
 
-            // KLOG("ehci_xfer_finalise: c_read_size=%lld, c_qtd->len=%lld, token bytes=%lld\n", c_read_size, c_qtd->len, ((c_qtd->hw_token >> EHCI_QTD_BYTES_SHIFT) & EHCI_QTD_BYTES_MASK));
+            // KLOG("ehci_xfer_finalise: c_read_size=%lld, c_qtd->len=%lld, token bytes=%lld (%d, %d, %d)\n", c_read_size, c_qtd->len, ((c_qtd->hw_token >> EHCI_QTD_BYTES_SHIFT) & EHCI_QTD_BYTES_MASK), ((u8*)c_qtd->buffer)[0], ((u8*)c_qtd->buffer)[1], ((u8*)c_qtd->buffer)[2]);
 
             /* Nothing transfered */
             if (!c_read_size || (int64_t)c_read_size < 0)

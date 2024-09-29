@@ -294,7 +294,7 @@ static int usbkbd_fire_key(usbkbd_t* kbd, uint16_t keycode, bool pressed)
         break;
     }
 
-    // KLOG_DBG("%s %s\n", pressed ? "Pressed" : "Released", (u8[]) { kbd->c_ctx.key.pressed_char, 0 });
+    // KLOG("usbkbk: %s %s\n", pressed ? "Pressed" : "Released", (u8[]) { kbd->c_ctx.key.pressed_char, 0 });
 
     usbkbd_set_keycode_buffer(kbd, kbd->c_ctx.key.scancode, pressed);
 
@@ -303,8 +303,6 @@ static int usbkbd_fire_key(usbkbd_t* kbd, uint16_t keycode, bool pressed)
 
     /* Queue into the device event queue */
     hid_device_queue(kbd->hiddev, &kbd->c_ctx);
-    // if (kbd->c_ctx.key.pressed_char && pressed)
-    // kputch(kbd->c_ctx.key.pressed_char);
     return 0;
 }
 
@@ -340,7 +338,11 @@ static int usbkbd_irq(usb_xfer_t* xfer)
     if (xfer->resp_transfer_size == 0)
         goto resubmit;
 
-    // KLOG_DBG("(%x %x %x %x) -> (%x %x %x %x)\n", kbd->prev_resp[2], kbd->prev_resp[3], kbd->prev_resp[4], kbd->prev_resp[5],
+    /* If both buffers are the same, nothing changed */
+    if (memcmp(kbd->this_resp, kbd->prev_resp, sizeof(kbd->this_resp)) == true)
+        goto resubmit;
+
+    // KLOG("(%x %x %x %x) -> (%x %x %x %x)\n", kbd->prev_resp[2], kbd->prev_resp[3], kbd->prev_resp[4], kbd->prev_resp[5],
     // kbd->this_resp[2], kbd->this_resp[3], kbd->this_resp[4], kbd->this_resp[5]);
 
     // goto resubmit;

@@ -120,7 +120,7 @@ typedef struct sthread {
     /* sthreads with the same scheduler priority are put into a linked list */
     struct sthread* next;
     struct sthread* previous;
-} ALIGN(64) sched_thread_t, sthread_t;
+} ALIGN(16) sched_thread_t, sthread_t;
 
 /* sthread.c */
 extern sthread_t* create_sthread(struct scheduler* s, thread_t* t, enum SCHEDULER_PRIORITY p);
@@ -128,7 +128,7 @@ extern void destroy_sthread(struct scheduler* s, sthread_t* st);
 
 static inline bool sthread_is_in_scheduler(sthread_t* st)
 {
-    return (st && st->next && st->previous);
+    return (st->next && st->previous);
 }
 
 static inline void sthread_calc_stimeslice(sthread_t* st)
@@ -138,26 +138,6 @@ static inline void sthread_calc_stimeslice(sthread_t* st)
     /* Calculate a new timeslice */
     st->tslice = STIMESLICE(st);
     st->elapsed_tslice = 0;
-}
-
-/*!
- * @brief: Ticks a single sthread
- *
- * Removes the appropriate amount of time from the current sthreads time quota.
- * If there seems to be no active thread in the current active queue, this function
- * tries to find a new thread in one of the lower priority lists.
- *
- * @returns: true if the scheduler needs to do a sthread reschedule, false if there
- * is nothing to be done.
- */
-static inline void try_do_sthread_tick(sthread_t* t, stimeslice_t delta, bool force)
-{
-    /* Force us to add an entire granularity of timeslice, which forces context switch */
-    if (force)
-        delta = STIMESLICE_MAX;
-
-    /* Add a single stepping to the timeslice */
-    t->elapsed_tslice += delta;
 }
 
 static inline bool sthread_needs_requeue(sthread_t* s)
@@ -187,6 +167,9 @@ typedef struct sthread_list_head {
 typedef struct squeue {
     /* An array of sthread lists */
     sthread_list_head_t vec_threads[N_SCHED_PRIO];
+
+    /* The next sthread we want to schedule */
+    struct sthread* next_thread;
 
     /* The current active priority that's being scheduled */
     u32 active_prio;
@@ -277,7 +260,7 @@ ANIVA_STATUS pause_scheduler();
  * yield to the scheduler and let it switch to a new thread
  */
 void scheduler_yield();
-int scheduler_try_execute(struct processor* p, bool force_rq);
+int scheduler_try_execute(struct processor* p);
 void scheduler_tick(scheduler_t* s, u64 elapsed_ticks);
 
 kerror_t scheduler_add_thread(thread_t* thread, enum SCHEDULER_PRIORITY prio);
