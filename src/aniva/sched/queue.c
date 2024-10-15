@@ -17,7 +17,7 @@ kerror_t init_squeue(scheduler_queue_t* out)
 
     /* Prepare the maximum cycles per thread vector */
     for (u32 i = 0; i < N_SCHED_PRIO; i++)
-        out->vec_threads[i].max_cycles = 0xff;
+        out->vec_threads[i].max_cycles = ((i + 1) << 4) | (i << 3) | (i << 1);
 
     return 0;
 }

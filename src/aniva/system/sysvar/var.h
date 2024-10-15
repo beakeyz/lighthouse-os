@@ -1,6 +1,7 @@
 #ifndef __ANIVA_VARIABLE__
 #define __ANIVA_VARIABLE__
 
+#include "system/profile/attr.h"
 #include <libk/stddef.h>
 #include <lightos/sysvar/shared.h>
 #include <sync/atomic_ptr.h>
@@ -49,7 +50,7 @@ typedef struct sysvar {
 
 void init_sysvars(void);
 
-sysvar_t* create_sysvar(const char* key, uint16_t priv_lvl, enum SYSVAR_TYPE type, uint8_t flags, uintptr_t value);
+sysvar_t* create_sysvar(const char* key, enum PROFILE_TYPE ptype, enum SYSVAR_TYPE type, uint8_t flags, uintptr_t value);
 
 sysvar_t* get_sysvar(sysvar_t* var);
 void release_sysvar(sysvar_t* var);

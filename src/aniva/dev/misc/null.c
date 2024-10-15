@@ -4,7 +4,7 @@
 #include "devices/shared.h"
 #include "oss/node.h"
 #include "oss/obj.h"
-#include "system/profile/profile.h"
+#include "system/profile/attr.h"
 #include <libk/string.h>
 
 device_t* null_device;
@@ -55,7 +55,7 @@ void init_null_device(oss_node_t* dev_node)
         return;
 
     /* Reset the priv level, so anyone can access this device */
-    oss_obj_set_priv_levels(null_device->obj, PRIV_LVL_USER);
+    oss_obj_set_priv_levels(null_device->obj, PROFILE_TYPE_LIMITED, NULL);
 
     /* Add this object to the %/Dev node */
     oss_node_add_obj(dev_node, null_device->obj);

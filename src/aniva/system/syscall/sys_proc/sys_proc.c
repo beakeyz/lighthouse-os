@@ -10,7 +10,7 @@
 #include "proc/handle.h"
 #include "proc/proc.h"
 #include "sched/scheduler.h"
-#include "system/profile/profile.h"
+#include "system/profile/attr.h"
 #include "time/core.h"
 #include <proc/env.h>
 
@@ -106,8 +106,8 @@ u64 sys_destroy_proc(HANDLE proc, u32 flags)
      * Yikes
      * TODO: Add a force flag for admin processes
      */
-    if ((flags & LIGHTOS_PROC_FLAG_FORCE) != LIGHTOS_PROC_FLAG_FORCE || c_proc->m_env->priv_level != PRIV_LVL_ADMIN)
-        if (target_proc->m_env->priv_level >= c_proc->m_env->priv_level)
+    if ((flags & LIGHTOS_PROC_FLAG_FORCE) != LIGHTOS_PROC_FLAG_FORCE || c_proc->m_env->attr.ptype != PROFILE_TYPE_ADMIN)
+        if (pattr_hasperm(&target_proc->m_env->attr, &c_proc->m_env->attr, PATTR_PROC_KILL))
             return SYS_NOPERM;
 
     /*

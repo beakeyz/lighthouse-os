@@ -11,6 +11,7 @@
 #include "proc/hdrv/driver.h"
 #include "proc/proc.h"
 #include "sched/scheduler.h"
+#include "system/profile/attr.h"
 #include "system/profile/profile.h"
 #include "system/sysvar/map.h"
 #include <proc/env.h>
@@ -155,7 +156,7 @@ bool sys_create_pvar(HANDLE handle, const char* __user name, enum SYSVAR_TYPE ty
 {
     proc_t* proc;
     khandle_t* khandle;
-    uint16_t target_prv_lvl;
+    enum PROFILE_TYPE target_prv_lvl;
     oss_node_t* target_node;
 
     proc = get_current_proc();
@@ -179,11 +180,11 @@ bool sys_create_pvar(HANDLE handle, const char* __user name, enum SYSVAR_TYPE ty
     switch (khandle->type) {
     case HNDL_TYPE_PROFILE:
         target_node = khandle->reference.profile->node;
-        target_prv_lvl = khandle->reference.profile->priv_level;
+        target_prv_lvl = khandle->reference.profile->attr.ptype;
         break;
     case HNDL_TYPE_PROC_ENV:
         target_node = khandle->reference.penv->node;
-        target_prv_lvl = khandle->reference.penv->priv_level;
+        target_prv_lvl = khandle->reference.penv->attr.ptype;
         break;
     default:
         target_node = nullptr;

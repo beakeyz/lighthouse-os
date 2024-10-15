@@ -4,20 +4,17 @@
 #include "oss/node.h"
 #include "proc/proc.h"
 #include "sync/mutex.h"
+#include "system/profile/attr.h"
 #include "system/profile/profile.h"
 #include "system/profile/runtime.h"
 #include "system/sysvar/var.h"
 #include <libk/string.h>
 
-penv_t* create_penv(const char* label, uint32_t priv_level, uint32_t flags)
+penv_t* create_penv(const char* label, uint32_t pflags_mask[NR_PROFILE_TYPES], uint32_t flags)
 {
     penv_t* env;
 
     if (!label)
-        return nullptr;
-
-    /* Invalid privilege level */
-    if (priv_level >= PRIV_LVL_NONE)
         return nullptr;
 
     env = kmalloc(sizeof(*env));
@@ -25,10 +22,18 @@ penv_t* create_penv(const char* label, uint32_t priv_level, uint32_t flags)
     memset(env, 0, sizeof(*env));
 
     env->flags = flags;
-    env->priv_level = priv_level;
     env->label = strdup(label);
     env->lock = create_mutex(NULL);
     env->node = create_oss_node(label, OSS_PROC_ENV_NODE, NULL, NULL);
+
+    if (pflags_mask)
+        memcpy(env->pflags_mask, pflags_mask, sizeof(*pflags_mask) * NR_PROFILE_TYPES);
+    else
+        /*
+         * Otherwise just set all flags
+         * This will make any object that enables an attribute for us visible
+         */
+        memset(env->pflags_mask, 0xff, sizeof(*pflags_mask) * NR_PROFILE_TYPES);
 
     /* Set the thing */
     env->node->priv = env;

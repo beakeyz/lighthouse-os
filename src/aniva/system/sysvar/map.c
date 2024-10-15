@@ -147,12 +147,12 @@ int sysvar_dump(struct oss_node* node, struct sysvar*** barr, size_t* bsize)
  *
  *
  */
-int sysvar_attach(struct oss_node* node, const char* key, uint16_t priv_lvl, enum SYSVAR_TYPE type, uint8_t flags, uintptr_t value)
+int sysvar_attach(struct oss_node* node, const char* key, enum PROFILE_TYPE ptype, enum SYSVAR_TYPE type, uint8_t flags, uintptr_t value)
 {
     int error;
     sysvar_t* target;
 
-    target = create_sysvar(key, priv_lvl, type, flags, value);
+    target = create_sysvar(key, ptype, type, flags, value);
 
     if (!target)
         return -KERR_INVAL;

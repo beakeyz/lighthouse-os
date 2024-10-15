@@ -66,7 +66,7 @@ static inline const char* get_str(struct file* file, pvr_file_header_t* hdr, uin
     return key_buffer;
 }
 
-int sysvarldr_load_variables(struct oss_node* node, uint16_t priv_lvl, struct file* file)
+int sysvarldr_load_variables(struct oss_node* node, enum PROFILE_TYPE ptype, struct file* file)
 {
     uintptr_t c_var_offset;
     uintptr_t c_var_count;
@@ -144,7 +144,7 @@ int sysvarldr_load_variables(struct oss_node* node, uint16_t priv_lvl, struct fi
         /* Put the variable */
         (void)sysvar_attach(node,
             key_buffer,
-            priv_lvl,
+            ptype,
             c_var.var_type,
             c_var.var_flags,
             c_value);
@@ -180,7 +180,7 @@ static inline void write_str(file_t* file, pvr_file_header_t* hdr, uint16_t len,
     *c_strtab_offset += total_len;
 }
 
-int sysvarldr_save_variables(struct oss_node* node, uint16_t priv_lvl, struct file* file)
+int sysvarldr_save_variables(struct oss_node* node, enum PROFILE_TYPE ptype, struct file* file)
 {
     int error;
     /* Buffer element sizes */

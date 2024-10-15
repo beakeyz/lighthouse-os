@@ -198,9 +198,22 @@ static u32 __rect_split(lwnd_wndrect_t** p_rects, lwnd_window_t* wnd, lwnd_wndre
 
             new_rect = create_and_link_lwndrect(p_rects, wnd->rect_cache, c_x, c_y, c_w, c_h);
 
-            for (lwnd_wndrect_t* r = wnd->prev_rects; r && new_rect->rect_changed; r = r->next_part) {
-                if (r->x == new_rect->x && r->y == new_rect->y && r->w == new_rect->w && r->h == new_rect->h)
-                    new_rect->rect_changed = false;
+            if (wnd->prev_rects)
+                new_rect->rect_changed = false;
+
+            for (lwnd_wndrect_t* r = wnd->prev_rects; r && !new_rect->rect_changed; r = r->next_part) {
+
+                /* If the rectancle completely moved, we need to update the entire thing */
+                if (r->x != new_rect->x || r->y != new_rect->y)
+                    new_rect->rect_changed = true;
+
+                /*
+                 * If the rectangle got bigger, we also need to update it
+                 * TODO: Calculate the rectangle that actualy changed, since we really don't need to completely
+                 * redraw the rect when it gets resized
+                 */
+                if (new_rect->w > r->w || new_rect->h > r->h)
+                    new_rect->rect_changed = true;
             }
 
             n_split++;

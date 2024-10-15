@@ -170,7 +170,7 @@ static int _assign_penv(proc_t* proc, user_profile_t* profile)
         return -1;
 
     /* Create a environment in the user profile */
-    env = create_penv(env_label_buf, profile->priv_level, NULL);
+    env = create_penv(env_label_buf, NULL, NULL);
 
     if (!env)
         return -1;

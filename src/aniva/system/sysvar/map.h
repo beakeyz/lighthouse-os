@@ -2,6 +2,7 @@
 #define __ANIVA_SYSVAR_MAP__
 
 #include "lightos/sysvar/shared.h"
+#include "system/profile/attr.h"
 #include <libk/stddef.h>
 
 struct sysvar;
@@ -15,7 +16,7 @@ bool oss_node_can_contain_sysvar(struct oss_node* node);
 
 struct sysvar* sysvar_get(struct oss_node* node, const char* key);
 int sysvar_dump(struct oss_node* node, struct sysvar*** barr, size_t* bsize);
-int sysvar_attach(struct oss_node* node, const char* key, uint16_t priv_lvl, enum SYSVAR_TYPE type, uint8_t flags, uintptr_t value);
+int sysvar_attach(struct oss_node* node, const char* key, enum PROFILE_TYPE ptype, enum SYSVAR_TYPE type, uint8_t flags, uintptr_t value);
 int sysvar_detach(struct oss_node* node, const char* key, struct sysvar** var);
 
 #endif // !__ANIVA_SYSVAR_MAP__

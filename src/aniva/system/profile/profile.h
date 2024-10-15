@@ -2,12 +2,14 @@
 #define __ANIVA_PROC_PROFILE__
 
 #include "sync/mutex.h"
+#include "system/profile/attr.h"
 #include "system/sysvar/map.h"
 #include "system/sysvar/var.h"
 #include <libk/stddef.h>
 
 struct proc;
 struct oss_node;
+struct pattr;
 
 /*
  * Aniva user (profile) management
@@ -20,14 +22,6 @@ struct oss_node;
  * but they aren't stored on the vfs, so userspace will have to interract with them through special kernel
  * interfaces. (Of cource handles can still be obtained)
  */
-
-/* Most powerful privilege level */
-#define PRIV_LVL_ADMIN 0xFF
-/* Most basic privilege level */
-#define PRIV_LVL_USER 0
-/* Just an invalid value that does not fit in the field
- NOTE: BE CAREFUL WITH THIS */
-#define PRIV_LVL_NONE 0x100
 
 #define MAX_VARS 4096
 
@@ -58,7 +52,6 @@ struct oss_node;
 #define LIBSPATH_VARPATH "User/" LIBSPATH_VAR
 
 #define PATH_SEPERATOR_CHAR ':'
-
 /*
  * Profiles need to be saveable and loadable since they will
  * act as our 'users' AND our 'groups' at the same time
@@ -70,15 +63,22 @@ struct oss_node;
  */
 typedef struct user_profile {
     const char* name;
-    /* In the case of a custom profile, loaded from a file */
-    const char* path;
+    const char* image_path;
     /* This node holds both the environments of this profile AND the variables local to the profile */
     struct oss_node* node;
 
-    uint16_t priv_level;
-    /* Normal profile flags */
-    uint32_t flags;
+    /* Privilege attributes for this profile */
+    struct pattr attr;
+
+    /*
+     * How many environments are attached to this profile
+     *
+     * Environments inherit their privileges from the profile they are attached to, while
+     * certain pflags may be masked. This means a new environment can't have more privileges than
+     * the one that came before
+     */
     uint32_t env_count;
+    uint32_t flags;
 
     /*
      * Hash for the profiles password
@@ -93,19 +93,8 @@ typedef struct user_profile {
 void init_user_profiles(void);
 void init_profiles_late(void);
 
-static inline void profile_set_priv_lvl(user_profile_t* profile, uint8_t lvl)
-{
-    /* Set raw here, so we overwrite garbage bits while setting the check */
-    profile->priv_level = lvl;
-}
-
-static inline bool profile_is_from_file(user_profile_t* profile)
-{
-    return (profile->path != nullptr);
-}
-
-int init_proc_profile(user_profile_t* profile, char* name, uint32_t level);
-user_profile_t* create_proc_profile(char* name, uint8_t level);
+int init_proc_profile(user_profile_t* profile, char* name, struct pattr* attr);
+user_profile_t* create_proc_profile(char* name, enum PROFILE_TYPE type);
 void destroy_proc_profile(user_profile_t* profile);
 
 user_profile_t* get_user_profile();

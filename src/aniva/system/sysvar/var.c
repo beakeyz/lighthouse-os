@@ -7,6 +7,7 @@
 #include "proc/proc.h"
 #include "sched/scheduler.h"
 #include "sync/atomic_ptr.h"
+#include "system/profile/attr.h"
 #include <libk/string.h>
 
 static zone_allocator_t __var_allocator;
@@ -82,7 +83,7 @@ static const char* __sysvar_fmt_key(char* str)
  * equal to @value.
  * NOTE: this does not copy strings and allocate them on the heap!
  */
-sysvar_t* create_sysvar(const char* key, uint16_t priv_lvl, enum SYSVAR_TYPE type, uint8_t flags, uintptr_t value)
+sysvar_t* create_sysvar(const char* key, enum PROFILE_TYPE ptype, enum SYSVAR_TYPE type, uint8_t flags, uintptr_t value)
 {
     sysvar_t* var;
 
@@ -107,7 +108,7 @@ sysvar_t* create_sysvar(const char* key, uint16_t priv_lvl, enum SYSVAR_TYPE typ
     var->refc = create_atomic_ptr_ex(1);
     /* Make sure type and value are already set */
     var->len = profile_var_get_size_for_type(var);
-    var->obj = create_oss_obj_ex(key, priv_lvl);
+    var->obj = create_oss_obj_ex(key, ptype, NULL);
 
     /* Register this sysvar to its object */
     oss_obj_register_child(var->obj, var, OSS_OBJ_TYPE_VAR, destroy_sysvar);

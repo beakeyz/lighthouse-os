@@ -3,10 +3,9 @@
 #include "logging/log.h"
 #include "mem/heap.h"
 #include "oss/node.h"
-#include "proc/proc.h"
-#include "sched/scheduler.h"
 #include "sync/atomic_ptr.h"
 #include "sync/mutex.h"
+#include "system/profile/attr.h"
 #include <libk/string.h>
 #include <proc/env.h>
 
@@ -34,25 +33,9 @@ HANDLE_TYPE oss_obj_type_to_handle_type(enum OSS_OBJ_TYPE type)
     return ___oss_obj_type_to_handle_type_map[type];
 }
 
-static void init_oss_obj_priv(oss_obj_t* obj, uint32_t priv_lvl)
+static void init_oss_obj_priv(oss_obj_t* obj, enum PROFILE_TYPE ptype, pattr_flags_t pflags[NR_PROFILE_TYPES])
 {
-    uint8_t obj_priv_lvl;
-    proc_t* create_proc;
-
-    create_proc = get_current_proc();
-
-    /* Preemptive set to the biggest level */
-    obj_priv_lvl = PRIV_LVL_ADMIN;
-
-    /* If the caller specifies a desired privilege level, set it to that */
-    if (priv_lvl < PRIV_LVL_NONE)
-        obj_priv_lvl = priv_lvl;
-    else if (create_proc)
-        obj_priv_lvl = create_proc->m_env->priv_level;
-
-    obj->access_priv_lvl = obj_priv_lvl;
-    obj->read_priv_lvl = obj_priv_lvl;
-    obj->write_priv_lvl = obj_priv_lvl;
+    init_pattr(&obj->attr, ptype, pflags);
 }
 
 /*!
@@ -60,7 +43,25 @@ static void init_oss_obj_priv(oss_obj_t* obj, uint32_t priv_lvl)
  */
 oss_obj_t* create_oss_obj(const char* name)
 {
-    return create_oss_obj_ex(name, PRIV_LVL_NONE);
+    /* Lowest ptype with no flags: Litteraly everyone can do whatever they want with this object */
+    return create_oss_obj_ex(name, PROFILE_TYPE_LIMITED, 0);
+}
+
+/*!
+ * @brief: Create a system object pretty much xD
+ */
+oss_obj_t* create_kernel_oss_obj(const char* name)
+{
+    pattr_flags_t __flags[NR_PROFILE_TYPES] = {
+        /* Admins can do anything */
+        [PROFILE_TYPE_ADMIN] = 0xffffffff,
+        /* Supervisors can see this object */
+        [PROFILE_TYPE_SUPERVISOR] = PATTR_SEE,
+        [PROFILE_TYPE_USER] = 0,
+        [PROFILE_TYPE_LIMITED] = 0,
+    };
+
+    return create_oss_obj_ex(name, PROFILE_TYPE_SUPERVISOR, __flags);
 }
 
 /*!
@@ -70,7 +71,7 @@ oss_obj_t* create_oss_obj(const char* name)
  * security responsibility lays there. This means for any userspace oss_obj access bugs, we first
  * need to look there
  */
-oss_obj_t* create_oss_obj_ex(const char* name, uint32_t priv_lvl)
+oss_obj_t* create_oss_obj_ex(const char* name, enum PROFILE_TYPE ptype, pattr_flags_t pflags[NR_PROFILE_TYPES])
 {
     oss_obj_t* ret;
 
@@ -89,7 +90,7 @@ oss_obj_t* create_oss_obj_ex(const char* name, uint32_t priv_lvl)
     ret->parent = nullptr;
     ret->lock = create_mutex(NULL);
 
-    init_oss_obj_priv(ret, priv_lvl);
+    init_oss_obj_priv(ret, ptype, pflags);
 
     init_atomic_ptr(&ret->refc, 1);
     return ret;
@@ -120,12 +121,12 @@ void destroy_oss_obj(oss_obj_t* obj)
     kfree(obj);
 }
 
-int oss_obj_set_priv_levels(oss_obj_t* obj, u32 level)
+int oss_obj_set_priv_levels(oss_obj_t* obj, enum PROFILE_TYPE type, pattr_flags_t pflags[NR_PROFILE_TYPES])
 {
     if (!obj)
         return -KERR_INVAL;
 
-    init_oss_obj_priv(obj, level);
+    init_oss_obj_priv(obj, type, pflags);
 
     return 0;
 }

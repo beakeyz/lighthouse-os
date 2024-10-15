@@ -5,6 +5,7 @@
 #include "proc/env.h"
 #include "sync/atomic_ptr.h"
 #include "sync/mutex.h"
+#include "system/profile/attr.h"
 #include <libk/stddef.h>
 #include <system/profile/profile.h>
 
@@ -48,15 +49,10 @@ HANDLE_TYPE oss_obj_type_to_handle_type(enum OSS_OBJ_TYPE type);
 
 typedef struct oss_obj {
     const char* name;
-
     atomic_ptr_t refc;
 
-    /* Required privilge level to access this object */
-    uint8_t access_priv_lvl;
-    /* Required privilge level to read from this object */
-    uint8_t read_priv_lvl;
-    /* Required privilge level to write to this object */
-    uint8_t write_priv_lvl;
+    /* This objects profile attributes */
+    pattr_t attr;
 
     uint32_t flags;
     enum OSS_OBJ_TYPE type;
@@ -70,10 +66,10 @@ typedef struct oss_obj {
 
 #define oss_obj_unwrap(obj, type) (type*)(obj->priv)
 
-#define __oss_obj_can_proc(obj, p, thing) ((p) && (obj) && (p)->m_env && (p)->m_env->priv_level >= (obj)->thing##_priv_lvl)
-#define oss_obj_can_proc_access(obj, p) __oss_obj_can_proc(obj, p, access)
-#define oss_obj_can_proc_read(obj, p) __oss_obj_can_proc(obj, p, read)
-#define oss_obj_can_proc_write(obj, p) __oss_obj_can_proc(obj, p, write)
+#define __oss_obj_can_proc(obj, p, thing) ((p) && (obj) && (p)->m_env && pattr_hasperm(&(obj)->attr, &(p)->m_env->attr, (thing)))
+#define oss_obj_can_proc_access(obj, p) __oss_obj_can_proc(obj, p, PATTR_SEE)
+#define oss_obj_can_proc_read(obj, p) __oss_obj_can_proc(obj, p, PATTR_READ)
+#define oss_obj_can_proc_write(obj, p) __oss_obj_can_proc(obj, p, PATTR_WRITE)
 
 #define oss_obj_do_destroy_reroute(c)     \
     do {                                  \
@@ -84,10 +80,11 @@ typedef struct oss_obj {
     } while (0)
 
 oss_obj_t* create_oss_obj(const char* name);
-oss_obj_t* create_oss_obj_ex(const char* name, uint32_t priv_lvl);
+oss_obj_t* create_kernel_oss_obj(const char* name);
+oss_obj_t* create_oss_obj_ex(const char* name, enum PROFILE_TYPE ptype, pattr_flags_t pflags[NR_PROFILE_TYPES]);
 void destroy_oss_obj(oss_obj_t* obj);
 
-int oss_obj_set_priv_levels(oss_obj_t* obj, u32 level);
+int oss_obj_set_priv_levels(oss_obj_t* obj, enum PROFILE_TYPE type, pattr_flags_t pflags[NR_PROFILE_TYPES]);
 
 void oss_obj_ref(oss_obj_t* obj);
 void oss_obj_unref(oss_obj_t* obj);

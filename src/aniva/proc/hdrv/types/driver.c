@@ -7,7 +7,7 @@
 #include "proc/handle.h"
 #include "proc/proc.h"
 #include "sched/scheduler.h"
-#include "system/profile/profile.h"
+#include "system/profile/attr.h"
 #include <dev/driver.h>
 #include <proc/env.h>
 #include <proc/hdrv/driver.h>
@@ -137,7 +137,7 @@ static int driver_khdriver_destroy(khandle_driver_t* driver, khandle_t* handle)
         return -KERR_INVAL;
 
     /* Only admin processes may destroy drivers */
-    if (c_proc->m_env->priv_level != PRIV_LVL_ADMIN)
+    if (!pattr_hasperm(&drv->m_obj->attr, &c_proc->m_env->attr, PATTR_ULDRV))
         return -KERR_NOPERM;
 
     if (is_driver_loaded(drv))

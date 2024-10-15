@@ -4,6 +4,7 @@
 #include "dev/core.h"
 #include "oss/obj.h"
 #include "sync/mutex.h"
+#include "system/profile/profile.h"
 #include <libk/data/hashmap.h>
 #include <libk/flow/error.h>
 #include <libk/stddef.h>
@@ -42,6 +43,9 @@ void init_oss_nodes();
 typedef struct oss_node {
     const char* name;
     enum OSS_NODE_TYPE type;
+
+    /* This nodes profile attributes */
+    pattr_t pattr;
 
     struct oss_node_ops* ops;
     struct oss_node* parent;

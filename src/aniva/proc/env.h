@@ -2,6 +2,7 @@
 #define __ANIVA_PROC_PENV__
 
 #include "sync/mutex.h"
+#include "system/profile/attr.h"
 #include <libk/stddef.h>
 
 struct proc;
@@ -16,10 +17,14 @@ struct user_profile;
  */
 typedef struct penv {
     const char* label;
-    uint16_t flags;
-    /* This goes from 0x00 to 0xff. Anything beyond that is considered invalid */
-    uint16_t priv_level;
+    uint32_t flags;
     uint32_t proc_count;
+
+    /* This envs pattrs (Inherited from parent profile) */
+    pattr_t attr;
+
+    /* The pflags mask for pattr */
+    uint32_t pflags_mask[NR_PROFILE_TYPES];
 
     mutex_t* lock;
 
@@ -27,7 +32,7 @@ typedef struct penv {
     struct user_profile* profile;
 } penv_t;
 
-penv_t* create_penv(const char* label, uint32_t priv_level, uint32_t flags);
+penv_t* create_penv(const char* label, uint32_t pflags_mask[NR_PROFILE_TYPES], uint32_t flags);
 void destroy_penv(penv_t* env);
 
 int penv_add_proc(penv_t* env, struct proc* p);
