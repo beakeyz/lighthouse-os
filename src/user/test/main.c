@@ -7,7 +7,6 @@
 int main()
 {
     printf("Testing %%/Dev/Null\n");
-    return -1;
 
     DEVINFO info;
     DEV_HANDLE device = open_device("Dev/Null", HNDL_FLAG_RW);

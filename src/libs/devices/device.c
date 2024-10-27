@@ -64,7 +64,7 @@ DEV_HANDLE open_device(const char* path, DWORD flags)
         return (*dev_slot)->handle;
     }
 
-    ret = open_handle(path, HNDL_TYPE_DEVICE, flags, NULL);
+    ret = open_handle(path, HNDL_TYPE_DEVICE, flags, HNDL_MODE_NORMAL);
 
     if (handle_verify(ret) == FALSE)
         return ret;

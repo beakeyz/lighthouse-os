@@ -1,0 +1,14 @@
+<!-- This is a comment -->
+<config id="bootconfig">
+    <user name="User">
+        <disk path="%/Volumes/v0/p0" target="%/Root" fst="ext2"/>
+        <disk path="%/Volumes/v0/p1" target="%/Bootloader" fst="fat32"/>
+        <driver path="Root/System/lwnd.drv"/>
+    <user/>
+    <user name="Admin">
+        <disk path="%/Volumes/v0/p0" target="%/Root" fst="ext2"/>
+        <disk path="%/Volumes/v0/p1" target="%/Bootloader" fst="fat32"/>
+        <disk path="%/Volumes/v0/p2" target="%/Extra" fst="lightfs"/>
+        <driver path="Root/System/kterm.drv"/>
+    <user/>
+<config/>

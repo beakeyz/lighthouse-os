@@ -206,6 +206,7 @@ kerror_t khandle_driver_generic_oss_open_from(khandle_driver_t* driver, khandle_
     oss_obj_t* out_obj;
     oss_node_t* rel_node = NULL;
     HANDLE_TYPE type = driver->handle_type;
+    KLOG_DBG("Doing thing oss open for a khndl driver\n");
 
     /* If there is a relative handle passed, use it to try and find a relative node */
     if (rel_hndl)
@@ -224,6 +225,8 @@ kerror_t khandle_driver_generic_oss_open_from(khandle_driver_t* driver, khandle_
         return -KERR_TYPE_MISMATCH;
     }
 
+    KLOG_DBG("Generic oss open for a khndl driver\n");
+
     switch (type) {
     case HNDL_TYPE_OSS_OBJ:
         handle_ref = out_obj;
@@ -234,10 +237,7 @@ kerror_t khandle_driver_generic_oss_open_from(khandle_driver_t* driver, khandle_
     }
 
     /* Initialize the handle */
-    init_khandle(bHandle, &type, handle_ref);
-
-    /* Set the handle flags */
-    khandle_set_flags(bHandle, flags);
+    init_khandle_ex(bHandle, type, flags, handle_ref);
 
     return 0;
 }
