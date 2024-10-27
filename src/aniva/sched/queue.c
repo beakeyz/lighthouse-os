@@ -17,7 +17,7 @@ kerror_t init_squeue(scheduler_queue_t* out)
 
     /* Prepare the maximum cycles per thread vector */
     for (u32 i = 0; i < N_SCHED_PRIO; i++)
-        out->vec_threads[i].max_cycles = ((i + 1) << 4) | (i << 3) | (i << 1);
+        out->vec_threads[i].max_cycles = 1 << i;
 
     return 0;
 }
@@ -180,9 +180,6 @@ sthread_t* squeue_get_next_thread(squeue_t* q)
     /* Grab the current active thread list */
     lh = &q->vec_threads[q->active_prio];
 
-    /* Add a cycle to this boi */
-    lh->nr_cycles++;
-
     /* No threads left in this list, find a new active prio */
     if (__squeue_need_switch_next_tl(lh))
         lh = __squeue_handle_empty_tl(q);
@@ -192,6 +189,9 @@ sthread_t* squeue_get_next_thread(squeue_t* q)
         lh->cur_thread = lh->list;
     else
         lh->cur_thread = lh->cur_thread->next;
+
+    /* Add a cycle to this boi */
+    lh->nr_cycles++;
 
     // KLOG_DBG("Next t: %s\n", ret->t->m_name);
 

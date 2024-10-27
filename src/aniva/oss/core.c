@@ -275,6 +275,75 @@ static inline int __handle_oss_entry_scan_result(struct __oss_resolve_context* c
 }
 
 /*!
+ * @brief: This function will check if there is a deeper object generation node responsible for @rel
+ */
+static int __oss_get_deeper_object_generator_node(oss_node_t* rel, const char* path, oss_node_t** pGenNode, const char** pRelPath)
+{
+    oss_node_t* ret = nullptr;
+    const char* ret_path = nullptr;
+    oss_node_t* walker;
+
+    if (!rel || !path || !pGenNode || !pRelPath)
+        return -1;
+
+    walker = rel;
+
+    /* Walk down the node chain */
+    do {
+        /* If this is a generation node, we've found our fucker */
+        if (walker && walker->type == OSS_OBJ_GEN_NODE)
+            ret = walker;
+
+        walker = walker->parent;
+    } while (!ret && walker);
+
+    /* Didn't find shit =( */
+    if (!ret)
+        return -1;
+
+    /* Now we need to figure out the new relative path */
+    size_t rel_path_len = 0;
+    size_t ret_name_len = strlen(ret->name);
+    const char* rel_path = NULL;
+
+    /* Yikes, would be bad */
+    if (oss_node_get_path(rel, &rel_path) || !rel_path)
+        return -1;
+
+    rel_path_len = strlen(rel_path);
+
+    /* Find the name of @ret here */
+    for (u64 i = 0; i < rel_path_len; i++) {
+        /* Make sure we don't scan over the length of the string */
+        u32 scan_len = (rel_path_len - i) < ret_name_len ? (rel_path_len - i) : ret_name_len;
+
+        /* Check if we have reached the name of our generator node */
+        if (strncmp(&rel_path[i], ret->name, scan_len))
+            continue;
+
+        /* Fuck, how did this happen? */
+        if (i + scan_len + 1 >= rel_path_len)
+            break;
+
+        /*
+         * We did! &rel_path[i] is now equal to the start of ret->name
+         * Do + 1 to account for the path seperator
+         */
+        ret_path = strdup(&rel_path[i + scan_len + 1]);
+    }
+
+    /* Fuck this memory */
+    kfree((void*)rel_path);
+
+    /* TODO: Stick path to the end of ret_path, in such a way that it's always a valid oss path */
+    kernel_panic("TODO: __oss_get_deeper_object_generator_node");
+
+    *pGenNode = ret;
+    *pRelPath = ret_path;
+    return 0;
+}
+
+/*!
  * @brief: Resolve an oss entry based on a path
  *
  * Loops over every subpath inside the path and tries to itteratively find a new entry every time
@@ -305,6 +374,9 @@ static int __oss_resolve_node_entry_rel_locked(struct oss_node* rel, const char*
     /* No relative node. Fetch the rootnode */
     if (!c_node)
         c_node = _rootnode;
+    else
+        /* We don't really care if this fails lul */
+        (void)__oss_get_deeper_object_generator_node(rel, path, &obj_gen_node, NULL);
 
     /* Parse the path into a vector */
     error = oss_parse_path(path, &oss_path);
@@ -338,7 +410,7 @@ static int __oss_resolve_node_entry_rel_locked(struct oss_node* rel, const char*
             continue;
 
         /* Cache the object generation node */
-        if (c_node->type == OSS_OBJ_GEN_NODE && !obj_gen_node) {
+        if (c_node && c_node->type == OSS_OBJ_GEN_NODE && !obj_gen_node) {
             obj_gen_node = c_node;
             obj_gen_idx = i;
         }

@@ -56,6 +56,10 @@ static heap_node_t* split_node(heap_node_buffer_t* buffer, heap_node_t* node, si
 
     ret = (heap_node_t*)((uint64_t)&node->data[0] + node_size - (size + sizeof(*ret)));
 
+    /* This boi is going to overflow the buffer, not good */
+    if ((u64)ret + (size + sizeof(*ret)) > (u64)buffer + buffer->m_buffer_size)
+        return nullptr;
+
     memset(ret, 0, sizeof(*ret));
 
     /* Fix the return node */

@@ -227,6 +227,9 @@ static int ehci_interrupt_poll(ehci_hcd_t* ehci)
         }
 
         mmio_write_dword(ehci->opregs + EHCI_OPREG_USBSTS, usbsts);
+
+        /* Yield a bit */
+        scheduler_yield();
     }
     return 0;
 }
@@ -311,13 +314,8 @@ static int ehci_transfer_finish_thread(ehci_hcd_t* ehci)
 
     while ((ehci->ehci_flags & EHCI_HCD_FLAG_STOPPING) != EHCI_HCD_FLAG_STOPPING) {
         c_e_xfer = nullptr;
-        c_usb_xfer = nullptr;
 
         // KLOG_DBG("Ehci transfer list size: %d\n", ehci->transfer_list->m_length);
-
-        /* Spin until there are transfers to process */
-        while (ehci->transfer_list->m_length == 0)
-            scheduler_yield();
 
         /* Find a finished transfer */
         while (ehci_get_finished_transfer(ehci, &c_e_xfer))
@@ -365,6 +363,8 @@ static int ehci_qhead_cleanup_thread(ehci_hcd_t* ehci)
         /* Destroy the qh and clear the async adv flag */
         destroy_ehci_qh(ehci, to_destroy);
         ehci->n_destroyable_qh--;
+
+        scheduler_yield();
     }
     return 0;
 }

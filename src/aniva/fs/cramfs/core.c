@@ -60,7 +60,6 @@ typedef enum TAR_TYPE {
 
 static uintptr_t decode_tar_ascii(uint8_t* str, size_t length)
 {
-
     uintptr_t ret = 0;
     uint8_t* c = str;
 
@@ -122,7 +121,7 @@ static int tar_file_read(file_t* file, void* buffer, size_t* size, uintptr_t off
 
 int tar_file_write(file_t* file, void* buffer, size_t* size, uint64_t offset)
 {
-    return -1;
+    return 0;
 }
 
 int tar_file_close(file_t* file)
@@ -150,12 +149,6 @@ static oss_obj_t* ramfs_find(oss_node_t* node, const char* name)
 
     fsnode = oss_node_unwrap(node);
 
-    /* Create file early to catch node grabbing issues early */
-    file_t* file = create_file(node, FILE_READONLY, name);
-
-    if (!file)
-        return nullptr;
-
     while (current_offset <= fsnode->m_total_blocks) {
         /* Raw read :clown: */
         int result = ramfs_read(node, &current_file, sizeof(tar_file_t), current_offset);
@@ -170,7 +163,10 @@ static oss_obj_t* ramfs_find(oss_node_t* node, const char* name)
         uintptr_t current_file_offset = (uintptr_t)TAR_BLOCK_START(node) + current_offset;
         uintptr_t filesize = decode_tar_ascii(current_file.size, 11);
 
-        if (strncmp(name, (const char*)current_file.fn, strlen((const char*)current_file.fn)) == 0) {
+        if (name_len > sizeof(current_file.fn))
+            name_len = sizeof(current_file.fn);
+
+        if (strncmp(name, (const char*)current_file.fn, name_len) == 0) {
             /*
              * TODO: how do we want this to work?
              * TODO: Create vobj
@@ -178,6 +174,12 @@ static oss_obj_t* ramfs_find(oss_node_t* node, const char* name)
             switch (current_file.type) {
             case TAR_TYPE_FILE: {
                 uint8_t* data = (uint8_t*)(current_file_offset + TAR_USTAR_ALIGNMENT);
+
+                /* Create file early to catch node grabbing issues early */
+                file_t* file = create_file(node, FILE_READONLY, name);
+
+                if (!file)
+                    return nullptr;
 
                 /* We can just fill the files data, since it is readonly */
                 file->m_buffer = data;
@@ -204,7 +206,6 @@ static oss_obj_t* ramfs_find(oss_node_t* node, const char* name)
         current_offset += apply_tar_alignment(filesize);
     }
 
-    destroy_oss_obj(file->m_obj);
     return nullptr;
 }
 
@@ -228,15 +229,15 @@ dir_ops_t ramfs_dir_ops = {
     .f_read = ramfs_dir_read,
 };
 
-static oss_node_t* ramfs_open_node(oss_node_t* node, const char* path)
+static oss_node_t* ramfs_open_node(oss_node_t* node, const char* name)
 {
     dir_t* dir;
     tar_file_t current_file = { 0 };
     fs_oss_node_t* fsnode;
     uintptr_t current_offset = 0;
-    size_t name_len = strlen(path);
+    size_t name_len = strlen(name);
 
-    if (!path || !name_len)
+    if (!name || !name_len)
         return nullptr;
 
     fsnode = oss_node_unwrap(node);
@@ -256,7 +257,10 @@ static oss_node_t* ramfs_open_node(oss_node_t* node, const char* path)
 
         uintptr_t filesize = decode_tar_ascii(current_file.size, 11);
 
-        if (strncmp(path, (const char*)current_file.fn, strlen((const char*)current_file.fn)) == 0) {
+        if (name_len > sizeof(current_file.fn))
+            name_len = sizeof(current_file.fn);
+
+        if (strncmp(name, (const char*)current_file.fn, name_len) == 0) {
             /*
              * TODO: how do we want this to work?
              * TODO: Create vobj
@@ -266,7 +270,7 @@ static oss_node_t* ramfs_open_node(oss_node_t* node, const char* path)
                 return nullptr;
             case TAR_TYPE_DIR: {
 
-                dir = create_dir(node, path, &ramfs_dir_ops, NULL, NULL);
+                dir = create_dir(node, name, &ramfs_dir_ops, NULL, NULL);
 
                 if (!dir)
                     return nullptr;

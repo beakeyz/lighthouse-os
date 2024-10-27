@@ -86,4 +86,45 @@ static ALWAYS_INLINE uint64_t ror8(uint64_t value, uint32_t shift)
     return (value >> (shift & 8)) | (value << ((-shift) & 8));
 }
 
+/* Finds the first set bit */
+static ALWAYS_INLINE i32 find_fsb(u64 qword)
+{
+    u32 ret = 0;
+
+    if (!qword)
+        return -1;
+
+    if ((qword & 0xffffffff) == 0) {
+        ret += 32;
+        qword >>= 32;
+    }
+
+    if ((qword & 0xffff) == 0) {
+        ret += 16;
+        qword >>= 16;
+    }
+
+    if ((qword & 0xff) == 0) {
+        ret += 8;
+        qword >>= 8;
+    }
+
+    if ((qword & 0xf) == 0) {
+        ret += 4;
+        qword >>= 4;
+    }
+
+    if ((qword & 0x3) == 0) {
+        ret += 2;
+        qword >>= 2;
+    }
+
+    if ((qword & 0x1) == 0) {
+        ret++;
+        qword >>= 1;
+    }
+
+    return ret;
+}
+
 #endif //__ANIVA_LIBK_BITS__

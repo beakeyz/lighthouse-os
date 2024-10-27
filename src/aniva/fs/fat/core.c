@@ -614,12 +614,13 @@ transform_fat_filename(char* dest, const char* src)
 static int
 fat32_open_dir_entry(oss_node_t* node, fat_dir_entry_t* current, fat_dir_entry_t* out, char* rel_path, uint32_t* diroffset)
 {
-    int error;
     /* We always use this buffer if we don't support lfn */
     char transformed_buffer[12] = { 0 };
     char lfn_buffer[256] = { 0 };
-    uint32_t cluster_num;
+    int error;
+    u32 cluster_num;
     u32 lfn_len = 0;
+    u32 path_len;
 
     size_t dir_entries_count;
     size_t clusters_size;
@@ -630,6 +631,8 @@ fat32_open_dir_entry(oss_node_t* node, fat_dir_entry_t* current, fat_dir_entry_t
 
     if (!out || !rel_path)
         return -1;
+
+    path_len = strlen(rel_path);
 
     /* Make sure we open a directory, not a file */
     if ((current->attr & FAT_ATTR_DIR) == 0)
@@ -682,7 +685,7 @@ fat32_open_dir_entry(oss_node_t* node, fat_dir_entry_t* current, fat_dir_entry_t
             continue;
 
         /* This our file/directory? */
-        if ((lfn_len && strncmp(lfn_buffer, (const char*)rel_path, lfn_len) == 0) || strncmp(transformed_buffer, (const char*)entry.name, 11) == 0) {
+        if ((lfn_len && lfn_len == path_len && strncmp(rel_path, lfn_buffer, path_len) == 0) || strncmp(transformed_buffer, (const char*)entry.name, 11) == 0) {
             *out = entry;
 
             /* Give out where we found this bitch */

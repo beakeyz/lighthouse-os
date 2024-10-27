@@ -130,6 +130,12 @@ BOOL handle_read(
     __IN__ QWORD buffer_size,
     __OUT__ VOID* buffer);
 
+BOOL handle_read_ex(
+    __IN__ HANDLE handle,
+    __IN__ QWORD buffer_size,
+    __OUT__ VOID* buffer,
+    __OUT__ QWORD* bBytesRead);
+
 /*
  * Perform a write opperation on a handle
  */

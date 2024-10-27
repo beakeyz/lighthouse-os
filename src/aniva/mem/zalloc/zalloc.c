@@ -1,7 +1,6 @@
 #include "zalloc.h"
 #include "libk/data/bitmap.h"
 #include "libk/flow/error.h"
-#include "libk/stddef.h"
 #include "mem/zalloc/list.h"
 #include "sys/types.h"
 #include <mem/heap.h>
@@ -442,15 +441,10 @@ zone_t* create_zone(zone_allocator_t* allocator, const size_t entry_size, size_t
     if (error)
         return nullptr;
 
-    // We'll have to construct this bitmap ourselves
-    zone->m_entries = (bitmap_t) {
-        .m_entries = max_entries,
-        .m_size = bitmap_bytes,
-        .m_default = 0x00,
-    };
+    /* Construct the bitmap */
+    init_bitmap(&zone->m_entries, max_entries, bitmap_bytes, 0);
 
-    memset(zone->m_entries.m_map, 0, zone->m_entries.m_size);
-
+    /* Set the size of the entries we allocate */
     zone->m_zone_entry_size = entry_size;
 
     // Calculate where the memory actually starts

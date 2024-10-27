@@ -109,15 +109,22 @@ BOOL handle_get_offset(HANDLE handle, QWORD* boffset)
 
 BOOL handle_read(HANDLE handle, QWORD buffer_size, VOID* buffer)
 {
-    uintptr_t bytes_read;
+    return (handle_read_ex(handle, buffer_size, buffer, NULL) == buffer_size);
+}
 
-    /* NOTE: sys read returns the amount of bytes that where successfully read */
-    bytes_read = syscall_3(SYSID_READ, handle, (uintptr_t)buffer, buffer_size);
+BOOL handle_read_ex(HANDLE handle, QWORD buffer_size, VOID* buffer, QWORD* bBytesRead)
+{
+    QWORD bytes_read;
 
-    if (bytes_read != buffer_size)
+    if (!buffer_size || !buffer)
         return FALSE;
 
-    return TRUE;
+    bytes_read = syscall_3(SYSID_READ, handle, (uintptr_t)buffer, buffer_size);
+
+    if (bBytesRead)
+        *bBytesRead = bytes_read;
+
+    return (bytes_read == buffer_size);
 }
 
 BOOL handle_write(HANDLE handle, QWORD buffer_size, VOID* buffer)

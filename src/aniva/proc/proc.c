@@ -579,7 +579,7 @@ kerror_t try_terminate_process_ex(proc_t* proc, bool defer_yield)
 
         /* Wait until the thread finishes it's syscall and stops itself */
         while (c_thread->m_current_state == RUNNABLE || c_thread->m_current_state == RUNNING) {
-            KLOG_DBG("Waiting for syscall... %d\n", c_thread->m_c_sysid);
+            // KLOG_DBG("Waiting for syscall... %d\n", c_thread->m_c_sysid);
 
             /* Make the thread yield when it exits this syscall */
             SYSID_SET_VALID(c_thread->m_c_sysid, false);

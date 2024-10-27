@@ -1906,7 +1906,7 @@ int kterm_print(const char* msg)
 static void kterm_scroll(uintptr_t lines)
 {
     uint32_t new_y;
-    struct kterm_terminal_char* c_char;
+    struct kterm_terminal_char *c_char, *prev_char;
 
     if (!lines)
         return;
@@ -1917,6 +1917,10 @@ static void kterm_scroll(uintptr_t lines)
     for (uint32_t y = lines; y < _chars_yres; y++) {
         for (uint32_t x = 0; x < _chars_xres; x++) {
             c_char = kterm_get_term_char(x, y);
+            prev_char = kterm_get_term_char(x, y - lines);
+
+            if (c_char->ch == prev_char->ch)
+                continue;
 
             kterm_draw_char(x, y - lines, c_char->ch, c_char->pallet_idx, false);
         }

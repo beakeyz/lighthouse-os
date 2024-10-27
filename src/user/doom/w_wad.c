@@ -151,6 +151,8 @@ wad_file_t* W_AddFile(char* filename)
 
     newnumlumps = numlumps;
 
+    printf("DOOM: filename=%s\n", filename);
+
     if (strcasecmp(filename + strlen(filename) - 3, "wad")) {
         // single lump file
 
@@ -171,6 +173,8 @@ wad_file_t* W_AddFile(char* filename)
     } else {
         // WAD file
         W_Read(wad_file, 0, &header, sizeof(header));
+
+        printf("ident: %s\n", header.identification);
 
         if (strncmp(header.identification, "IWAD", 4)) {
             // Homebrew levels?

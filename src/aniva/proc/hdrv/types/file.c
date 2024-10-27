@@ -1,8 +1,6 @@
-
 #include "fs/file.h"
 #include "libk/flow/error.h"
 #include "lightos/handle_def.h"
-#include "logging/log.h"
 #include "oss/node.h"
 #include "proc/handle.h"
 #include "proc/hdrv/driver.h"
@@ -30,8 +28,8 @@ static int file_khandle_open_rel(khandle_driver_t* driver, khandle_t* rel, const
     file_t* file;
     oss_node_t* rel_node;
     HANDLE_TYPE type = driver->handle_type;
-
     if (!rel)
+
         return -KERR_INVAL;
 
     rel_node = khandle_get_relative_node(rel);

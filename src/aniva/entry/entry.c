@@ -381,9 +381,33 @@ void kthread_entry(void)
     /* Do late initialization of the default profiles */
     init_profiles_late();
 
-    // ASSERT_MSG(load_external_driver("Root/System/nvidia.drv"), "Failed to load nvidia kernel driver!");
+    /*
+    system_time_t bStartTime;
+    system_time_t bEndTime;
+    time_get_system_time(&bStartTime);
 
-    // kernel_panic("NVIDIA TEST");
+    void** buffers;
+
+    //__kmem_kernel_alloc_range((void**)&buffers, sizeof(void*) * 10000, NULL, KMEM_FLAG_WRITABLE);
+    buffers = kzalloc(sizeof(void*) * 10000);
+
+    for (int i = 0; i < 10000; i++)
+        buffers[i] = kzalloc(1024);
+
+    for (int i = 0; i < 10000; i++)
+        kzfree(buffers[i], 1024);
+
+    kzfree(buffers, sizeof(void*) * 10000);
+
+    time_get_system_time(&bEndTime);
+
+    KLOG_INFO("kmalloc test (Start time: %ds, %dms, %dus) (End time: %ds, %dms, %dus)\n",
+        bStartTime.s_since_boot, bStartTime.ms_since_last_s, bStartTime.us_since_last_ms,
+        bEndTime.s_since_boot, bEndTime.ms_since_last_s, bEndTime.us_since_last_ms, );
+
+    kernel_panic("TEST");
+    */
+
     /*
      * Remove the early TTY right before we finish low-level system setup. After
      * this point we're able to support our own debug capabilities

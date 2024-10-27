@@ -164,9 +164,11 @@ int __read_byte(FILE* stream, uint8_t* buffer)
 
         memset(stream->r_buff, 0, stream->r_buf_size);
 
-        /* Call the kernel deliver a new section of the stream */
-        r_size = syscall_3(SYSID_READ, stream->handle, (uint64_t)((void*)stream->r_buff), stream->r_buf_size);
+        /* Yikes */
+        if (!handle_read_ex(stream->handle, stream->r_buf_size, stream->r_buff, &r_size))
+            return NULL;
 
+        /* Yikes again */
         if (!r_size)
             return NULL;
 

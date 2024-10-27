@@ -4,33 +4,38 @@
 #include "fs/fat/core.h"
 #include "fs/file.h"
 #include "libk/flow/error.h"
-#include "logging/log.h"
 #include "mem/heap.h"
 #include "oss/obj.h"
 
-static int fat_read(file_t* file, void* buffer, size_t* size, uintptr_t offset)
+static int fat_read(file_t* file, void* buffer, size_t* p_size, uintptr_t offset)
 {
+    size_t size;
     oss_node_t* node = file->m_obj->parent;
 
-    if (!size)
+    if (!p_size)
         return -1;
+
+    size = *p_size;
 
     if (offset >= file->m_total_size)
         return -2;
 
     /* Trim the size a bit if it happens to overflows */
-    if ((offset + *size) >= file->m_total_size)
-        *size -= ((offset + *size) - file->m_total_size);
+    if ((offset + size) > file->m_total_size)
+        size -= ((offset + size) - file->m_total_size);
 
-    return fat32_read_clusters(node, buffer, file->m_private, offset, *size);
+    /* Update this shit */
+    *p_size = size;
+
+    return fat32_read_clusters(node, buffer, file->m_private, offset, size);
 }
 
-static int fat_write(file_t* file, void* buffer, size_t* size, uintptr_t offset)
+static int fat_write(file_t* file, void* buffer, size_t* p_size, uintptr_t offset)
 {
     if (!file || !file->m_obj)
         return -KERR_INVAL;
 
-    return fat32_write_clusters(file->m_obj->parent, buffer, file->m_private, offset, *size);
+    return fat32_write_clusters(file->m_obj->parent, buffer, file->m_private, offset, *p_size);
 }
 
 static int fat_sync(file_t* file)
