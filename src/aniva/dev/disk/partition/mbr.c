@@ -1,8 +1,9 @@
 #include "mbr.h"
-#include "dev/disk/generic.h"
+#include "dev/disk/device.h"
 #include "libk/data/linkedlist.h"
 #include "libk/stddef.h"
 #include "mem/heap.h"
+#include <libk/string.h>
 
 /*
  * Since there are most likely to only be a maximum of four mbr partitions, let's just
@@ -15,14 +16,14 @@ const char* mbr_partition_names[] = {
     "mbr_part3",
 };
 
-mbr_table_t* create_mbr_table(disk_dev_t* device, uintptr_t start_lba)
+mbr_table_t* create_mbr_table(volume_device_t* device, uintptr_t start_lba)
 {
     int error;
     mbr_header_t* header;
-    uint8_t buffer[device->m_logical_sector_size];
+    uint8_t buffer[device->info.logical_sector_size];
     mbr_table_t* table;
 
-    if (device->m_logical_sector_size != 512)
+    if (device->info.logical_sector_size != 512)
         return nullptr;
 
     table = kmalloc(sizeof(mbr_table_t));
@@ -32,7 +33,7 @@ mbr_table_t* create_mbr_table(disk_dev_t* device, uintptr_t start_lba)
         return nullptr;
 
     /* The MBR should always be at offset 0 of a device */
-    error = device->m_ops->f_bread(device->m_dev, NULL, start_lba, buffer, 1);
+    error = volume_dev_bread(device, start_lba, buffer, 1);
 
     if (error)
         goto dealloc_and_fail;

@@ -2,8 +2,9 @@
 #include "dev/core.h"
 #include "dev/debug/early_tty.h"
 #include "dev/device.h"
-#include "dev/disk/generic.h"
+#include "dev/disk/device.h"
 #include "dev/disk/ramdisk.h"
+#include "dev/disk/volume.h"
 #include "dev/driver.h"
 #include "dev/io/hid/hid.h"
 #include "dev/loader.h"
@@ -68,16 +69,16 @@ kerror_t __init try_fetch_initramdisk(void)
     ASSERT(!__kmem_kernel_alloc((void**)&ramdisk_addr, module_start, cramdisk_size, KMEM_CUSTOMFLAG_GET_MAKE, KMEM_FLAG_WRITABLE));
 
     /* Create ramdisk object */
-    disk_dev_t* ramdisk = create_generic_ramdev_at(ramdisk_addr, cramdisk_size);
+    volume_device_t* ramdisk = create_generic_ramdev_at(ramdisk_addr, cramdisk_size);
 
     if (!ramdisk)
         return -1;
 
     /* We know ramdisks through modules are compressed */
-    ramdisk->m_flags |= GDISKDEV_FLAG_RAM_COMPRESSED;
+    ramdisk->flags |= (VOLUME_DEV_FLAG_MEMORY | VOLUME_DEV_FLAG_COMPRESSED);
 
     /* Register the ramdisk as a disk device */
-    return register_gdisk_dev(ramdisk);
+    return register_volume_device(ramdisk);
 }
 
 static void register_kernel_data(paddr_t p_mb_addr)
@@ -222,7 +223,7 @@ static kerror_t _start_subsystems(void)
     init_devices();
 
     /* Initialize global disk device subsystem */
-    init_gdisk_dev();
+    init_volumes();
 
     /* Initialize the video subsystem */
     init_video();
@@ -360,7 +361,7 @@ void kthread_entry(void)
     try_fetch_initramdisk();
 
     /* Initialize the ramdisk as our initial root */
-    init_root_ramdev();
+    init_root_ram_volume();
 
     /* Initialize hardware (device.c) */
     init_hw();

@@ -66,7 +66,7 @@ static int __do_volume_info(VOLUME_HNDL volume)
     printf("Got volume: %s (ID: %d, Parent ID: %d)\n", lvolume.volume_label, lvolume.id, lvolume.device_id);
     printf(" - Logical sector size: %d\n", lvolume.logical_sector_size);
     printf(" - Physical sector size: %d\n", lvolume.physical_sector_size);
-    printf(" - Maximum addressable block: %lld\n", lvolume.max_blk);
+    printf(" - Maximum addressable offset: %lld\n", lvolume.max_offset);
 
     lightos_volume_clean(&lvolume);
     return 0;

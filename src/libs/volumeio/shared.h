@@ -3,7 +3,9 @@
 
 #include <stdint.h>
 
-typedef uint32_t volume_id_t;
+typedef int32_t volume_id_t;
+
+#define VOLUME_ID_INVAL ((volume_id_t)(-1))
 
 typedef enum VOLUME_TYPE {
     /* Guid partition sceme */
@@ -16,6 +18,8 @@ typedef enum VOLUME_TYPE {
     VOLUME_TYPE_UNKNOWN,
     /* No partition sceme, just raw disk data I guess */
     VOLUME_TYPE_UNPARTITIONED,
+    /* This volume has not yet been allocated to a purpose */
+    VOLUME_TYPE_FREE_SPACE,
     /* This is a memory-backed volume */
     VOLUME_TYPE_MEMORY,
 } VOLUME_TYPE_t;
@@ -29,8 +33,8 @@ typedef struct volume_info {
     uint16_t firmware_rev[4];
 
     /* Boundry info */
-    uintptr_t max_blk;
-    uintptr_t min_blk;
+    uintptr_t max_offset;
+    uintptr_t min_offset;
 
     /* Blocksizes */
     uint32_t logical_sector_size;
@@ -41,7 +45,24 @@ typedef struct volume_info {
     enum VOLUME_TYPE type;
 
     /* Volume label */
-    char label[64];
+    char label[80];
 } volume_info_t;
+
+#define ___ALIGN_DOWN(addr, size) ((addr) - ((addr) % (size)))
+
+static inline size_t volume_get_max_blk(volume_info_t* info)
+{
+    /* Don't want a devide by 0 exception *clown* */
+    if (!info || !info->logical_sector_size)
+        return 0;
+    return ___ALIGN_DOWN(info->max_offset, info->logical_sector_size) / info->logical_sector_size;
+}
+
+static inline size_t volume_get_length(volume_info_t* info)
+{
+    if (!info)
+        return 0;
+    return info->max_offset - info->min_offset + 1;
+}
 
 #endif // !__LIGHTOS_VOLUMEIO_SHARED_H__

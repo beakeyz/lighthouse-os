@@ -18,8 +18,6 @@ typedef struct ahci_port {
 
     uintptr_t m_port_offset;
 
-    spinlock_t* m_hard_lock;
-
     uintptr_t m_ib_page;
     uintptr_t m_cmd_list_page;
     uintptr_t m_fis_recieve_page;

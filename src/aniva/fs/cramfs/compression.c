@@ -1,4 +1,5 @@
 #include "compression.h"
+#include "dev/disk/volume.h"
 #include "libk/flow/error.h"
 #include "mem/heap.h"
 
@@ -420,11 +421,11 @@ kerror_t generic_inflate(decompress_ctx_t* ctx)
 #define GZIP_FLAG_NAME 0x08
 #define GZIP_FLAG_COMM 0x10
 
-bool cram_is_compressed_library(partitioned_disk_dev_t* device)
+bool cram_is_compressed_library(volume_t* device)
 {
     decompress_ctx_t ctx = {
-        .m_end_addr = device->m_end_lba,
-        .m_current = (uint8_t*)device->m_start_lba,
+        .m_end_addr = device->info.max_offset,
+        .m_current = (uint8_t*)device->info.min_offset,
     };
 
     if (c_read(&ctx) != GZIP_MAGIC_BYTE0)
@@ -439,13 +440,13 @@ bool cram_is_compressed_library(partitioned_disk_dev_t* device)
     return true;
 }
 
-kerror_t cram_decompress(partitioned_disk_dev_t* device, void* result_buffer)
+kerror_t cram_decompress(volume_t* device, void* result_buffer)
 {
 
     decompress_ctx_t ctx = {
-        .m_start_addr = device->m_start_lba,
-        .m_end_addr = device->m_end_lba,
-        .m_current = (uint8_t*)device->m_start_lba,
+        .m_start_addr = device->info.min_offset,
+        .m_end_addr = device->info.max_offset,
+        .m_current = (uint8_t*)device->info.min_offset,
         .m_out = result_buffer,
         .m_current_out = result_buffer,
         .m_bit_buffer = 0,
@@ -514,12 +515,12 @@ kerror_t cram_decompress(partitioned_disk_dev_t* device, void* result_buffer)
     return generic_inflate(&ctx);
 }
 
-size_t cram_find_decompressed_size(partitioned_disk_dev_t* device)
+size_t cram_find_decompressed_size(volume_t* device)
 {
     decompress_ctx_t dummy_ctx = { 0 };
 
-    dummy_ctx.m_current = (uint8_t*)device->m_end_lba - 8;
-    dummy_ctx.m_end_addr = device->m_end_lba;
+    dummy_ctx.m_current = (uint8_t*)device->info.min_offset - 8;
+    dummy_ctx.m_end_addr = device->info.max_offset;
 
     uint32_t crc32 = c_read32(&dummy_ctx);
 

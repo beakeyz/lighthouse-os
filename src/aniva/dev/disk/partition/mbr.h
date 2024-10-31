@@ -1,11 +1,10 @@
 #ifndef __ANIVA_PARTITION_MBR__
 #define __ANIVA_PARTITION_MBR__
 
-#include "dev/disk/shared.h"
 #include "libk/data/linkedlist.h"
 #include <libk/stddef.h>
 
-struct disk_dev;
+struct volume_device;
 
 typedef struct {
     uint8_t status;
@@ -55,7 +54,7 @@ typedef struct mbr_table {
     list_t* partitions;
 } mbr_table_t;
 
-mbr_table_t* create_mbr_table(struct disk_dev* device, uintptr_t start_lba);
+mbr_table_t* create_mbr_table(struct volume_device* device, uintptr_t start_lba);
 void destroy_mbr_table(mbr_table_t* table);
 
 #endif // !__ANIVA_PARTITION_MBR__

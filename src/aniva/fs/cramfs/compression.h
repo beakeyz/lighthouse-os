@@ -1,7 +1,8 @@
 #ifndef __ANIVA_CRAMFS_DECOMPRESSION__
 #define __ANIVA_CRAMFS_DECOMPRESSION__
 
-#include "dev/disk/generic.h"
+#include "dev/disk/volume.h"
+#include "libk/flow/error.h"
 #include <libk/stddef.h>
 
 #define HUFFMAN_CACHE_SIZE 0x8000
@@ -29,10 +30,10 @@ typedef struct {
     struct huffman_cache* m_cache;
 } decompress_ctx_t;
 
-kerror_t cram_decompress(partitioned_disk_dev_t* device, void* result_buffer);
+kerror_t cram_decompress(volume_t* device, void* result_buffer);
 
-bool cram_is_compressed_library(partitioned_disk_dev_t* device);
+bool cram_is_compressed_library(volume_t* device);
 
-size_t cram_find_decompressed_size(partitioned_disk_dev_t* device);
+size_t cram_find_decompressed_size(volume_t* device);
 
 #endif // !__ANIVA_CRAMFS_DECOMPRESSION__

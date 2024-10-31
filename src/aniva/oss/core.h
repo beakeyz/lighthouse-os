@@ -27,7 +27,7 @@
 
 struct oss_obj;
 struct oss_node;
-struct partitioned_disk_dev;
+struct volume;
 
 void init_oss();
 void oss_test();
@@ -39,7 +39,7 @@ int oss_attach_rootnode(struct oss_node* node);
 int oss_attach_node(const char* path, struct oss_node* node);
 int oss_attach_obj(const char* path, struct oss_obj* obj);
 int oss_attach_obj_rel(struct oss_node* rel, const char* path, struct oss_obj* obj);
-int oss_attach_fs(const char* path, const char* rootname, const char* fs, struct partitioned_disk_dev* device);
+int oss_attach_fs(const char* path, const char* rootname, const char* fs, struct volume* device);
 
 int oss_detach_rootnode(struct oss_node* node);
 int oss_detach_fs(const char* path, struct oss_node** out);

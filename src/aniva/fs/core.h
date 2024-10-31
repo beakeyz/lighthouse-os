@@ -1,8 +1,8 @@
 #ifndef __ANIVA_FS_CORE__
 #define __ANIVA_FS_CORE__
 
+#include "dev/disk/volume.h"
 #include "oss/node.h"
-#include <dev/disk/generic.h>
 #include <libk/flow/error.h>
 #include <libk/stddef.h>
 
@@ -17,7 +17,7 @@ typedef struct fs_type {
     uint32_t m_flags;
 
     int (*f_unmount)(struct fs_type*, oss_node_t*);
-    struct oss_node* (*f_mount)(struct fs_type*, const char*, partitioned_disk_dev_t* dev);
+    struct oss_node* (*f_mount)(struct fs_type*, const char*, volume_t* dev);
 
     struct aniva_driver* m_driver;
 
@@ -36,7 +36,7 @@ kerror_t unregister_filesystem(fs_type_t* fs);
 
 typedef struct fs_oss_node {
     fs_type_t* m_type;
-    partitioned_disk_dev_t* m_device;
+    volume_t* m_device;
 
     uint32_t m_blocksize;
     uint32_t m_flags;

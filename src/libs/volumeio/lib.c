@@ -68,7 +68,8 @@ int volume_get(VOLUME_HNDL handle, lightos_volume_t* pvolume)
     pvolume->volume_label = strdup(devinfo.devicename);
 
     /* Physical info */
-    pvolume->max_blk = volume_info.max_blk;
+    pvolume->max_offset = volume_info.max_offset;
+    pvolume->min_offset = volume_info.min_offset;
     pvolume->logical_sector_size = volume_info.logical_sector_size;
     pvolume->physical_sector_size = volume_info.physical_sector_size;
 

@@ -56,7 +56,7 @@ bool disk_try_copy_gpt_header(volume_device_t* device, gpt_table_t* table)
     if (device->info.logical_sector_size == 512)
         gpt_block = 1;
 
-    if (volume_dev_read(device, gpt_block, buffer, 1) < 0)
+    if (volume_dev_bread(device, gpt_block, buffer, 1) < 0)
         return false;
 
     header = (void*)buffer;
@@ -107,7 +107,7 @@ gpt_table_t* create_gpt_table(volume_device_t* device)
 
     for (uintptr_t i = 0; i < ret->m_header.entries_count; i++) {
 
-        if (volume_dev_read(device, blk, entry_buffer, 1) < 0)
+        if (volume_dev_bread(device, blk, entry_buffer, 1) < 0)
             goto fail_and_destroy;
 
         gpt_partition_entry_t* entries = (gpt_partition_entry_t*)entry_buffer;

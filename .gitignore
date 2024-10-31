@@ -7,6 +7,9 @@ cross_compiler/
 /out/
 /tests/out
 
+*/.zig-cache
+**/.zig-cache
+
 ./lightos.elf
 
 */__pycache__/

@@ -4,6 +4,7 @@
 #include "dev/disk/ahci/definitions.h"
 #include "dev/disk/device.h"
 #include "dev/disk/shared.h"
+#include "dev/disk/volume.h"
 #include "dev/driver.h"
 #include "devices/pci.h"
 #include "devices/shared.h"
@@ -302,7 +303,7 @@ static int ahci_port_write_blk(device_t* device, driver_t* driver, uintptr_t blk
         return -2;
 
     /* Won't ever fit lmao */
-    if (blk > disk_dev->info.max_blk)
+    if (blk > volume_get_max_blk(&disk_dev->info))
         return -3;
 
     /* FIXME: Should we try to fit count into the disk when it overflows? */
@@ -361,7 +362,7 @@ static int ahci_port_read_blk(device_t* device, driver_t* driver, uintptr_t blk,
         return -2;
 
     /* Won't ever fit lmao */
-    if (blk > disk_dev->info.max_blk)
+    if (blk > volume_get_max_blk(&disk_dev->info))
         return -3;
 
     /* FIXME: Should we try to fit count into the disk when it overflows? */
@@ -446,14 +447,21 @@ static volume_dev_ops_t _ahci_ops = {
 
 ahci_port_t* create_ahci_port(struct ahci_device* device, uintptr_t port_offset, uint32_t index)
 {
-    ahci_port_t* ret = kmalloc(sizeof(ahci_port_t));
+    ahci_port_t* ret;
+
+    if (!device)
+        return nullptr;
+
+    ret = kmalloc(sizeof(ahci_port_t));
+
+    if (!ret)
+        return nullptr;
+
     ret->m_port_index = index;
     ret->m_device = device;
     ret->m_port_offset = port_offset;
 
-    ASSERT(!kmem_prepare_new_physical_page(&ret->m_ib_page));
-
-    ret->m_hard_lock = create_spinlock(NULL);
+    ASSERT(KERR_OK(kmem_prepare_new_physical_page(&ret->m_ib_page)));
 
     /* Flags? */
     ret->m_awaiting_dma_transfer_complete = false;
@@ -461,6 +469,13 @@ ahci_port_t* create_ahci_port(struct ahci_device* device, uintptr_t port_offset,
     ret->m_is_waiting = false;
 
     ret->m_generic = create_volume_device(NULL, &_ahci_ops, NULL, ret);
+
+    if (!ret->m_generic) {
+        kfree(ret);
+        return nullptr;
+    }
+
+    register_volume_device(ret->m_generic);
 
     // prepare buffers
     ASSERT(!__kmem_kernel_alloc_range((void**)&ret->m_fis_recieve_page, SMALL_PAGE_SIZE, 0, KMEM_FLAG_DMA));
@@ -595,9 +610,9 @@ ANIVA_STATUS ahci_port_gather_info(ahci_port_t* port)
 
     /* Find how large the disk is */
     if (dev_identify_buffer->commands_and_feature_sets_supported[1] & (1 << 10)) {
-        vinfo.max_blk = dev_identify_buffer->user_addressable_logical_sectors_count;
+        vinfo.max_offset = dev_identify_buffer->user_addressable_logical_sectors_count * vinfo.logical_sector_size;
     } else {
-        vinfo.max_blk = dev_identify_buffer->max_28_bit_addressable_logical_sector;
+        vinfo.max_offset = (dev_identify_buffer->max_28_bit_addressable_logical_sector + 1) * vinfo.logical_sector_size - 1;
     }
 
     memcpy(vinfo.firmware_rev, dev_identify_buffer->firmware_revision, sizeof(uint16_t) * 4);
@@ -621,7 +636,7 @@ ANIVA_STATUS ahci_port_gather_info(ahci_port_t* port)
     KLOG_DBG("AHCI: Device (Name: %s) attached to port %d. Block count: 0x%llx, Blocksize: 0x%llx\n",
         port->m_device_model,
         port->m_port_index,
-        port->m_generic->info.max_blk,
+        port->m_generic->info.max_offset / port->m_generic->info.logical_sector_size,
         port->m_generic->info.logical_sector_size);
 
     /* Clean the buffer */

@@ -824,7 +824,7 @@ int oss_attach_obj(const char* path, struct oss_obj* obj)
  * @brief: Attach a filesystem with node name @rootname to @path
  *
  */
-int oss_attach_fs(const char* path, const char* rootname, const char* fs, partitioned_disk_dev_t* device)
+int oss_attach_fs(const char* path, const char* rootname, const char* fs, volume_t* device)
 {
     int error;
     oss_node_t* node;

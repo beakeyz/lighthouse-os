@@ -18,7 +18,8 @@ typedef struct lightos_volume {
     volume_id_t id;
 
     /* Physical information about the volume */
-    size_t max_blk;
+    size_t min_offset;
+    size_t max_offset;
     uint32_t logical_sector_size;
     uint32_t physical_sector_size;
 
