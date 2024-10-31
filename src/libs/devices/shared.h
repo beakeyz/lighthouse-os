@@ -78,7 +78,7 @@ typedef struct devinfo {
 
     /* Device specific data */
     uint32_t dev_specific_size;
-    uint8_t dev_specific_info[];
+    void* dev_specific_info;
 } devinfo_t, DEVINFO;
 
 /*
@@ -125,9 +125,9 @@ enum DEVICE_CTLC {
     /* HID control codes */
     DEVICE_CTLC_HID_POLL,
 
-    /* Disk control codes */
-    DEVICE_CTLC_DISK_BREAD,
-    DEVICE_CTLC_DISK_BWRITE,
+    /* Volume control codes */
+    DEVICE_CTLC_VOLUME_BREAD,
+    DEVICE_CTLC_VOLUME_BWRITE,
     DEVICE_CTLC_ATA_IDENTIFY, // Executes an ATA identify command
 
     /* Video control codes */

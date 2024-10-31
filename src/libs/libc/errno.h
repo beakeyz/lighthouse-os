@@ -131,6 +131,7 @@ extern int errno;
 
 /* Our own shit [Non-posix] */
 #define ENOIMPL 169
+#define ENOCMD 170
 
 #define ERESTARTSYS 512
 

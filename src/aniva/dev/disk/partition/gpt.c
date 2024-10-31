@@ -1,8 +1,9 @@
 #include "gpt.h"
+#include "dev/disk/device.h"
 #include "libk/data/linkedlist.h"
 #include "logging/log.h"
 #include "mem/heap.h"
-#include <dev/disk/generic.h>
+#include "mem/kmem_manager.h"
 #include <libk/string.h>
 
 static char* gpt_partition_create_path(gpt_partition_t* partition)
@@ -45,19 +46,17 @@ static bool gpt_entry_is_used(uint8_t guid[16])
  *
  * Nothing to add here...
  */
-bool disk_try_copy_gpt_header(disk_dev_t* device, gpt_table_t* table)
+bool disk_try_copy_gpt_header(volume_device_t* device, gpt_table_t* table)
 {
 
     gpt_partition_header_t* header;
-    uint8_t buffer[device->m_logical_sector_size];
+    uint8_t buffer[device->info.logical_sector_size];
     uint32_t gpt_block = 0;
 
-    if (device->m_logical_sector_size == 512)
+    if (device->info.logical_sector_size == 512)
         gpt_block = 1;
 
-    int result = device->m_ops->f_bread(device->m_dev, NULL, gpt_block, buffer, 1);
-
-    if (result < 0)
+    if (volume_dev_read(device, gpt_block, buffer, 1) < 0)
         return false;
 
     header = (void*)buffer;
@@ -71,7 +70,7 @@ bool disk_try_copy_gpt_header(disk_dev_t* device, gpt_table_t* table)
     return true;
 }
 
-gpt_table_t* create_gpt_table(disk_dev_t* device)
+gpt_table_t* create_gpt_table(volume_device_t* device)
 {
     gpt_table_t* ret;
 
@@ -81,7 +80,7 @@ gpt_table_t* create_gpt_table(disk_dev_t* device)
     uintptr_t offset;
 
     // Let's put the whole block into this buffer
-    uint8_t entry_buffer[device->m_logical_sector_size];
+    uint8_t entry_buffer[device->info.logical_sector_size];
 
     if (!device)
         return nullptr;
@@ -104,16 +103,16 @@ gpt_table_t* create_gpt_table(disk_dev_t* device)
     partition_entry_size = ret->m_header.partition_entry_size;
     partition_index = 0;
     blk = ret->m_header.partition_array_start_lba;
-    offset = blk * device->m_logical_sector_size;
+    offset = blk * device->info.logical_sector_size;
 
     for (uintptr_t i = 0; i < ret->m_header.entries_count; i++) {
 
-        if (device->m_ops->f_bread(device->m_dev, NULL, blk, entry_buffer, 1) < 0)
+        if (volume_dev_read(device, blk, entry_buffer, 1) < 0)
             goto fail_and_destroy;
 
         gpt_partition_entry_t* entries = (gpt_partition_entry_t*)entry_buffer;
 
-        gpt_partition_entry_t entry = entries[i % (device->m_logical_sector_size / partition_entry_size)];
+        gpt_partition_entry_t entry = entries[i % (device->info.logical_sector_size / partition_entry_size)];
 
         if (!gpt_entry_is_used(entry.partition_guid))
             goto cycle_next;
@@ -126,7 +125,7 @@ gpt_table_t* create_gpt_table(disk_dev_t* device)
         partition_index++;
     cycle_next:
         offset += partition_entry_size;
-        blk = (ALIGN_DOWN(offset, device->m_logical_sector_size) / device->m_logical_sector_size);
+        blk = (ALIGN_DOWN(offset, device->info.logical_sector_size) / device->info.logical_sector_size);
     }
 
     return ret;

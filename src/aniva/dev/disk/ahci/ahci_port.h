@@ -1,8 +1,8 @@
 #ifndef __ANIVA_AHCIPORT__
 #define __ANIVA_AHCIPORT__
 
-#include "dev/disk/generic.h"
 #include "libk/flow/error.h"
+#include <dev/disk/device.h>
 #include <sync/spinlock.h>
 
 struct ahci_device;
@@ -29,7 +29,7 @@ typedef struct ahci_port {
 
     uint32_t m_port_index;
 
-    disk_dev_t* m_generic;
+    volume_device_t* m_generic;
 } ahci_port_t;
 
 ahci_port_t* create_ahci_port(struct ahci_device* device, uintptr_t port_offset, uint32_t index);

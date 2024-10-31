@@ -1,8 +1,10 @@
 #ifndef __ANIVA_GPT_PARTITION__
 #define __ANIVA_GPT_PARTITION__
-#include "dev/disk/generic.h"
+
+#include "dev/disk/device.h"
 #include "libk/data/linkedlist.h"
 #include <libk/stddef.h>
+#include <libk/string.h>
 
 #define GPT_SIG_0 0x20494645
 #define GPT_SIG_1 0x54524150
@@ -80,16 +82,16 @@ typedef struct gpt_table {
 
     size_t m_partition_count;
 
-    disk_dev_t* m_device;
+    volume_device_t* m_device;
     list_t* m_partitions;
 } gpt_table_t;
 
-gpt_table_t* create_gpt_table(disk_dev_t* device);
+gpt_table_t* create_gpt_table(volume_device_t* device);
 void destroy_gpt_table(gpt_table_t* table);
 
 gpt_partition_t* create_gpt_partition(gpt_partition_entry_t* entry, uintptr_t index);
 void destroy_gpt_partition(gpt_partition_t* partition);
 
-bool disk_try_copy_gpt_header(disk_dev_t* device, gpt_table_t* table);
+bool disk_try_copy_gpt_header(volume_device_t* device, gpt_table_t* table);
 
 #endif // !__ANIVA_GPT_PARTITION__

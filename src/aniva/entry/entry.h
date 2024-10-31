@@ -9,6 +9,9 @@
 struct aniva_driver;
 struct processor;
 
+extern const char* kernel_build_date;
+extern const char* kernel_build_time;
+
 extern uintptr_t _kernel_start;
 extern uintptr_t _kernel_end;
 

@@ -11,7 +11,8 @@ LIBRARY_PATHS := \
 	./devices \
 	./params \
 	./kterm \
-	./sysconf
+	./sysconf \
+	./volumeio
 
 export LIBRARY_SHARED_FILE_EXT := .lib
 export LIBRARY_STATIC_FILE_EXT := .obj
