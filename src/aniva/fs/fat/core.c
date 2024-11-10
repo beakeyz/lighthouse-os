@@ -1,5 +1,4 @@
 #include "dev/core.h"
-#include "dev/disk/generic.h"
 #include "dev/driver.h"
 #include "fs/core.h"
 #include "fs/dir.h"
@@ -942,18 +941,19 @@ static struct oss_node_ops fat_node_ops = {
  * FAT will keep a list of vobjects that have been given away by the system, in order to map
  * vobjects to disk-locations and FATs easier.
  */
-oss_node_t* fat32_mount(fs_type_t* type, const char* mountpoint, partitioned_disk_dev_t* device)
+oss_node_t* fat32_mount(fs_type_t* type, const char* mountpoint, volume_t* device)
 {
     /* Get FAT =^) */
     fat_fs_info_t* ffi;
-    uint8_t buffer[device->m_parent->m_logical_sector_size];
+    uint8_t buffer[device->parent->info.logical_sector_size];
     fat_boot_sector_t* boot_sector;
     fat_boot_fsinfo_t* internal_fs_info;
     oss_node_t* node;
 
     KLOG_DBG("Trying to mount FAT32\n");
 
-    int read_error = pd_bread(device, buffer, 0);
+    /* Try and read the first block from this volume */
+    int read_error = volume_bread(device, 0, buffer, 1);
 
     if (read_error < 0)
         return nullptr;
@@ -982,7 +982,7 @@ oss_node_t* fat32_mount(fs_type_t* type, const char* mountpoint, partitioned_dis
      * Create a cache for our sectors
      * NOTE: cache_count being NULL means we want the default number of cache entries
      */
-    ffi->sector_cache = create_fat_sector_cache(device->m_parent->m_effective_sector_size, NULL);
+    ffi->sector_cache = create_fat_sector_cache(device->parent->info.max_transfer_sector_nr, NULL);
 
     /* Try to parse boot sector */
     int parse_error = parse_fat_bpb(boot_sector, node);
@@ -1002,10 +1002,10 @@ oss_node_t* fat32_mount(fs_type_t* type, const char* mountpoint, partitioned_dis
     }
 
     /* Attempt to reset the blocksize for the partitioned device */
-    if (device->m_parent->m_logical_sector_size > oss_node_getfs(node)->m_blocksize) {
+    if (device->parent->info.logical_sector_size > oss_node_getfs(node)->m_blocksize) {
 
-        if (!pd_set_blocksize(device, oss_node_getfs(node)->m_blocksize))
-            kernel_panic("Failed to set blocksize! abort");
+        // if (!pd_set_blocksize(device, oss_node_getfs(node)->m_blocksize))
+        kernel_panic("FAT: Failed to set blocksize! abort");
     }
 
     /* Did a previous OS mark this filesystem as dirty? */
@@ -1039,7 +1039,7 @@ oss_node_t* fat32_mount(fs_type_t* type, const char* mountpoint, partitioned_dis
     };
 
     /* NOTE: we reuse the buffer of the boot sector */
-    read_error = pd_bread(device, buffer, 1);
+    read_error = volume_bread(device, 1, buffer, 1);
 
     if (read_error < 0)
         goto fail;

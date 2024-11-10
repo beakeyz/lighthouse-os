@@ -1,5 +1,4 @@
 #include "dev/core.h"
-#include "dev/disk/generic.h"
 #include "dev/driver.h"
 #include "fs/ext2/core.h"
 #include "oss/node.h"
@@ -23,7 +22,7 @@ struct ext2 {
     struct ext2_superblock* m_superblock;
     struct ext2_block_group_descriptor* m_block_group_descriptor;
 
-    partitioned_disk_dev_t* m_device;
+    volume_t* m_device;
 
     /* stats of this ext2 filesystem */
     ext2_info_t m_info;
@@ -31,7 +30,7 @@ struct ext2 {
 
 struct ext2_superblock* fetch_superblock();
 
-oss_node_t* ext2_mount(fs_type_t* type, const char* mountpoint, partitioned_disk_dev_t* device)
+oss_node_t* ext2_mount(fs_type_t* type, const char* mountpoint, volume_t* device)
 {
 
     ASSERT_MSG(device, "Can't initialize ext2 fs without a disk device");

@@ -25,8 +25,7 @@ typedef struct volume_dev_ops {
 #define VOLUME_DEV_FLAG_READONLY 0x00000001
 #define VOLUME_DEV_FLAG_HIDDEN 0x00000002
 #define VOLUME_DEV_FLAG_BUFFER 0x00000004
-#define VOLUME_DEV_FLAG_COMPRESSED 0x00000008
-#define VOLUME_DEV_FLAG_MEMORY 0x00000010
+#define VOLUME_DEV_FLAG_MEMORY 0x00000008
 
 typedef struct volume_device {
     /* Parent device. A volume device doesn't get a parent until it is registered */

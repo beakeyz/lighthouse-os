@@ -1,5 +1,5 @@
 #include "cache.h"
-#include "dev/disk/generic.h"
+#include "dev/disk/volume.h"
 #include "fs/core.h"
 #include "fs/fat/core.h"
 #include "fs/fat/file.h"
@@ -24,7 +24,7 @@ struct sec_cache_entry {
     uintptr_t current_block;
 };
 
-kerror_t create_fat_info(oss_node_t* node, partitioned_disk_dev_t* device)
+kerror_t create_fat_info(oss_node_t* node, volume_t* device)
 {
     fs_oss_node_t* fsnode;
     fat_fs_info_t* info;
@@ -153,7 +153,7 @@ static inline int fatfs_sync_cache_entry_ex(oss_node_t* node, fat_sector_cache_t
 
     fsnode = oss_node_getfs(node);
 
-    if (write_sync_partitioned_blocks(fsnode->m_device, (void*)entry->block_buffer, logical_block_count, entry->current_block))
+    if (volume_bwrite(fsnode->m_device, entry->current_block, (void*)entry->block_buffer, logical_block_count))
         return -1;
 
     entry->is_dirty = false;
@@ -163,7 +163,7 @@ static inline int fatfs_sync_cache_entry_ex(oss_node_t* node, fat_sector_cache_t
 static inline uint32_t get_logical_block_count(oss_node_t* node, fat_sector_cache_t* cache)
 {
     fs_oss_node_t* fsnode = oss_node_getfs(node);
-    return cache->blocksize / fsnode->m_device->m_block_size;
+    return cache->blocksize / fsnode->m_device->info.logical_sector_size;
 }
 
 static inline int fatfs_sync_cache_entry(oss_node_t* node, fat_sector_cache_t* cache, struct sec_cache_entry* entry)
@@ -252,7 +252,7 @@ __read(oss_node_t* node, fat_sector_cache_t* cache, struct sec_cache_entry** ent
     offset = block * cache->blocksize;
 
     /* Convert to device block index */
-    block = offset / fsnode->m_device->m_block_size;
+    block = offset / fsnode->m_device->info.logical_sector_size;
 
     if (fat_cache_find_entry(node, cache, &c_entry, block) || !c_entry)
         return -1;
@@ -263,7 +263,7 @@ __read(oss_node_t* node, fat_sector_cache_t* cache, struct sec_cache_entry** ent
 
     logical_block_count = get_logical_block_count(node, cache);
 
-    if (read_sync_partitioned_blocks(fsnode->m_device, (void*)c_entry->block_buffer, logical_block_count, block))
+    if (volume_bread(fsnode->m_device, block, (void*)c_entry->block_buffer, logical_block_count))
         return -2;
 
 found_entry:

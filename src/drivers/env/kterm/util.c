@@ -2,7 +2,8 @@
 #include "dev/core.h"
 #include "dev/ctl.h"
 #include "dev/device.h"
-#include "dev/disk/generic.h"
+#include "dev/disk/device.h"
+#include "dev/disk/volume.h"
 #include "dev/driver.h"
 #include "devices/shared.h"
 #include "drivers/env/kterm/kterm.h"
@@ -20,6 +21,7 @@
 #include "proc/proc.h"
 #include "system/acpi/acpi.h"
 #include "system/acpi/parser.h"
+#include "volumeio/shared.h"
 #include <dev/loader.h>
 #include <proc/env.h>
 
@@ -317,8 +319,8 @@ uint32_t kterm_cmd_drvld(const char** argv, size_t argc)
 uint32_t kterm_cmd_diskinfo(const char** argv, size_t argc)
 {
     uint32_t device_index;
-    disk_dev_t* device;
-    partitioned_disk_dev_t* this_part;
+    volume_device_t* device;
+    volume_t* this_part;
 
     if (argc != 2) {
         kterm_println("Invalid args!");
@@ -332,30 +334,30 @@ uint32_t kterm_cmd_diskinfo(const char** argv, size_t argc)
 
     device_index = argv[1][0] - '0';
 
-    device = find_gdisk_device(device_index);
+    device = volume_device_find(device_index);
 
     if (!device) {
         kterm_println("Could not find that device!");
         return 2;
     }
 
-    kterm_print_keyvalue("Disk name", device->m_device_name);
-    kterm_print_keyvalue("Disk path", device->m_dev->name);
-    kterm_print_keyvalue("Disk logical sector size", to_string(device->m_logical_sector_size));
-    kterm_print_keyvalue("Disk physical sector size", to_string(device->m_physical_sector_size));
-    kterm_print_keyvalue("Disk size", to_string(device->m_max_blk * device->m_logical_sector_size));
-    kterm_print_keyvalue("Disk partition type", device->m_partition_type == PART_TYPE_GPT ? "gpt" : (device->m_partition_type == PART_TYPE_MBR ? "mbr" : "unknown"));
-    kterm_print_keyvalue("Disk partition count", to_string(device->m_partitioned_dev_count));
+    kterm_print_keyvalue("Disk name", device->info.label);
+    kterm_print_keyvalue("Disk path", device->dev->name);
+    kterm_print_keyvalue("Disk logical sector size", to_string(device->info.logical_sector_size));
+    kterm_print_keyvalue("Disk physical sector size", to_string(device->info.physical_sector_size));
+    kterm_print_keyvalue("Disk size", to_string(device->info.max_offset));
+    kterm_print_keyvalue("Disk partition type", device->info.type == VOLUME_TYPE_GPT ? "gpt" : (device->info.type == VOLUME_TYPE_MBR ? "mbr" : "unknown"));
+    kterm_print_keyvalue("Disk partition count", to_string(device->nr_volumes));
 
-    this_part = device->m_devs;
+    this_part = device->vec_volumes;
 
     while (this_part) {
-        kterm_print_keyvalue("Partition Name", this_part->m_name);
-        kterm_print_keyvalue("  \\ sector size", to_string(this_part->m_block_size));
-        kterm_print_keyvalue("  \\ Partition start lba", to_string(this_part->m_start_lba));
-        kterm_print_keyvalue("  \\ Partition end lba", to_string(this_part->m_end_lba));
+        kterm_print_keyvalue("Partition Name", this_part->info.label);
+        kterm_print_keyvalue("  \\ sector size", to_string(this_part->info.logical_sector_size));
+        kterm_print_keyvalue("  \\ Partition start offset", to_string(this_part->info.min_offset));
+        kterm_print_keyvalue("  \\ Partition end offset", to_string(this_part->info.max_offset));
 
-        this_part = this_part->m_next;
+        this_part = this_part->next;
     }
 
     return 0;

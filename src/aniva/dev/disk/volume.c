@@ -3,8 +3,8 @@
 #include "dev/disk/device.h"
 #include "dev/driver.h"
 #include "dev/group.h"
-#include "devices/device.h"
 #include "devices/shared.h"
+#include "fs/core.h"
 #include "libk/flow/error.h"
 #include "logging/log.h"
 #include "mem/heap.h"
@@ -247,6 +247,16 @@ size_t volume_write(volume_t* volume, uintptr_t offset, void* buffer, size_t siz
     return size;
 }
 
+size_t volume_bread(volume_t* volume, uintptr_t block, void* buffer, size_t nr_blks)
+{
+    kernel_panic("TODO: implement volume_bread");
+}
+
+size_t volume_bwrite(volume_t* volume, uintptr_t block, void* buffer, size_t nr_blks)
+{
+    kernel_panic("TODO: implement volume_bwrite");
+}
+
 int volume_flush(volume_t* volume)
 {
     return device_send_ctl(volume->dev, DEVICE_CTLC_FLUSH);
@@ -322,6 +332,8 @@ int register_volume_device(struct volume_device* volume_dev)
     /* Format the device name */
     sfmt(name_buffer, VOLUME_DEVICE_NAME_FMT, next_voldv_id);
 
+    KLOG_DBG("Creating volume device: %s\n", name_buffer);
+
     volume_dev->dev = create_device_ex(NULL, name_buffer, volume_dev, DEVICE_CTYPE_OTHER, NULL, __volume_dev_ctl_nodes);
     volume_dev->id = next_voldv_id;
     next_voldv_id++;
@@ -347,10 +359,210 @@ volume_device_t* volume_device_find(volume_id_t id)
     sfmt(name_buffer, VOLUME_DEVICE_NAME_FMT, id);
 
     /* Search this group for the device with this ID */
-    if (dev_group_get_device(volumes_dgroup, name_buffer, &result) || !result)
+    if (dev_group_get_device(volume_devices_dgroup, name_buffer, &result) || !result)
         return nullptr;
 
     return result->private;
+}
+
+/*!
+ * @brief: Check the currently mounted root filesystem for our system files
+ *
+ * We need to check for a few file(types) to be present on the system:
+ * - The kernel file
+ * - The kernel BASE variable file, created by the installer
+ * - The base softdrivers that are required for userspace
+ * - Other resource files for the kernel
+ * - ect. (TODO)
+ */
+static bool verify_mount_root()
+{
+    oss_obj_t* scan_obj;
+
+    /*
+     * Try to find kterm in the system directory. If it exists, that means there at least
+     * a somewhat functional system installed on this disk
+     *
+     * FIXME: Put the locations of essential drivers in the profile variables of BASE
+     */
+    if (oss_resolve_obj_rel(nullptr, FS_DEFAULT_ROOT_MP "/System/kterm.drv", &scan_obj))
+        return false;
+
+    if (!scan_obj)
+        return false;
+
+    /*
+     * We could find the system file!
+     * TODO: look for more files that only one O.o
+     */
+    oss_obj_close(scan_obj);
+    return true;
+}
+
+/*!
+ * @brief: Check all the available filesystems to see if one is compatible with @device
+ *
+ * Also performs checks on the files inside the filesystem, if the mount call succeeds
+ */
+static bool try_mount_root(volume_t* device)
+{
+    int error;
+    bool verify_result;
+    oss_node_t* c_node;
+    static const char* filesystems[] = {
+        "fat32",
+        //"ext2",
+    };
+    static const uint32_t filesystems_count = sizeof(filesystems) / sizeof(*filesystems);
+
+    for (uint32_t i = 0; i < filesystems_count; i++) {
+        const char* fs = filesystems[i];
+
+        error = oss_attach_fs(nullptr, FS_DEFAULT_ROOT_MP, fs, device);
+
+        /* Successful mount? try and verify the mount */
+        if (error)
+            continue;
+
+        verify_result = verify_mount_root();
+
+        /* Did we succeed??? =DD */
+        if (verify_result)
+            break;
+
+        /* Reset the result */
+        error = -1;
+
+        // vfs_unmount(VFS_ROOT_ID"/"VFS_DEFAULT_ROOT_MP);
+        /* Detach the node first */
+        oss_detach_fs(FS_DEFAULT_ROOT_MP, &c_node);
+
+        /* Then destroy it */
+        destroy_oss_node(c_node);
+    }
+
+    /* Failed to scan for filesystem */
+    if (error)
+        return false;
+
+    return true;
+}
+
+static int _set_bootdevice(volume_device_t* device)
+{
+    int error = -KERR_INVAL;
+    const char* path;
+    const char* sysvar_names[] = {
+        BOOT_DEVICE_VARKEY,
+        BOOT_DEVICE_NAME_VARKEY,
+        BOOT_DEVICE_SIZE_VARKEY,
+    };
+    u64 sysvar_values[] = {
+        0, // Will get set later
+        (u64)device->dev->name,
+        device->info.max_offset * device->info.logical_sector_size,
+    };
+    sysvar_t* sysvar;
+    user_profile_t* profile = get_admin_profile();
+
+    if (!device)
+        return -1;
+
+    path = oss_obj_get_fullpath(device->dev->obj);
+
+    if (!path)
+        return -1;
+
+    sysvar_values[0] = (u64)path;
+
+    for (u32 i = 0; i < 3; i++) {
+        sysvar = sysvar_get(profile->node, sysvar_names[i]);
+        error = -KERR_NOT_FOUND;
+
+        if (!sysvar)
+            goto free_and_exit;
+
+        error = -KERR_INVAL;
+
+        if (!sysvar_write(sysvar, sysvar_values[i]))
+            goto free_and_exit;
+    }
+
+    error = 0;
+free_and_exit:
+    kfree((void*)path);
+    return error;
+}
+
+void init_root_volume()
+{
+    /*
+     * Init probing for the root device
+     */
+    bool found_root_device;
+    const char* initrd_mp;
+    volume_device_t* root_device;
+    volume_id_t device_index;
+    oss_node_t* initial_ramfs_node;
+
+    volume_t* root_ramdisk;
+
+    device_index = 1;
+    found_root_device = false;
+    root_ramdisk = nullptr;
+    root_device = volume_device_find(0);
+
+    oss_detach_fs(FS_DEFAULT_ROOT_MP, &initial_ramfs_node);
+
+    if (initial_ramfs_node)
+        destroy_oss_node(initial_ramfs_node);
+
+    while (root_device) {
+
+        volume_t* part = root_device->vec_volumes;
+
+        if ((root_device->flags & VOLUME_DEV_FLAG_MEMORY) == VOLUME_DEV_FLAG_MEMORY && part && (part->flags & VOLUME_FLAG_CRAM) == VOLUME_FLAG_CRAM) {
+            /* We can use this ramdisk as a fallback to mount */
+            root_ramdisk = part;
+            goto cycle_next;
+        }
+
+        /*
+         * NOTE: we use this as a last resort. If there is no mention of a root device anywhere,
+         * we bruteforce every partition and check if it contains a valid FAT32 filesystem. If
+         * it does, we check if it contains the files that make up our boot filesystem and if it does, we simply take
+         * that device and mark as our root.
+         */
+        while (part && !found_root_device) {
+
+            /* Try to mount a filesystem and scan for aniva system files */
+            if ((found_root_device = try_mount_root(part)))
+                break;
+
+            part = part->next;
+        }
+
+        if (found_root_device) {
+            KLOG_DBG("Found a rootdevice: %s -> %s\n", root_device->dev->name, part->dev->name);
+            break;
+        }
+
+    cycle_next:
+        root_device = volume_device_find(device_index++);
+    }
+
+    initrd_mp = FS_INITRD_MP;
+
+    /* If there was no root device, use the initrd as a rootdevice */
+    if (!found_root_device)
+        initrd_mp = FS_DEFAULT_ROOT_MP;
+    else
+        _set_bootdevice(root_device);
+
+    if (!root_ramdisk || oss_attach_fs(nullptr, initrd_mp, "cramfs", root_ramdisk))
+        kernel_panic("Could not find a root device to mount! TODO: fix");
+    else
+        _set_bootdevice(root_ramdisk->parent);
 }
 
 void init_root_ram_volume()
@@ -363,19 +575,20 @@ void init_root_ram_volume()
     root_ramdisk = nullptr;
     root_device = volume_device_find(0);
 
-    while (root_device && (root_device->flags & (VOLUME_DEV_FLAG_COMPRESSED | VOLUME_DEV_FLAG_MEMORY)) != (VOLUME_DEV_FLAG_COMPRESSED | VOLUME_DEV_FLAG_MEMORY))
+    while (root_device && (root_device->flags & (VOLUME_DEV_FLAG_MEMORY)) != (VOLUME_DEV_FLAG_MEMORY) && root_device->nr_volumes != 1) {
+        KLOG_DBG("root: %s\n", root_device->dev->name);
         root_device = volume_device_find(device_id++);
+    }
 
     /* Fuck, we could not find a ram volume to mount =( */
     if (!root_device)
-        return;
+        kernel_panic("Failed to find ramdisk");
 
     /* We can use this ramdisk as a fallback to mount */
     root_ramdisk = root_device->vec_volumes;
 
-    if (!root_ramdisk || oss_attach_fs(nullptr, FS_DEFAULT_ROOT_MP, "cramfs", root_ramdisk)) {
+    if (!root_ramdisk || oss_attach_fs(nullptr, FS_DEFAULT_ROOT_MP, "cramfs", root_ramdisk))
         kernel_panic("Could not find a root device to mount! TODO: fix");
-    }
 }
 
 /*!

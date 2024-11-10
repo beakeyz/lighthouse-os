@@ -5,8 +5,8 @@
  * This is the FAT cache housekeeping file for aniva
  */
 
-#include "dev/disk/generic.h"
 #include "dev/disk/shared.h"
+#include "dev/disk/volume.h"
 #include "libk/flow/error.h"
 #include "oss/node.h"
 
@@ -29,7 +29,7 @@ typedef struct {
 
 void init_fat_cache(void);
 
-kerror_t create_fat_info(oss_node_t* node, partitioned_disk_dev_t* device);
+kerror_t create_fat_info(oss_node_t* node, volume_t* device);
 void destroy_fat_info(oss_node_t* node);
 
 fat_sector_cache_t* create_fat_sector_cache(uintptr_t block_size, uint32_t cache_count);

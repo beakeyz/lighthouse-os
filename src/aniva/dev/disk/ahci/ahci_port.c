@@ -14,7 +14,6 @@
 #include "logging/log.h"
 #include "mem/kmem_manager.h"
 #include "sched/scheduler.h"
-#include "sync/spinlock.h"
 #include "volumeio/shared.h"
 #include <mem/heap.h>
 
@@ -495,8 +494,6 @@ void destroy_ahci_port(ahci_port_t* port)
     __kmem_kernel_dealloc(port->m_fis_recieve_page, SMALL_PAGE_SIZE);
     __kmem_kernel_dealloc(port->m_cmd_table_buffer, SMALL_PAGE_SIZE);
 
-    destroy_spinlock(port->m_hard_lock);
-
     /* Destroying the volume device should also unregister it, if it still is */
     destroy_volume_device(port->m_generic);
 
@@ -586,6 +583,9 @@ ANIVA_STATUS ahci_port_gather_info(ahci_port_t* port)
     if (dev_identify_buffer->general_config.dev_type) {
         goto fail_and_dealloc;
     }
+
+    /* Let the probing figure out what kind of partition sceme is used */
+    vinfo.type = VOLUME_TYPE_UNKNOWN;
 
     // Default sector size
     vinfo.logical_sector_size = 512;

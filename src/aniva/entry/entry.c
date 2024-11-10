@@ -74,9 +74,6 @@ kerror_t __init try_fetch_initramdisk(void)
     if (!ramdisk)
         return -1;
 
-    /* We know ramdisks through modules are compressed */
-    ramdisk->flags |= (VOLUME_DEV_FLAG_MEMORY | VOLUME_DEV_FLAG_COMPRESSED);
-
     /* Register the ramdisk as a disk device */
     return register_volume_device(ramdisk);
 }
@@ -370,7 +367,7 @@ void kthread_entry(void)
     init_pci_drivers();
 
     /* Probe for a root device */
-    init_root_device_probing();
+    init_root_volume();
 
     /*
      * Late environment stuff right before we are done bootstrapping kernel systems

@@ -1,11 +1,13 @@
 #include "dev/core.h"
-#include "dev/disk/generic.h"
+#include "dev/disk/device.h"
+#include "dev/disk/volume.h"
 #include "dev/driver.h"
 #include "fs/cramfs/compression.h"
 #include "fs/dir.h"
 #include "fs/file.h"
 #include "libk/flow/error.h"
 #include "libk/stddef.h"
+#include "logging/log.h"
 #include "mem/kmem_manager.h"
 #include "oss/core.h"
 #include "oss/node.h"
@@ -318,34 +320,36 @@ static struct oss_node_ops ramfs_node_ops = {
     .f_destroy = ramfs_destroy,
 };
 
-static void __tar_create_superblock(oss_node_t* node, partitioned_disk_dev_t* device)
+static void __tar_create_superblock(oss_node_t* node, volume_t* device)
 {
     if (!node)
         return;
 
     TAR_SUPERBLOCK(node)->m_device = device;
-    TAR_SUPERBLOCK(node)->m_first_usable_block = device->m_start_lba;
+    TAR_SUPERBLOCK(node)->m_first_usable_block = device->info.min_offset;
     TAR_SUPERBLOCK(node)->m_blocksize = 1;
     /* free_blocks holds the aligned compressed size */
-    TAR_SUPERBLOCK(node)->m_free_blocks = ALIGN_UP(device->m_end_lba - device->m_start_lba, SMALL_PAGE_SIZE);
+    TAR_SUPERBLOCK(node)->m_free_blocks = ALIGN_UP(device->info.max_offset - device->info.min_offset, SMALL_PAGE_SIZE);
     TAR_SUPERBLOCK(node)->m_total_blocks = TAR_SUPERBLOCK(node)->m_free_blocks;
     TAR_SUPERBLOCK(node)->m_dirty_blocks = 0;
     TAR_SUPERBLOCK(node)->m_max_filesize = -1;
     TAR_SUPERBLOCK(node)->m_faulty_blocks = 0;
     /* Tell the fs node where we might start (this works because we register a blocksize of 1 byte) */
-    TAR_BLOCK_START(node) = (void*)device->m_start_lba;
+    TAR_BLOCK_START(node) = (void*)device->info.min_offset;
 }
 
 int unmount_ramfs(fs_type_t* type, oss_node_t* node)
 {
-    partitioned_disk_dev_t* device;
+    volume_t* device;
     fs_oss_node_t* fs;
 
     fs = oss_node_getfs(node);
 
     device = fs->m_device;
 
-    device->m_parent->m_flags |= GDISKDEV_FLAG_WAS_MOUNTED;
+    /* Correct volume flags */
+    device->flags &= ~VOLUME_FLAG_SYSTEMIZED;
+    device->flags |= VOLUME_FLAG_HAD_SYSTEM;
     return 0;
 }
 
@@ -353,27 +357,28 @@ int unmount_ramfs(fs_type_t* type, oss_node_t* node)
  * We get passed the addressspace of the ramdisk through the partitioned_disk_dev_t
  * which holds the boundaries for our disk
  */
-oss_node_t* mount_ramfs(fs_type_t* type, const char* mountpoint, partitioned_disk_dev_t* device)
+oss_node_t* mount_ramfs(fs_type_t* type, const char* mountpoint, volume_t* device)
 {
     kerror_t error;
     size_t decompressed_size;
     /* Since our 'lbas' are only one byte, we can obtain a size in bytes here =D */
-    const disk_dev_t* parent = device->m_parent;
+    const volume_device_t* parent = device->parent;
 
-    ASSERT_MSG(parent->m_partitioned_dev_count == 1, "Ramdisk device should have only one partitioned device!");
-    ASSERT_MSG(parent->m_devs == device, "Ramdisk partition mismatch!");
+    ASSERT_MSG(parent->nr_volumes == 1, "Ramdisk device should have only one partitioned device!");
+    ASSERT_MSG(parent->vec_volumes == device, "Ramdisk partition mismatch!");
 
     if (!parent)
         return nullptr;
 
-    if ((parent->m_flags & GDISKDEV_FLAG_RAM) == 0)
+    /* This volume device can't possibly be a ramdisk */
+    if ((parent->flags & VOLUME_DEV_FLAG_MEMORY) != VOLUME_DEV_FLAG_MEMORY)
         return nullptr;
 
     oss_node_t* node = create_fs_oss_node(mountpoint, type, &ramfs_node_ops);
 
     __tar_create_superblock(node, device);
 
-    if ((parent->m_flags & GDISKDEV_FLAG_RAM_COMPRESSED) == GDISKDEV_FLAG_RAM_COMPRESSED && (parent->m_flags & GDISKDEV_FLAG_WAS_MOUNTED) != GDISKDEV_FLAG_WAS_MOUNTED) {
+    if ((device->flags & VOLUME_FLAG_COMPRESSED) == VOLUME_FLAG_COMPRESSED && (device->flags & VOLUME_FLAG_HAD_SYSTEM) != VOLUME_FLAG_HAD_SYSTEM) {
 
         ASSERT_MSG(cram_is_compressed_library(device), "Library marked as a compressed library, but check failed!");
 
@@ -401,10 +406,10 @@ oss_node_t* mount_ramfs(fs_type_t* type, const char* mountpoint, partitioned_dis
         ASSERT_MSG(TAR_BLOCK_START(node) != nullptr, "decompressing resulted in NULL");
 
         /* Free the pages of the compressed ramdisk */
-        __kmem_kernel_dealloc(device->m_start_lba, GET_PAGECOUNT(device->m_start_lba, TAR_SUPERBLOCK(node)->m_free_blocks));
+        __kmem_kernel_dealloc(device->info.min_offset, GET_PAGECOUNT(device->info.min_offset, TAR_SUPERBLOCK(node)->m_free_blocks));
 
-        device->m_start_lba = (uintptr_t)TAR_BLOCK_START(node);
-        device->m_end_lba = (uintptr_t)TAR_BLOCK_START(node) + decompressed_size;
+        device->info.min_offset = (uintptr_t)TAR_BLOCK_START(node);
+        device->info.max_offset = (uintptr_t)TAR_BLOCK_START(node) + decompressed_size;
     }
 
     return node;

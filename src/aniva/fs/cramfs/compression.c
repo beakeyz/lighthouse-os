@@ -519,7 +519,7 @@ size_t cram_find_decompressed_size(volume_t* device)
 {
     decompress_ctx_t dummy_ctx = { 0 };
 
-    dummy_ctx.m_current = (uint8_t*)device->info.min_offset - 8;
+    dummy_ctx.m_current = (uint8_t*)device->info.max_offset - 8;
     dummy_ctx.m_end_addr = device->info.max_offset;
 
     uint32_t crc32 = c_read32(&dummy_ctx);

@@ -8,14 +8,14 @@ typedef int32_t volume_id_t;
 #define VOLUME_ID_INVAL ((volume_id_t)(-1))
 
 typedef enum VOLUME_TYPE {
+    /* We have no clue */
+    VOLUME_TYPE_UNKNOWN = 0,
     /* Guid partition sceme */
     VOLUME_TYPE_GPT,
     /* Master boot record */
     VOLUME_TYPE_MBR,
     /* Extended mbr */
     VOLUME_TYPE_EBR,
-    /* We have no clue */
-    VOLUME_TYPE_UNKNOWN,
     /* No partition sceme, just raw disk data I guess */
     VOLUME_TYPE_UNPARTITIONED,
     /* This volume has not yet been allocated to a purpose */

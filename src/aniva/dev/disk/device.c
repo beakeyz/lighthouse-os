@@ -154,6 +154,10 @@ int volume_dev_populate_volumes(volume_device_t* dev)
 {
     int error;
 
+    /* If we already know the partition type, don't do shit */
+    if (dev->info.type != VOLUME_TYPE_UNKNOWN)
+        return -1;
+
     /* If this device already has volumes, clear them out and redo them */
     if (dev->nr_volumes || dev->vec_volumes)
         volume_dev_clear_volumes(dev);
@@ -175,6 +179,12 @@ int volume_dev_populate_volumes(volume_device_t* dev)
     return -1;
 }
 
+/*!
+ * @brief: Sets the volume info for a volume device
+ *
+ * NOTE: This is a function with hidden functionality, since it also tries to populate the
+ * devices volumes with the partitions, if pinfo->type is set to VOLUME_TYPE_UNKNOWN
+ */
 int volume_dev_set_info(volume_device_t* device, volume_info_t* pinfo)
 {
     if (!pinfo)

@@ -8,8 +8,20 @@
 
 struct volume_device;
 
+/* Can't write to this volume */
 #define VOLUME_FLAG_READONLY 0x00000001
+/* No asynchronous I/O with this volume =( */
 #define VOLUME_FLAG_NO_ASYNC 0x00000002
+/* This volume has a (file)system attached to it */
+#define VOLUME_FLAG_SYSTEMIZED 0x00000002
+/* This volume had a (file)system attached to it */
+#define VOLUME_FLAG_HAD_SYSTEM 0x00000004
+/* Data inside this volume is compressed */
+#define VOLUME_FLAG_COMPRESSED 0x00000008
+/* Data inside this volume is memory-backed */
+#define VOLUME_FLAG_MEMORY 0x00000010
+
+#define VOLUME_FLAG_CRAM (VOLUME_FLAG_MEMORY | VOLUME_FLAG_COMPRESSED)
 
 /*
  * A generic volume object
@@ -53,6 +65,8 @@ int unregister_volume(volume_t* volume);
 /* Volume opperation routines */
 size_t volume_read(volume_t* volume, uintptr_t offset, void* buffer, size_t size);
 size_t volume_write(volume_t* volume, uintptr_t offset, void* buffer, size_t size);
+size_t volume_bread(volume_t* volume, uintptr_t block, void* buffer, size_t nr_blks);
+size_t volume_bwrite(volume_t* volume, uintptr_t block, void* buffer, size_t nr_blks);
 int volume_flush(volume_t* volume);
 int volume_resize(volume_t* volume, uintptr_t new_min_offset, uintptr_t new_max_offset);
 /* Completely removes a volume, also unregisters it and destroys it */
@@ -64,6 +78,7 @@ int unregister_volume_device(struct volume_device* volume_dev);
 volume_device_t* volume_device_find(volume_id_t id);
 
 void init_root_ram_volume();
+void init_root_volume();
 void init_volumes();
 
 #endif // !__ANIVA_DISK_VOLUME_H__

@@ -3,10 +3,9 @@
 #include "dev/device.h"
 #include "dev/disk/ahci/ahci_port.h"
 #include "dev/disk/ahci/definitions.h"
-#include "dev/disk/generic.h"
+#include "dev/disk/device.h"
+#include "dev/disk/volume.h"
 #include "dev/driver.h"
-#include "dev/group.h"
-#include "dev/pci/bus.h"
 #include "dev/pci/io.h"
 #include "dev/pci/pci.h"
 #include "devices/pci.h"
@@ -24,7 +23,6 @@
 static uint32_t _ahci_dev_count;
 static ahci_device_t* __ahci_devices = nullptr;
 static driver_t* _ahci_driver;
-static dgroup_t* _ahci_group;
 
 static pci_dev_id_t ahci_id_table[] = {
     PCI_DEVID_CLASSES(MASS_STORAGE, PCI_SUBCLASS_SATA, PCI_PROGIF_SATA),
@@ -62,19 +60,12 @@ static void __unregister_ahci_device(ahci_device_t* device)
     }
 }
 
-static inline dgroup_t* _get_bus_group(ahci_device_t* device)
-{
-    return device->m_identifier->dev->bus_group;
-}
-
 /*!
  * @brief: Register a new AHCI port entry
  */
-static inline void _register_ahci_port(ahci_device_t* dev, disk_dev_t* port)
+static inline void _register_ahci_port(ahci_device_t* dev, volume_device_t* port)
 {
-    register_gdisk_dev(port);
-
-    dev_group_add_device(_get_bus_group(dev), port->m_dev);
+    register_volume_device(port);
 }
 
 uint32_t ahci_mmio_read32(uintptr_t base, uintptr_t offset)
@@ -317,9 +308,6 @@ ahci_device_t* create_ahci_device(pci_device_t* identifier)
     /* Take the device from PCI */
     (void)driver_takeover_device(_ahci_driver, dev, name_buffer, NULL, ahci_device);
 
-    /* Set the bus group */
-    dev->bus_group = _ahci_group;
-
     mutex_unlock(dev->lock);
 
     if (initialize_hba(ahci_device) == ANIVA_FAIL) {
@@ -405,7 +393,6 @@ int ahci_driver_init(driver_t* driver)
     __ahci_devices = nullptr;
     _ahci_dev_count = NULL;
     _ahci_driver = driver;
-    _ahci_group = register_dev_group(DGROUP_TYPE_AHCI, "ahci", NULL, NULL);
 
     register_pci_driver(driver, &ahci_pci_driver);
 
@@ -418,8 +405,6 @@ int ahci_driver_exit()
     println("Shut down ahci driver");
 
     unregister_pci_driver(&ahci_pci_driver);
-
-    unregister_dev_group(_ahci_group);
 
     if (__ahci_devices)
         destroy_ahci_device(__ahci_devices);
