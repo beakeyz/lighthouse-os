@@ -614,7 +614,6 @@ ANIVA_STATUS ahci_port_gather_info(ahci_port_t* port)
     } else {
         vinfo.max_offset = (dev_identify_buffer->max_28_bit_addressable_logical_sector + 1) * vinfo.logical_sector_size - 1;
     }
-
     memcpy(vinfo.firmware_rev, dev_identify_buffer->firmware_revision, sizeof(uint16_t) * 4);
 
     /* Give the device its name */

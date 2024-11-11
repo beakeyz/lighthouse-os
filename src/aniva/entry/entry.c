@@ -74,8 +74,7 @@ kerror_t __init try_fetch_initramdisk(void)
     if (!ramdisk)
         return -1;
 
-    /* Register the ramdisk as a disk device */
-    return register_volume_device(ramdisk);
+    return 0;
 }
 
 static void register_kernel_data(paddr_t p_mb_addr)

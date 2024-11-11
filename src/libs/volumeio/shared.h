@@ -58,6 +58,14 @@ static inline size_t volume_get_max_blk(volume_info_t* info)
     return ___ALIGN_DOWN(info->max_offset, info->logical_sector_size) / info->logical_sector_size;
 }
 
+static inline size_t volume_get_min_blk(volume_info_t* info)
+{
+    /* Don't want a devide by 0 exception *clown* */
+    if (!info || !info->logical_sector_size)
+        return 0;
+    return ___ALIGN_DOWN(info->min_offset, info->logical_sector_size) / info->logical_sector_size;
+}
+
 static inline size_t volume_get_length(volume_info_t* info)
 {
     if (!info)

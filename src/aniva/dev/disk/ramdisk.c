@@ -138,6 +138,8 @@ volume_device_t* create_generic_ramdev_at(uintptr_t address, size_t size)
     if (!ret)
         return nullptr;
 
+    ASSERT_MSG(register_volume_device(ret) == 0, "Failed to register ramdisk volume device!");
+
     /* Create a cram volume */
     volume = create_volume(&info, VOLUME_FLAG_CRAM);
 

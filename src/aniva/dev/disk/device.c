@@ -104,8 +104,8 @@ static int __populate_gpt_part_table(volume_device_t* dev)
         memcpy(volume_info.label, part->m_type.m_name, sizeof(part->m_type.m_name));
 
         /* Set the boundries */
-        volume_info.min_offset = part->m_start_lba;
-        volume_info.max_offset = part->m_end_lba;
+        volume_info.min_offset = part->m_start_lba * volume_info.logical_sector_size;
+        volume_info.max_offset = part->m_end_lba * volume_info.logical_sector_size;
 
         // partitioned_volume_device_t* partitioned_device = create_partitioned_disk_dev(dev, part->m_type.m_name, part->m_start_lba, part->m_end_lba, PD_FLAG_ONLY_SYNC);
         volume_t* volume = create_volume(&volume_info, NULL);

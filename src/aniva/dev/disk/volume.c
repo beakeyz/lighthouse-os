@@ -9,6 +9,7 @@
 #include "logging/log.h"
 #include "mem/heap.h"
 #include "sync/mutex.h"
+#include "volumeio/shared.h"
 #include <oss/core.h>
 #include <oss/node.h>
 
@@ -16,7 +17,7 @@ static dgroup_t* volumes_dgroup;
 static dgroup_t* volume_devices_dgroup;
 static u32 next_voldv_id;
 
-#define VOLUME_NAME_FMT "V%d_%d"
+#define VOLUME_NAME_FMT "V%d.%d"
 #define VOLUME_DEVICE_NAME_FMT "VD%d"
 
 volume_t* create_volume(volume_info_t* info, u32 flags)
@@ -92,6 +93,50 @@ static int __volume_read(device_t* dev, driver_t* drv, uintptr_t offset, void* b
 }
 
 /*!
+ * @brief: Volume wrapper read function
+ *
+ * Makes sure the bounds of the volume are not exceeded on the volume device
+ */
+static int __volume_bread(device_t* dev, driver_t* drv, uintptr_t blk, void* buffer, size_t count)
+{
+    u64 read_end_offset;
+    u64 offset;
+    size_t size;
+    volume_t* vol;
+    volume_device_t* voldev;
+
+    if (!dev->private)
+        return -KERR_INVAL;
+
+    vol = dev->private;
+
+    /* Invalid =( */
+    if (!vol || !vol->info.logical_sector_size)
+        return -KERR_INVAL;
+
+    /* Compute offset and size */
+    offset = vol->info.logical_sector_size * blk;
+    size = count * vol->info.logical_sector_size;
+
+    /* Check the offset range */
+    if (vol->info.min_offset + offset > vol->info.max_offset)
+        return -KERR_RANGE;
+
+    if (!vol->parent)
+        return -KERR_NODEV;
+
+    voldev = vol->parent;
+    read_end_offset = vol->info.min_offset + offset + size - 1;
+
+    /* Correct the size overflow */
+    if (read_end_offset > vol->info.max_offset)
+        count = ((vol->info.max_offset - (vol->info.min_offset + offset)) + 1) / vol->info.logical_sector_size;
+
+    /* Do the write */
+    return volume_dev_bread(voldev, volume_get_min_blk(&vol->info) + blk, buffer, count);
+}
+
+/*!
  * @brief: Volume wrapper write function
  *
  * Makes sure the bounds of the volume are not exceeded on the volume device
@@ -125,6 +170,50 @@ static int __volume_write(device_t* dev, driver_t* drv, uintptr_t offset, void* 
     return volume_dev_write(voldev, vol->info.min_offset + offset, buffer, size);
 }
 
+/*!
+ * @brief: Volume wrapper write function
+ *
+ * Makes sure the bounds of the volume are not exceeded on the volume device
+ */
+static int __volume_bwrite(device_t* dev, driver_t* drv, uintptr_t blk, void* buffer, size_t count)
+{
+    u64 write_end_offset;
+    u64 offset;
+    size_t size;
+    volume_t* vol;
+    volume_device_t* voldev;
+
+    if (!dev->private)
+        return -KERR_INVAL;
+
+    vol = dev->private;
+
+    /* Invalid =( */
+    if (!vol || !vol->info.logical_sector_size)
+        return -KERR_INVAL;
+
+    /* Compute offset and size */
+    offset = vol->info.logical_sector_size * blk;
+    size = count * vol->info.logical_sector_size;
+
+    /* Check the offset range */
+    if (vol->info.min_offset + offset > vol->info.max_offset)
+        return -KERR_RANGE;
+
+    if (!vol->parent)
+        return -KERR_NODEV;
+
+    voldev = vol->parent;
+    write_end_offset = vol->info.min_offset + offset + size - 1;
+
+    /* Correct the size overflow */
+    if (write_end_offset > vol->info.max_offset)
+        count = ((vol->info.max_offset - (vol->info.min_offset + offset)) + 1) / vol->info.logical_sector_size;
+
+    /* Do the write */
+    return volume_dev_bwrite(voldev, volume_get_min_blk(&vol->info) + blk, buffer, count);
+}
+
 static int __volume_flush(device_t* dev, driver_t* drv, uintptr_t offset, void* buffer, size_t size)
 {
     /* TODO */
@@ -143,6 +232,8 @@ int register_volume(volume_device_t* parent, volume_t* volume, volume_id_t id)
     static device_ctl_node_t __volume_ctl_nodes[] = {
         DEVICE_CTL(DEVICE_CTLC_READ, __volume_read, NULL),
         DEVICE_CTL(DEVICE_CTLC_WRITE, __volume_write, NULL),
+        DEVICE_CTL(DEVICE_CTLC_VOLUME_BREAD, __volume_bread, NULL),
+        DEVICE_CTL(DEVICE_CTLC_VOLUME_BWRITE, __volume_bwrite, NULL),
         DEVICE_CTL(DEVICE_CTLC_FLUSH, __volume_flush, NULL),
         DEVICE_CTL_END,
     };
@@ -156,6 +247,8 @@ int register_volume(volume_device_t* parent, volume_t* volume, volume_id_t id)
 
     /* Format the volumes name */
     sfmt(name_buffer, VOLUME_NAME_FMT, parent->id, id);
+
+    KLOG_ERR("Registering volume: %s\n", name_buffer);
 
     volume->id = id;
     volume->parent = parent;
@@ -249,12 +342,24 @@ size_t volume_write(volume_t* volume, uintptr_t offset, void* buffer, size_t siz
 
 size_t volume_bread(volume_t* volume, uintptr_t block, void* buffer, size_t nr_blks)
 {
-    kernel_panic("TODO: implement volume_bread");
+    if (!volume || !buffer || !nr_blks)
+        return 0;
+
+    if (device_send_ctl_ex(volume->dev, DEVICE_CTLC_VOLUME_BREAD, block, buffer, nr_blks))
+        return 0;
+
+    return nr_blks * volume->info.logical_sector_size;
 }
 
 size_t volume_bwrite(volume_t* volume, uintptr_t block, void* buffer, size_t nr_blks)
 {
-    kernel_panic("TODO: implement volume_bwrite");
+    if (!volume || !buffer || !nr_blks)
+        return 0;
+
+    if (device_send_ctl_ex(volume->dev, DEVICE_CTLC_VOLUME_BWRITE, block, buffer, nr_blks))
+        return 0;
+
+    return nr_blks * volume->info.logical_sector_size;
 }
 
 int volume_flush(volume_t* volume)
@@ -415,6 +520,8 @@ static bool try_mount_root(volume_t* device)
     };
     static const uint32_t filesystems_count = sizeof(filesystems) / sizeof(*filesystems);
 
+    KLOG_DBG("Trying to mount filesystem to volume: %s\n", device->dev->name);
+
     for (uint32_t i = 0; i < filesystems_count; i++) {
         const char* fs = filesystems[i];
 
@@ -424,12 +531,14 @@ static bool try_mount_root(volume_t* device)
         if (error)
             continue;
 
+        KLOG_DBG("Checking if the mount did what we want...\n");
         verify_result = verify_mount_root();
 
         /* Did we succeed??? =DD */
         if (verify_result)
             break;
 
+        KLOG_DBG("NOpe, go next\n");
         /* Reset the result */
         error = -1;
 
@@ -448,7 +557,7 @@ static bool try_mount_root(volume_t* device)
     return true;
 }
 
-static int _set_bootdevice(volume_device_t* device)
+static int _set_bootdevice(volume_t* device)
 {
     int error = -KERR_INVAL;
     const char* path;
@@ -499,8 +608,8 @@ void init_root_volume()
     /*
      * Init probing for the root device
      */
-    bool found_root_device;
     const char* initrd_mp;
+    volume_t* cur_part;
     volume_device_t* root_device;
     volume_id_t device_index;
     oss_node_t* initial_ramfs_node;
@@ -508,7 +617,6 @@ void init_root_volume()
     volume_t* root_ramdisk;
 
     device_index = 1;
-    found_root_device = false;
     root_ramdisk = nullptr;
     root_device = volume_device_find(0);
 
@@ -519,11 +627,11 @@ void init_root_volume()
 
     while (root_device) {
 
-        volume_t* part = root_device->vec_volumes;
+        cur_part = root_device->vec_volumes;
 
-        if ((root_device->flags & VOLUME_DEV_FLAG_MEMORY) == VOLUME_DEV_FLAG_MEMORY && part && (part->flags & VOLUME_FLAG_CRAM) == VOLUME_FLAG_CRAM) {
+        if ((root_device->flags & VOLUME_DEV_FLAG_MEMORY) == VOLUME_DEV_FLAG_MEMORY && cur_part && (cur_part->flags & VOLUME_FLAG_CRAM) == VOLUME_FLAG_CRAM) {
             /* We can use this ramdisk as a fallback to mount */
-            root_ramdisk = part;
+            root_ramdisk = cur_part;
             goto cycle_next;
         }
 
@@ -533,17 +641,17 @@ void init_root_volume()
          * it does, we check if it contains the files that make up our boot filesystem and if it does, we simply take
          * that device and mark as our root.
          */
-        while (part && !found_root_device) {
+        while (cur_part) {
 
             /* Try to mount a filesystem and scan for aniva system files */
-            if ((found_root_device = try_mount_root(part)))
+            if (try_mount_root(cur_part))
                 break;
 
-            part = part->next;
+            cur_part = cur_part->next;
         }
 
-        if (found_root_device) {
-            KLOG_DBG("Found a rootdevice: %s -> %s\n", root_device->dev->name, part->dev->name);
+        if (cur_part) {
+            KLOG_DBG("Found a rootdevice: %s -> %s\n", root_device->dev->name, cur_part->dev->name);
             break;
         }
 
@@ -554,15 +662,15 @@ void init_root_volume()
     initrd_mp = FS_INITRD_MP;
 
     /* If there was no root device, use the initrd as a rootdevice */
-    if (!found_root_device)
+    if (!cur_part)
         initrd_mp = FS_DEFAULT_ROOT_MP;
     else
-        _set_bootdevice(root_device);
+        _set_bootdevice(cur_part);
 
     if (!root_ramdisk || oss_attach_fs(nullptr, initrd_mp, "cramfs", root_ramdisk))
         kernel_panic("Could not find a root device to mount! TODO: fix");
     else
-        _set_bootdevice(root_ramdisk->parent);
+        _set_bootdevice(root_ramdisk);
 }
 
 void init_root_ram_volume()

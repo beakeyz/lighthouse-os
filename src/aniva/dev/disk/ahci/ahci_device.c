@@ -3,8 +3,6 @@
 #include "dev/device.h"
 #include "dev/disk/ahci/ahci_port.h"
 #include "dev/disk/ahci/definitions.h"
-#include "dev/disk/device.h"
-#include "dev/disk/volume.h"
 #include "dev/driver.h"
 #include "dev/pci/io.h"
 #include "dev/pci/pci.h"
@@ -63,9 +61,9 @@ static void __unregister_ahci_device(ahci_device_t* device)
 /*!
  * @brief: Register a new AHCI port entry
  */
-static inline void _register_ahci_port(ahci_device_t* dev, volume_device_t* port)
+static inline void _register_ahci_port(ahci_device_t* dev, ahci_port_t* port)
 {
-    register_volume_device(port);
+    list_append(dev->m_ports, port);
 }
 
 uint32_t ahci_mmio_read32(uintptr_t base, uintptr_t offset)
@@ -158,9 +156,7 @@ static ANIVA_STATUS reset_hba(ahci_device_t* device)
          * FIXME: Simplefy these 3 statements below
          */
 
-        _register_ahci_port(device, port->m_generic);
-
-        list_append(device->m_ports, port);
+        _register_ahci_port(device, port);
 
         internal_index++;
     }

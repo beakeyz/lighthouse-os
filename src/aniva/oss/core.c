@@ -1,4 +1,5 @@
 #include "core.h"
+#include "dev/disk/volume.h"
 #include "fs/core.h"
 #include "libk/flow/error.h"
 #include "libk/stddef.h"
@@ -859,6 +860,9 @@ int oss_attach_fs(const char* path, const char* rootname, const char* fs, volume
 
     if (error)
         goto unmount_and_error;
+
+    /* Mark the volume as systemized */
+    device->flags |= VOLUME_FLAG_SYSTEMIZED;
 
     /* Unlock and return */
     mutex_unlock(_core_lock);

@@ -724,6 +724,8 @@ static oss_obj_t* fat_open(oss_node_t* node, const char* path)
     if (!path)
         return nullptr;
 
+    KLOG_DBG("FAT: Trying to open %s\n", path);
+
     info = GET_FAT_FSINFO(node);
     /* Copy the root entry copy =D */
     current = info->root_entry_cpy;
@@ -953,10 +955,10 @@ oss_node_t* fat32_mount(fs_type_t* type, const char* mountpoint, volume_t* devic
     KLOG_DBG("Trying to mount FAT32\n");
 
     /* Try and read the first block from this volume */
-    int read_error = volume_bread(device, 0, buffer, 1);
-
-    if (read_error < 0)
+    if (!volume_bread(device, 0, buffer, 1))
         return nullptr;
+
+    KLOG_DBG("Nah\n");
 
     /* Create root node */
     node = create_fs_oss_node(mountpoint, type, &fat_node_ops);
@@ -1039,9 +1041,7 @@ oss_node_t* fat32_mount(fs_type_t* type, const char* mountpoint, volume_t* devic
     };
 
     /* NOTE: we reuse the buffer of the boot sector */
-    read_error = volume_bread(device, 1, buffer, 1);
-
-    if (read_error < 0)
+    if (!volume_bread(device, 1, buffer, 1))
         goto fail;
 
     /* Set the local pointer */
@@ -1051,6 +1051,8 @@ oss_node_t* fat32_mount(fs_type_t* type, const char* mountpoint, volume_t* devic
     memcpy(internal_fs_info, buffer, sizeof(fat_boot_fsinfo_t));
 
     oss_node_getfs(node)->m_free_blocks = ffi->boot_fs_info.free_clusters;
+
+    KLOG_DBG("Mounted FAT32 filesystem\n");
 
     return node;
 fail:
