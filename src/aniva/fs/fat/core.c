@@ -676,6 +676,7 @@ fat32_open_dir_entry(oss_node_t* node, fat_dir_entry_t* current, fat_dir_entry_t
         if (entry.attr == FAT_ATTR_LFN) {
             /* TODO: support */
             fat_lfn_parse((fat_lfn_entry_t*)&entry, lfn_buffer, &lfn_len);
+
             error = -4;
             continue;
         }
@@ -723,8 +724,6 @@ static oss_obj_t* fat_open(oss_node_t* node, const char* path)
 
     if (!path)
         return nullptr;
-
-    KLOG_DBG("FAT: Trying to open %s\n", path);
 
     info = GET_FAT_FSINFO(node);
     /* Copy the root entry copy =D */
@@ -947,7 +946,7 @@ oss_node_t* fat32_mount(fs_type_t* type, const char* mountpoint, volume_t* devic
 {
     /* Get FAT =^) */
     fat_fs_info_t* ffi;
-    uint8_t buffer[device->parent->info.logical_sector_size];
+    uint8_t buffer[device->info.logical_sector_size];
     fat_boot_sector_t* boot_sector;
     fat_boot_fsinfo_t* internal_fs_info;
     oss_node_t* node;
@@ -957,8 +956,6 @@ oss_node_t* fat32_mount(fs_type_t* type, const char* mountpoint, volume_t* devic
     /* Try and read the first block from this volume */
     if (!volume_bread(device, 0, buffer, 1))
         return nullptr;
-
-    KLOG_DBG("Nah\n");
 
     /* Create root node */
     node = create_fs_oss_node(mountpoint, type, &fat_node_ops);
@@ -984,7 +981,7 @@ oss_node_t* fat32_mount(fs_type_t* type, const char* mountpoint, volume_t* devic
      * Create a cache for our sectors
      * NOTE: cache_count being NULL means we want the default number of cache entries
      */
-    ffi->sector_cache = create_fat_sector_cache(device->parent->info.max_transfer_sector_nr, NULL);
+    ffi->sector_cache = create_fat_sector_cache(device->info.max_transfer_sector_nr * device->info.logical_sector_size, NULL);
 
     /* Try to parse boot sector */
     int parse_error = parse_fat_bpb(boot_sector, node);
@@ -1004,7 +1001,7 @@ oss_node_t* fat32_mount(fs_type_t* type, const char* mountpoint, volume_t* devic
     }
 
     /* Attempt to reset the blocksize for the partitioned device */
-    if (device->parent->info.logical_sector_size > oss_node_getfs(node)->m_blocksize) {
+    if (device->info.logical_sector_size > oss_node_getfs(node)->m_blocksize) {
 
         // if (!pd_set_blocksize(device, oss_node_getfs(node)->m_blocksize))
         kernel_panic("FAT: Failed to set blocksize! abort");

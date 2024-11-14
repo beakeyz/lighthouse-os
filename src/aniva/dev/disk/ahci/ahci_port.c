@@ -608,6 +608,10 @@ ANIVA_STATUS ahci_port_gather_info(ahci_port_t* port)
     /* Compute most effective transfer size */
     vinfo.max_transfer_sector_nr = dev_identify_buffer->maximum_logical_sectors_per_drq;
 
+    /* Just to be sure */
+    if (!vinfo.max_transfer_sector_nr)
+        vinfo.max_transfer_sector_nr = 1;
+
     /* Find how large the disk is */
     if (dev_identify_buffer->commands_and_feature_sets_supported[1] & (1 << 10)) {
         vinfo.max_offset = dev_identify_buffer->user_addressable_logical_sectors_count * vinfo.logical_sector_size;

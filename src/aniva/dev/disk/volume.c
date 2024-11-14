@@ -114,18 +114,18 @@ static int __volume_bread(device_t* dev, driver_t* drv, uintptr_t blk, void* buf
     if (!vol || !vol->info.logical_sector_size)
         return -KERR_INVAL;
 
-    /* Compute offset and size */
-    offset = vol->info.logical_sector_size * blk;
-    size = count * vol->info.logical_sector_size;
-
-    /* Check the offset range */
-    if (vol->info.min_offset + offset > vol->info.max_offset)
-        return -KERR_RANGE;
-
     if (!vol->parent)
         return -KERR_NODEV;
 
     voldev = vol->parent;
+    /* Compute offset and size */
+    offset = vol->info.logical_sector_size * blk;
+    size = vol->info.logical_sector_size * count;
+
+    /* Check the offset range */
+    if ((vol->info.min_offset + offset) > vol->info.max_offset)
+        return -KERR_RANGE;
+
     read_end_offset = vol->info.min_offset + offset + size - 1;
 
     /* Correct the size overflow */
@@ -323,7 +323,7 @@ size_t volume_read(volume_t* volume, uintptr_t offset, void* buffer, size_t size
     if (!volume->dev)
         return 0;
 
-    if (device_read(volume->dev, buffer, offset, size))
+    if (__volume_read(volume->dev, nullptr, offset, buffer, size))
         return 0;
 
     return size;
@@ -334,7 +334,7 @@ size_t volume_write(volume_t* volume, uintptr_t offset, void* buffer, size_t siz
     if (!volume->dev)
         return 0;
 
-    if (device_write(volume->dev, buffer, offset, size))
+    if (__volume_write(volume->dev, nullptr, offset, buffer, size))
         return 0;
 
     return size;
@@ -345,7 +345,7 @@ size_t volume_bread(volume_t* volume, uintptr_t block, void* buffer, size_t nr_b
     if (!volume || !buffer || !nr_blks)
         return 0;
 
-    if (device_send_ctl_ex(volume->dev, DEVICE_CTLC_VOLUME_BREAD, block, buffer, nr_blks))
+    if (__volume_bread(volume->dev, nullptr, block, buffer, nr_blks))
         return 0;
 
     return nr_blks * volume->info.logical_sector_size;
@@ -356,7 +356,7 @@ size_t volume_bwrite(volume_t* volume, uintptr_t block, void* buffer, size_t nr_
     if (!volume || !buffer || !nr_blks)
         return 0;
 
-    if (device_send_ctl_ex(volume->dev, DEVICE_CTLC_VOLUME_BWRITE, block, buffer, nr_blks))
+    if (__volume_bwrite(volume->dev, nullptr, block, buffer, nr_blks))
         return 0;
 
     return nr_blks * volume->info.logical_sector_size;
@@ -364,7 +364,7 @@ size_t volume_bwrite(volume_t* volume, uintptr_t block, void* buffer, size_t nr_
 
 int volume_flush(volume_t* volume)
 {
-    return device_send_ctl(volume->dev, DEVICE_CTLC_FLUSH);
+    return __volume_flush(volume->dev, NULL, NULL, NULL, NULL);
 }
 
 int volume_resize(volume_t* volume, uintptr_t new_min_offset, uintptr_t new_max_offset)
@@ -714,5 +714,5 @@ void init_volumes()
 
     next_voldv_id = 0;
     volumes_dgroup = register_dev_group(DGROUP_TYPE_MISC, "Volumes", NULL, root_node);
-    volume_devices_dgroup = register_dev_group(DGROUP_TYPE_MISC, "VolumeDvs", NULL, NULL);
+    volume_devices_dgroup = register_dev_group(DGROUP_TYPE_MISC, "Volume", NULL, NULL);
 }

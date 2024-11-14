@@ -263,7 +263,7 @@ __read(oss_node_t* node, fat_sector_cache_t* cache, struct sec_cache_entry** ent
 
     logical_block_count = get_logical_block_count(node, cache);
 
-    if (volume_bread(fsnode->m_device, block, (void*)c_entry->block_buffer, logical_block_count))
+    if (!volume_bread(fsnode->m_device, block, (void*)c_entry->block_buffer, logical_block_count))
         return -2;
 
 found_entry:

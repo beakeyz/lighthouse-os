@@ -1,6 +1,7 @@
 #include "device.h"
 #include "dev/disk/partition/gpt.h"
 #include "dev/disk/volume.h"
+#include "logging/log.h"
 #include "mem/heap.h"
 #include "volumeio/shared.h"
 #include <dev/disk/partition/mbr.h>
@@ -92,13 +93,15 @@ static int __populate_gpt_part_table(volume_device_t* dev)
      * Neh, that whould create the need to implement file opperations
      * on devices
      */
+    volume_info_t volume_info = { 0 };
 
     /* Attatch the partition devices to the generic disk device */
     FOREACH(i, gpt_table->m_partitions)
     {
         gpt_partition_t* part = i->data;
+
         /* Copy the devices info block */
-        volume_info_t volume_info = dev->info;
+        memcpy(&volume_info, &dev->info, sizeof(dev->info));
 
         /* Copy the volume label */
         memcpy(volume_info.label, part->m_type.m_name, sizeof(part->m_type.m_name));
