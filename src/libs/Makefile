@@ -9,7 +9,6 @@ LIBRARY_PATHS := \
 	./libgfx \
 	./lightui \
 	./devices \
-	./params \
 	./kterm \
 	./sysconf \
 	./volumeio

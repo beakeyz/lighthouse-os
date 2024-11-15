@@ -1,7 +1,6 @@
 PROCESS_NAME=sysconf
 LINK_TYPE=dynamic
 LIBRARIES := 		\
-	-l:sysconf.lib	\
-	-l:params.lib
+	-l:sysconf.lib
 
 include ../user.mk

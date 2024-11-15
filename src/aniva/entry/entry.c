@@ -426,8 +426,15 @@ void kthread_entry(void)
     /* Format the buffer */
     sfmt(init_buffer, "Root/Users/Admin/Core/init %s", opt_parser_get_bool("use_kterm") ? "--use-kterm" : " ");
 
+    /* Construct the sysvar vector */
+    sysvar_vector_t vec = {
+        SYSVAR_VEC_BYTE("USE_KTERM", opt_parser_get_bool("use_kterm")),
+        SYSVAR_VEC_BYTE("NO_PIPES", false),
+        SYSVAR_VEC_END,
+    };
+
     /* Execute the buffer */
-    proc_exec(init_buffer, get_admin_profile(), PROC_KERNEL | PROC_SYNC);
+    proc_exec(init_buffer, vec, get_admin_profile(), PROC_KERNEL | PROC_SYNC);
 
     drv = nullptr;
 

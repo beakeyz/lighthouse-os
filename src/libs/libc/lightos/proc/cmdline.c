@@ -76,7 +76,7 @@ int __get_raw_cmdline()
         goto close_handles_and_exit;
 
     (void)memset((void*)__this_cmdline.raw, 0, CMDLINE_MAX_LEN);
-    (void)sysvar_read(cmdline_var, CMDLINE_MAX_LEN, (void*)__this_cmdline.raw);
+    (void)sysvar_read(cmdline_var, (void*)__this_cmdline.raw, CMDLINE_MAX_LEN);
 
     error = 0;
 

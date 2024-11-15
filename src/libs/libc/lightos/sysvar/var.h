@@ -53,9 +53,12 @@ extern BOOL sysvar_get_type(
  */
 extern BOOL sysvar_read(
     __IN__ HANDLE var_handle,
-    __IN__ QWORD buffer_size,
-    __OUT__ void* buffer);
+    __OUT__ void* buffer,
+    __IN__ QWORD buffer_size);
 
+extern BOOL sysvar_read_bool(
+    __IN__ HANDLE h_var,
+    __OUT__ BOOL* pvalue);
 /*
  * Write to a system variable
  */

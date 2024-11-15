@@ -3,6 +3,7 @@
 #include "lightos/handle_def.h"
 #include "lightos/proc/profile.h"
 #include "lightos/syscall.h"
+#include "lightos/sysvar/shared.h"
 
 HANDLE open_sysvar_ex(HANDLE handle, char* key, uint16_t flags)
 {
@@ -37,7 +38,7 @@ BOOL sysvar_get_type(HANDLE var_handle, enum SYSVAR_TYPE* type)
     return syscall_2(SYSID_GET_SYSVAR_TYPE, var_handle, (uint64_t)type);
 }
 
-BOOL sysvar_read(HANDLE handle, QWORD buffer_size, void* buffer)
+BOOL sysvar_read(HANDLE handle, void* buffer, QWORD buffer_size)
 {
     HANDLE_TYPE type;
 
@@ -45,6 +46,19 @@ BOOL sysvar_read(HANDLE handle, QWORD buffer_size, void* buffer)
         return FALSE;
 
     return handle_read(handle, buffer_size, buffer);
+}
+
+BOOL sysvar_read_bool(HANDLE h_var, BOOL* pvalue)
+{
+    enum SYSVAR_TYPE type;
+
+    if (!sysvar_get_type(h_var, &type))
+        return FALSE;
+
+    if (type != SYSVAR_TYPE_BYTE)
+        return FALSE;
+
+    return sysvar_read(h_var, pvalue, sizeof(*pvalue));
 }
 
 BOOL sysvar_write(HANDLE handle, QWORD buffer_size, void* buffer)
@@ -83,7 +97,7 @@ BOOL sysvar_read_from_profile(char* profile_name, char* var_key, WORD flags, QWO
     }
 
     /* Try to read the variable and simply exit with the result value */
-    sysvar_read(var_handle, buffer_size, buffer);
+    sysvar_read(var_handle, buffer, buffer_size);
 
     /* Close variable */
     close_handle(var_handle);

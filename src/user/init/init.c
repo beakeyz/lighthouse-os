@@ -2,7 +2,7 @@
 #include "devices/shared.h"
 #include "lightos/fs/shared.h"
 #include "lightos/handle_def.h"
-#include "params/params.h"
+#include "lightos/sysvar/var.h"
 #include <errno.h>
 #include <lightos/driver/drv.h>
 #include <lightos/fs/dir.h>
@@ -12,13 +12,7 @@
 #include <lightos/proc/process.h>
 #include <sys/types.h>
 
-BOOL use_kterm = false;
 BOOL no_pipes = false;
-
-cmd_param_t params[] = {
-    CMD_PARAM_AUTO_1_ALIAS(use_kterm, CMD_PARAM_TYPE_BOOL, 'k', "Use kterm", "use-kterm"),
-    CMD_PARAM_AUTO_1_ALIAS(no_pipes, CMD_PARAM_TYPE_BOOL, 'p', "Don't load the pipes driver", "no-pipes"),
-};
 
 /*!
  * @brief: Checks if there are any funnie hid device
@@ -101,11 +95,24 @@ int main()
     BOOL success = true;
     BOOL has_kb, has_mouse;
     CMDLINE cmd;
+    HANDLE sysvar;
 
     if (cmdline_get(&cmd))
         return -EINVAL;
 
-    params_parse((const char**)cmd.argv, cmd.argc, params, (sizeof params / sizeof params[0]));
+    /*
+     * TODO: Condense these three config calls into a single configuration library
+     */
+
+    /* Open the config sysvar */
+    sysvar = open_sysvar("NO_PIPES", HNDL_FLAG_R);
+
+    /* Add the config value */
+    if (!sysvar_read_bool(sysvar, &no_pipes))
+        return -EINVAL;
+
+    /* Close the sysvarhandle */
+    close_handle(sysvar);
 
     /* Check for essential HID devices */
     check_hid_devices(&has_kb, &has_mouse);

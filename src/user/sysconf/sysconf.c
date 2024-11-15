@@ -1,7 +1,7 @@
 #include <lightos/proc/cmdline.h>
-#include <params/params.h>
 
 #include <errno.h>
+#include <time.h>
 
 static CMDLINE sysconf_cmdline;
 
@@ -11,16 +11,6 @@ static const char sysconf_str_value[236] = { NULL };
 static uint64_t sysconf_int_value = NULL;
 static bool sysconf_should_write = false;
 static bool sysconf_should_read = false;
-
-static cmd_param_t sysconf_params[] = {
-    CMD_PARAM_AUTO(sysconf_target, CMD_PARAM_TYPE_STRING, 't', "Sets the target sysvar or target sysvar path (based on command type)"),
-    CMD_PARAM_AUTO(sysconf_output, CMD_PARAM_TYPE_STRING, 'o', "Sets the output path"),
-    CMD_PARAM_AUTO(sysconf_str_value, CMD_PARAM_TYPE_STRING, 's', "Sets the value of the target sysvar (If it's of the \'string\' type)"),
-    CMD_PARAM_AUTO(sysconf_int_value, CMD_PARAM_TYPE_NUM, 'n', "Sets the value of the target sysvar (If it's of the \'number\' type)"),
-    CMD_PARAM_AUTO(sysconf_should_write, CMD_PARAM_TYPE_BOOL, 'w', "Writes the target to the output"),
-    CMD_PARAM_AUTO(sysconf_should_read, CMD_PARAM_TYPE_BOOL, 'r', "Reads the target to the output"),
-};
-static uint32_t sysconf_param_count = sizeof(sysconf_params) / sizeof(sysconf_params[0]);
 
 /*!
  * @brief: Entrypoint for the system config program
@@ -47,6 +37,5 @@ int main()
         return -EIO;
 
     /* Parse the retrieved commandline */
-    params_parse((const char**)sysconf_cmdline.argv, sysconf_cmdline.argc, sysconf_params, sysconf_param_count);
     return 0;
 }

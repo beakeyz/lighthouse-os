@@ -26,6 +26,58 @@ enum SYSVAR_TYPE {
     SYSVAR_TYPE_QWORD,
 };
 
+/*
+ * Template struct for building a sysvar
+ *
+ * This boi contains only the essensial stuff needed to create a sysvar.
+ * The type of the sysvar is determined by the first byte inside the key.
+ * This byte is skipped when generating the actual key for the sysvar
+ */
+struct sysvar_template {
+    const char* key;
+    union {
+        uint64_t qwrd_val;
+        uint32_t dwrd_val;
+        uint16_t wrd_val;
+        uint8_t byte_val;
+        void* p_val;
+        const char* str_val;
+    };
+};
+
+static inline enum SYSVAR_TYPE sysvar_template_get_type(struct sysvar_template* tmp)
+{
+    switch (tmp->key[0]) {
+    case 'q':
+        return SYSVAR_TYPE_QWORD;
+    case 'd':
+        return SYSVAR_TYPE_DWORD;
+    case 'w':
+        return SYSVAR_TYPE_WORD;
+    case 'b':
+        return SYSVAR_TYPE_BYTE;
+    case 's':
+        return SYSVAR_TYPE_STRING;
+    }
+
+    return SYSVAR_TYPE_UNSET;
+}
+
+typedef struct sysvar_template sysvar_vector_t[];
+
+#define SYSVAR_VEC_ENTRY(key, val)                    \
+    (struct sysvar_template)                          \
+    {                                                 \
+        (const char*)(key), { .p_val = (void*)(val) } \
+    }
+
+#define SYSVAR_VEC_STR(key, val) SYSVAR_VEC_ENTRY("s" key, (uint64_t)val)
+#define SYSVAR_VEC_BYTE(key, val) SYSVAR_VEC_ENTRY("b" key, (uint64_t)val)
+#define SYSVAR_VEC_WORD(key, val) SYSVAR_VEC_ENTRY("w" key, (uint64_t)val)
+#define SYSVAR_VEC_DWORD(key, val) SYSVAR_VEC_ENTRY("d" key, (uint64_t)val)
+#define SYSVAR_VEC_QWORD(key, val) SYSVAR_VEC_ENTRY("q" key, (uint64_t)val)
+#define SYSVAR_VEC_END SYSVAR_VEC_ENTRY(NULL, NULL)
+
 /* Open for anyone to read */
 #define SYSVAR_FLAG_GLOBAL (0x00000001)
 /* Open for anyone to modify? */

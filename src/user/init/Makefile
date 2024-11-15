@@ -4,7 +4,7 @@ PROCESS_NAME=init
 # $(LIBRARY_BIN_PATH)/LibC/LibC.obj
 
 LINK_TYPE=dynamic
-LIBRARIES := -l:params.lib \
+LIBRARIES := \
 			 -l:devices.lib
   
 

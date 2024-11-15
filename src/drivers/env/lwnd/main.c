@@ -102,10 +102,10 @@ static int lwnd_process_system_keypress(hid_event_t* ctx)
 
     switch (ctx->key.scancode) {
     case ANIVA_SCANCODE_RIGHTBRACKET:
-        proc_exec("Root/Apps/doom -iwad Root/Apps/doom1.wad", get_user_profile(), NULL);
+        proc_exec("Root/Apps/doom -iwad Root/Apps/doom1.wad", NULL, get_user_profile(), NULL);
         break;
     case ANIVA_SCANCODE_LEFTBRACKET:
-        proc_exec("Root/Apps/gfx_test", get_user_profile(), NULL);
+        proc_exec("Root/Apps/gfx_test", NULL, get_user_profile(), NULL);
         break;
     default:
         break;

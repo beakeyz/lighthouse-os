@@ -12,6 +12,7 @@
 #include "libk/stddef.h"
 #include "lightos/driver/loader.h"
 #include "lightos/syscall.h"
+#include "lightos/sysvar/shared.h"
 #include "logging/log.h"
 #include "mem/kmem_manager.h"
 #include "oss/node.h"
@@ -102,6 +103,7 @@ proc_t* create_proc(proc_t* parent, struct user_profile* profile, char* name, Fu
 
     /* Okay to pass a reference, since resource bundles should NEVER own this memory */
     proc->m_resource_bundle = create_resource_bundle(&proc->m_root_pd);
+    proc->m_env = create_penv(proc->m_name, proc, NULL, NULL);
 
     init_thread = create_thread_for_proc(proc, entry, args, "main");
 
@@ -110,7 +112,7 @@ proc_t* create_proc(proc_t* parent, struct user_profile* profile, char* name, Fu
     ASSERT(proc_add_thread(proc, init_thread) == 0);
 
     /* Yikes */
-    if ((proc_register(proc, profile))) {
+    if (proc_register(proc, profile)) {
         destroy_proc(proc);
         return nullptr;
     }
@@ -247,7 +249,7 @@ proc_t* create_kernel_proc(FuncPtr entry, uintptr_t args)
  * @profile: The profile to which we want to register this process
  * @flags: Flags to be passed to the process
  */
-proc_t* proc_exec(const char* cmd, struct user_profile* profile, u32 flags)
+proc_t* proc_exec(const char* cmd, sysvar_vector_t vars, struct user_profile* profile, u32 flags)
 {
     int error;
     proc_t* p;
@@ -276,6 +278,10 @@ proc_t* proc_exec(const char* cmd, struct user_profile* profile, u32 flags)
     /* Fuck, could not create process */
     if (!p)
         return nullptr;
+
+    /* Add the vars to the environments vectors */
+    if (vars)
+        penv_add_vector(p->m_env, vars);
 
     if ((flags & PROC_SYNC) == PROC_SYNC)
         error = proc_schedule_and_await(p, profile, cmd, NULL, NULL, SCHED_PRIO_HIGH);
@@ -405,6 +411,12 @@ void __destroy_proc(proc_t* proc)
     if (proc->m_root_pd.m_root != get_current_processor()->m_page_dir)
         kmem_destroy_page_dir(proc->m_root_pd.m_root);
 
+    /* Kill the environment */
+    destroy_penv(proc->m_env);
+
+    /* Clear it out */
+    proc->m_env = nullptr;
+
     kfree(proc);
 }
 
@@ -514,12 +526,16 @@ int proc_schedule(proc_t* proc, struct user_profile* profile, const char* cmd, c
     if (profile && profile != proc->m_env->profile)
         profile_add_penv(profile, proc->m_env);
 
-    /* Attach needed sysvars to the environment */
-    sysvar_attach(env_node, SYSVAR_CMDLINE, 0, SYSVAR_TYPE_STRING, NULL, PROFILE_STR(cmd));
-    /* TODO: Remove SYSVAR_PROCNAME, since every env can only have one process... */
-    sysvar_attach(env_node, SYSVAR_PROCNAME, 0, SYSVAR_TYPE_STRING, NULL, PROFILE_STR(proc->m_name));
-    sysvar_attach(env_node, SYSVAR_STDIO, 0, SYSVAR_TYPE_STRING, NULL, PROFILE_STR(stdio_path));
-    sysvar_attach(env_node, SYSVAR_STDIO_HANDLE_TYPE, 0, SYSVAR_TYPE_DWORD, NULL, stdio_type);
+    sysvar_vector_t sys_vec = {
+        SYSVAR_VEC_STR(SYSVAR_CMDLINE, cmd),
+        SYSVAR_VEC_STR(SYSVAR_PROCNAME, proc->m_name),
+        SYSVAR_VEC_STR(SYSVAR_STDIO, stdio_path),
+        SYSVAR_VEC_DWORD(SYSVAR_STDIO_HANDLE_TYPE, stdio_type),
+        SYSVAR_VEC_END,
+    };
+
+    /* Add this vec */
+    penv_add_vector(proc->m_env, sys_vec);
 
     /* Try to add all threads of this process to the scheduler */
     return scheduler_add_proc(proc, prio);
@@ -613,19 +629,6 @@ kerror_t try_terminate_process_ex(proc_t* proc, bool defer_yield)
     if (!defer_yield)
         scheduler_yield();
     return error;
-}
-
-/*!
- * @brief Set the environment of a certain process
- *
- * Does not check for any privileges
- */
-void proc_set_env(proc_t* proc, penv_t* env)
-{
-    if (proc->m_env)
-        penv_remove_proc(proc->m_env, proc);
-
-    penv_add_proc(env, proc);
 }
 
 /*!

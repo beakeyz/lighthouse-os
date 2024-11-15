@@ -3,6 +3,7 @@
 
 #include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"
+#include "lightos/sysvar/shared.h"
 #include "mem/kmem_manager.h"
 #include "mem/page_dir.h"
 #include "proc/core.h"
@@ -102,7 +103,7 @@ typedef struct proc {
 proc_t* create_proc(proc_t* parent, struct user_profile* profile, char* name, FuncPtr entry, uintptr_t args, uint32_t flags);
 proc_t* create_kernel_proc(FuncPtr entry, uintptr_t args);
 
-proc_t* proc_exec(const char* cmd, struct user_profile* profile, u32 flags);
+proc_t* proc_exec(const char* cmd, sysvar_vector_t vars, struct user_profile* profile, u32 flags);
 
 /* Block until the process has ended execution */
 int proc_schedule_and_await(proc_t* proc, struct user_profile* profile, const char* cmd, const char* stdio_path, HANDLE_TYPE stdio_type, enum SCHEDULER_PRIORITY prio);
@@ -131,8 +132,6 @@ kerror_t try_terminate_process_ex(proc_t* proc, bool defer_yield);
 /* Heh? */
 void terminate_process(proc_t* proc);
 void proc_exit();
-
-void proc_set_env(proc_t* proc, struct penv* env);
 
 static inline bool proc_can_schedule(proc_t* proc)
 {

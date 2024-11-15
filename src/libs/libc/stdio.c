@@ -88,7 +88,7 @@ void __init_stdio(void)
         return;
 
     /* Read it's value */
-    (void)sysvar_read(stdio_handle, sizeof(stdio_path), stdio_path);
+    (void)sysvar_read(stdio_handle, stdio_path, sizeof(stdio_path));
 
     /* Close the handle */
     close_handle(stdio_handle);
@@ -100,7 +100,7 @@ void __init_stdio(void)
         return;
 
     /* Read which type of handle we need to open */
-    (void)sysvar_read(stdio_handle, sizeof(type), &type);
+    (void)sysvar_read(stdio_handle, &type, sizeof(type));
 
     /* Close the handle */
     close_handle(stdio_handle);

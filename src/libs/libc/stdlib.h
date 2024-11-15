@@ -1,6 +1,7 @@
 #ifndef __LIGHTENV_LIBC_STDLIB__
 #define __LIGHTENV_LIBC_STDLIB__
 
+#include <math.h>
 #include <stddef.h>
 #include <stdint.h>
 

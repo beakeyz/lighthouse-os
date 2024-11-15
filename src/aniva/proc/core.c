@@ -4,7 +4,6 @@
 #include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"
 #include "libk/stddef.h"
-#include "logging/log.h"
 #include "mem/kmem_manager.h"
 #include "mem/zalloc/zalloc.h"
 #include "oss/core.h"
@@ -155,22 +154,13 @@ static int _assign_penv(proc_t* proc, user_profile_t* profile)
 {
     int error;
     penv_t* env;
-    size_t size = strlen(proc->m_name) + 14;
-    char env_label_buf[size];
 
     /* If at this point we don't have a profile, default to user */
     if (!profile)
         profile = get_user_profile();
 
-    /* Yay */
-    memset(env_label_buf, 0, size);
-
-    /* Format the penv label */
-    if (sfmt(env_label_buf, "%s_env", proc->m_name))
-        return -1;
-
     /* Create a environment in the user profile */
-    env = create_penv(env_label_buf, NULL, NULL);
+    env = proc->m_env;
 
     if (!env)
         return -1;
@@ -179,13 +169,10 @@ static int _assign_penv(proc_t* proc, user_profile_t* profile)
     error = profile_add_penv(profile, env);
 
     /* Can't add this environment to the profile (duplicate?) */
-    if (error) {
-        /* Destroy this environment =/ */
-        destroy_penv(env);
+    if (error)
         return error;
-    }
 
-    return penv_add_proc(env, proc);
+    return 0;
 }
 
 /*!
@@ -239,9 +226,6 @@ kerror_t proc_unregister(struct proc* proc)
     ctx.old_cpuid = cpu->m_cpu_num;
 
     kevent_fire("proc", &ctx, sizeof(ctx));
-
-    /* Make sure the process is removed form its profile */
-    penv_remove_proc(proc->m_env, proc);
 
     mutex_unlock(proc->m_lock);
 

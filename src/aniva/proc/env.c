@@ -1,4 +1,6 @@
 #include "env.h"
+#include "libk/flow/error.h"
+#include "lightos/sysvar/shared.h"
 #include "logging/log.h"
 #include "mem/heap.h"
 #include "oss/node.h"
@@ -6,11 +8,11 @@
 #include "sync/mutex.h"
 #include "system/profile/attr.h"
 #include "system/profile/profile.h"
-#include "system/profile/runtime.h"
+#include "system/sysvar/map.h"
 #include "system/sysvar/var.h"
 #include <libk/string.h>
 
-penv_t* create_penv(const char* label, uint32_t pflags_mask[NR_PROFILE_TYPES], uint32_t flags)
+penv_t* create_penv(const char* label, proc_t* p, uint32_t pflags_mask[NR_PROFILE_TYPES], uint32_t flags)
 {
     penv_t* env;
 
@@ -21,10 +23,23 @@ penv_t* create_penv(const char* label, uint32_t pflags_mask[NR_PROFILE_TYPES], u
 
     memset(env, 0, sizeof(*env));
 
+    env->p = p;
+    env->node = create_oss_node(label, OSS_PROC_ENV_NODE, NULL, NULL);
+
+    /* Try to add to the node */
+    if (oss_node_add_obj(env->node, p->obj)) {
+        destroy_oss_node(env->node);
+        kfree(env);
+        return nullptr;
+    }
+
+    /* Set the processes env pointer */
+    p->m_env = env;
+
+    /* Set the rest of the fields */
     env->flags = flags;
     env->label = strdup(label);
     env->lock = create_mutex(NULL);
-    env->node = create_oss_node(label, OSS_PROC_ENV_NODE, NULL, NULL);
 
     if (pflags_mask)
         memcpy(env->pflags_mask, pflags_mask, sizeof(*pflags_mask) * NR_PROFILE_TYPES);
@@ -54,70 +69,34 @@ void destroy_penv(penv_t* env)
     kfree(env);
 }
 
-int penv_add_proc(penv_t* env, proc_t* p)
+int penv_add_vector(penv_t* env, sysvar_vector_t vec)
 {
     int error;
+    u32 i = 0;
 
-    if (!env || !p)
-        return -1;
-
-    if (p->m_env == env)
-        return 0;
-
-    error = 0;
-
-    /* Remove the process from it's old environment, if it had one */
-    if (p->m_env)
-        error = penv_remove_proc(p->m_env, p);
-
-    if (error)
-        return error;
-
-    /* Add to the node */
-    error = oss_node_add_obj(env->node, p->obj);
-
-    if (KERR_ERR(error))
-        return error;
-
-    p->m_env = env;
-    env->proc_count++;
-
-    KLOG_DBG("Added proc (%s) to env (%s): count=%d\n", p->m_name, env->label, env->proc_count);
-
-    /* Add a proc to the proccount */
-    runtime_add_proccount();
-
-    return 0;
-}
-
-int penv_remove_proc(penv_t* env, struct proc* p)
-{
-    int error;
-    oss_node_entry_t* entry;
-
-    if (!env || !p)
+    if (!env || !vec)
         return -KERR_INVAL;
 
-    if (p->m_env != env)
-        return -KERR_NOT_FOUND;
+    /* Loop over all sysvar templates in the vector */
+    for (struct sysvar_template* var = &vec[0]; var->key != nullptr; var = &vec[i]) {
+        /* Construct a sysvar and add it to the env */
+        if ((error = sysvar_attach(env->node, &var->key[1], env->profile->attr.ptype, sysvar_template_get_type(var), NULL, var->qwrd_val)))
+            break;
 
-    error = oss_node_remove_entry(env->node, p->obj->name, &entry);
+        i++;
+    }
 
-    if (error)
-        return -KERR_NOT_FOUND;
+    return error;
+}
 
-    KLOG_DBG("Removing proc (%s) from env (%s): count=%d\n", p->m_name, env->label, env->proc_count);
+int penv_get_var(penv_t* env, const char* key, sysvar_t** p_var)
+{
+    if (!env || !key || !p_var)
+        return -KERR_INVAL;
 
-    /* Remove a proc from the proccount */
-    runtime_remove_proccount();
+    /* Look for the sysvar in our node */
+    *p_var = sysvar_get(env->node, key);
 
-    /* Just to be safe, check bounds */
-    if (env->proc_count)
-        env->proc_count--;
-
-    /* Empty environment, yeet it */
-    if (!env->proc_count)
-        destroy_penv(env);
-
-    return 0;
+    /* Return the correct code */
+    return (*p_var == nullptr) ? (-KERR_NOT_FOUND) : 0;
 }
