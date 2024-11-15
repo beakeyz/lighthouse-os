@@ -65,7 +65,7 @@ int volume_get(VOLUME_HNDL handle, lightos_volume_t* pvolume)
 
     pvolume->handle = handle;
     /* Dangerous */
-    pvolume->volume_label = strdup(devinfo.devicename);
+    pvolume->volume_label = strdup(volume_info.label);
 
     /* Physical info */
     pvolume->max_offset = volume_info.max_offset;

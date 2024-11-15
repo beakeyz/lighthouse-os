@@ -15,7 +15,8 @@ USER_PATHS := 			\
 	./ls				\
 	./kill				\
 	./vaseprob			\
-	./mndlbrt
+	./mndlbrt			\
+	./diskutil
 
 # Currently there is no process extention lmao
 export PROCESS_EXT=

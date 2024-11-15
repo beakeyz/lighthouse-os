@@ -1,4 +1,3 @@
-
 LIBRARY_NAME=libc
 LINKTYPE=dynamic
 

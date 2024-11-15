@@ -8,6 +8,8 @@
 #include "libk/flow/error.h"
 #include "logging/log.h"
 #include "mem/heap.h"
+#include "mem/kmem_manager.h"
+#include "sched/scheduler.h"
 #include "sync/mutex.h"
 #include "volumeio/shared.h"
 #include <oss/core.h>
@@ -31,8 +33,8 @@ volume_t* create_volume(volume_info_t* info, u32 flags)
 
     memset(ret, 0, sizeof(*ret));
 
-    if (info)
-        ret->info = *info;
+    /* Copy over the info */
+    memcpy(&ret->info, info, sizeof(*info));
 
     ret->id = -1;
     ret->flags = flags;
@@ -220,11 +222,58 @@ static int __volume_flush(device_t* dev, driver_t* drv, uintptr_t offset, void* 
     return 0;
 }
 
+static int __generic_getinfo(device_t* dev, volume_info_t* src_info, DEVINFO* p_devinfo, size_t devinfo_sz)
+{
+    volume_info_t* vinfo_dest;
+
+    if (!dev || !src_info)
+        return -KERR_INVAL;
+
+    /* Check for valid buffer params */
+    if (!p_devinfo || devinfo_sz != sizeof(DEVINFO))
+        return -KERR_INVAL;
+
+    /* Grab vinfo */
+    vinfo_dest = nullptr;
+
+    /* Check if we have a buffer for dev_specific stuff */
+    if (p_devinfo->dev_specific_info && p_devinfo->dev_specific_size == sizeof(*vinfo_dest))
+        if (!kmem_validate_ptr(get_current_proc(), (vaddr_t)p_devinfo->dev_specific_info, sizeof(*vinfo_dest)))
+            vinfo_dest = (volume_info_t*)p_devinfo->dev_specific_info;
+
+    p_devinfo->class = dev->class;
+    p_devinfo->subclass = dev->subclass;
+    p_devinfo->deviceid = dev->device_id;
+    p_devinfo->vendorid = dev->vendor_id;
+    p_devinfo->ctype = dev->type;
+
+    if (vinfo_dest)
+        memcpy(vinfo_dest, src_info, sizeof(*vinfo_dest));
+
+    return 0;
+}
+
+/*!
+ * @brief: Gather volume info
+ */
+static int __volume_getinfo(device_t* dev, driver_t* drv, uintptr_t offset, void* buffer, size_t size)
+{
+    volume_t* volume;
+
+    if (!dev || !dev->private)
+        return -KERR_NODEV;
+
+    volume = (volume_t*)dev->private;
+
+    return __generic_getinfo(dev, &volume->info, buffer, size);
+}
+
 /*!
  * @brief: Register a volume to a device
  *
  * Gives the volume its ID and it's own device.
- * This function is only called when a volume device is scanned for volumes
+ * This function is only called when a volume device is scanned for volumes, or when custom
+ * volumes are added to a device
  */
 int register_volume(volume_device_t* parent, volume_t* volume, volume_id_t id)
 {
@@ -235,11 +284,15 @@ int register_volume(volume_device_t* parent, volume_t* volume, volume_id_t id)
         DEVICE_CTL(DEVICE_CTLC_VOLUME_BREAD, __volume_bread, NULL),
         DEVICE_CTL(DEVICE_CTLC_VOLUME_BWRITE, __volume_bwrite, NULL),
         DEVICE_CTL(DEVICE_CTLC_FLUSH, __volume_flush, NULL),
+        DEVICE_CTL(DEVICE_CTLC_GETINFO, __volume_getinfo, NULL),
         DEVICE_CTL_END,
     };
 
     if (!parent || !volume)
         return -KERR_INVAL;
+
+    /* Just make sure that the parent device is registered at this point */
+    ASSERT_MSG(parent->dev, "Tried to register a volume to an unregistered volume device");
 
     /* Already registered */
     if (volume->dev)
@@ -248,11 +301,12 @@ int register_volume(volume_device_t* parent, volume_t* volume, volume_id_t id)
     /* Format the volumes name */
     sfmt(name_buffer, VOLUME_NAME_FMT, parent->id, id);
 
-    KLOG_ERR("Registering volume: %s\n", name_buffer);
-
     volume->id = id;
     volume->parent = parent;
     volume->dev = create_device_ex(NULL, name_buffer, volume, DEVICE_CTYPE_OTHER, NULL, __volume_ctl_nodes);
+
+    volume->info.volume_id = id;
+    volume->info.device_id = parent->id;
 
     /* Just shove the volume at the beginning of the vector */
     volume->next = parent->vec_volumes;
@@ -418,6 +472,21 @@ static int __volume_dev_flush(device_t* dev, driver_t* drv, uintptr_t offset, vo
 }
 
 /*!
+ * @brief: Gather volume info
+ */
+static int __volume_dev_getinfo(device_t* dev, driver_t* drv, uintptr_t offset, void* buffer, size_t size)
+{
+    volume_device_t* vdev;
+
+    if (!dev || !dev->private)
+        return -KERR_INVAL;
+
+    vdev = (volume_device_t*)dev->private;
+
+    return __generic_getinfo(dev, &vdev->info, buffer, size);
+}
+
+/*!
  * @brief: Add a volume device to %/VolumeDvs
  *
  * Gives the volume device it's ID and device object
@@ -431,6 +500,7 @@ int register_volume_device(struct volume_device* volume_dev)
         DEVICE_CTL(DEVICE_CTLC_WRITE, __volume_dev_write, NULL),
         DEVICE_CTL(DEVICE_CTLC_VOLUME_BWRITE, __volume_dev_bwrite, NULL),
         DEVICE_CTL(DEVICE_CTLC_FLUSH, __volume_dev_flush, NULL),
+        DEVICE_CTL(DEVICE_CTLC_GETINFO, __volume_dev_getinfo, NULL),
         DEVICE_CTL_END,
     };
 

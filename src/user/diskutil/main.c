@@ -48,6 +48,8 @@ static inline void __parse_target_mode(uint32_t* pflags, enum HNDL_MODE* pmode, 
             *pmode = HNDL_MODE_CREATE;
             break;
         case 'i':
+        case 'I':
+            printf("DO info\n");
             *do_info = true;
             break;
         default:
@@ -87,6 +89,8 @@ int main()
     if (params_parse((const char**)cmdline.argv, cmdline.argc, params, (sizeof params / sizeof params[0])))
         return -EINVAL;
 
+    printf("Target: %s\n", target_volume);
+
     /* Parse the mode string */
     __parse_target_mode(&vflags, &mode, &do_info);
 
@@ -97,10 +101,9 @@ int main()
     if (!handle_verify(volume))
         return -ENODEV;
 
-    printf("[DEBUG] volume=%s, mode=%s, offset=0x%llx, size=0x%llx\n", target_volume, target_mode, target_offset, target_size);
+    printf("[DEBUG] volume=%s, mode=%s, offset=%lld, size=%lld\n", target_volume, target_mode, target_offset, target_size);
 
-    if (do_info)
-        return __do_volume_info(volume);
+    return __do_volume_info(volume);
 
     return 0;
 }
