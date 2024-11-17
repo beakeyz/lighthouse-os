@@ -8,7 +8,7 @@
 ./src/libs/
 
 -I
-./src/libs/libc
+./src/libs/lightos/libc
 
 -DDBG_VERBOSE=1
 

@@ -42,7 +42,7 @@ export KERNEL_CFLAGS := \
 	-std=gnu11 -Werror -nostdlib -O2 -mno-sse -mno-sse2 -static \
 	-mno-mmx -mno-80387 -mno-red-zone -m64 -march=x86-64 -mcmodel=large \
 	-ffreestanding -fno-stack-protector -fno-stack-check -fshort-wchar \
-	-fno-lto -fno-exceptions -MMD -I$(SRC) -I$(SRC)/$(KERNEL_NAME) -I$(SRC)/libs -I$(SRC)/libs/libc -I$(SRC)/$(KERNEL_NAME)/libk \
+	-fno-lto -fno-exceptions -MMD -I$(SRC) -I$(SRC)/$(KERNEL_NAME) -I$(SRC)/libs -I$(SRC)/libs/lightos/libc -I$(SRC)/$(KERNEL_NAME)/libk \
 	-D'ANIVA_KERNEL'
 
 ifeq ($(KERNEL_DEBUG_LEVEL), verbose)
@@ -59,7 +59,7 @@ ifeq ($(KERNEL_DEBUG_LEVEL), NONE)
 endif
 
 export USER_INCLUDE_CFLAGS := \
-	-I. -I$(SRC)/libs -I$(SRC)/libs/libc
+	-I. -I$(SRC)/libs -I$(SRC)/libs/lightos/libc
 
 export KERNEL_LDFLAGS := \
 	-T ${KERNEL_LINKERSCRIPT_PATH} -export-dynamic -z max-page-size=0x1000

@@ -4,7 +4,7 @@ export LIBRARY_SRC=$(SRC)/libs
 # Excluded libraries:
 #  - raylib: Until we feature an OpenGL implementation
 LIBRARY_PATHS := \
-	./libc \
+	./lightos \
 	./librt \
 	./libgfx \
 	./lightui \

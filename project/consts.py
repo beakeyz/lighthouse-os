@@ -39,10 +39,11 @@ class Consts:
     DRIVERS_SRC_DIR = SRC_DIR + "/drivers"
     LIBS_SRC_DIR = SRC_DIR + "/libs"
     USER_SRC_DIR = SRC_DIR + "/user"
+    LIGHTOS_LIB_SRC_DIR = LIBS_SRC_DIR + "/lightos"
 
     SYSROOT_DIR = PROJECT_DIR + "/" + SYSROOT_DIR_NAME
     SYSROOT_HEADERS_DIR = SYSROOT_DIR + "/System/libs"
-    LIBC_SRC_DIR = SRC_DIR + "/libs" + "/libc"
+    LIBC_SRC_DIR = LIGHTOS_LIB_SRC_DIR
     LIBS_OUT_DIR = OUT_DIR + "/libs"
     PROJECT_MANAGEMENT_DIR = PROJECT_DIR + "/project"
     COMPILER_DIR = PROJECT_DIR + "/cross_compiler/bin"
@@ -70,7 +71,7 @@ class Consts:
     KERNEL_C_FLAGS += " -mno-mmx -mno-80387 -mno-red-zone -m64 -march=x86-64 -mcmodel=large"
     KERNEL_C_FLAGS += " -ffreestanding -fno-stack-protector -fno-stack-check -fshort-wchar"
     KERNEL_C_FLAGS += " -fno-lto -fno-exceptions -MMD -I./src -I./src/aniva/ -I./src/libs"
-    KERNEL_C_FLAGS += " -I./src/libs/libc -D\'KERNEL\'"
+    KERNEL_C_FLAGS += " -I./src/libs/lightos/libc -D\'KERNEL\'"
 
     # Default libenv flags (aka the aniva equivilant of libc)
     LIBENV_C_FLAGS = "-std=gnu11 -Wall -O2 -ffreestanding -fPIC -shared"
@@ -78,7 +79,7 @@ class Consts:
 
     # TODO: implement compat with external kernel drivers as modules (which are treated as userspace until they are discovered to be drivers)
     # Default userspace flags (just anything that isn't the kernel basically)
-    USERSPACE_C_FLAGS = "-std=gnu11 -Wall -shared -fPIC -O2 -ffreestanding -I./src/libs -I./src/libs/libc"
+    USERSPACE_C_FLAGS = "-std=gnu11 -Wall -shared -fPIC -O2 -ffreestanding -I./src/libs -I./src/libs/lightos/libc"
     USERSPACE_C_FLAGS += " -D\'USER\'"
 
     # Extention for the userspace CFlags to include kernel headers

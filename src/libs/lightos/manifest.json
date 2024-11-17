@@ -1,5 +1,5 @@
 {
-    "name": "libc",
+    "name": "lightos",
     "path": "System/Lib",
     "linking": "dynamic",
     "type": "library",

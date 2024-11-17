@@ -1,4 +1,4 @@
-LIBRARY_NAME=libc
+LIBRARY_NAME=lightos
 LINKTYPE=dynamic
 
 include ../library.mk
