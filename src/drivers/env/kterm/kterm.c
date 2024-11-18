@@ -9,6 +9,7 @@
 #include "dev/video/events.h"
 #include "dev/video/framebuffer.h"
 #include "devices/shared.h"
+#include "drivers/env/kterm/font.h"
 #include "drivers/env/kterm/fs.h"
 #include "drivers/env/kterm/util.h"
 #include "kevent/event.h"
@@ -70,7 +71,8 @@ struct kterm_terminal_pallet_entry {
 
 struct kterm_terminal_char {
     uint8_t pallet_idx;
-    uint8_t ch;
+    uint8_t no_scroll : 1;
+    uint8_t ch : 7;
 };
 
 /*
@@ -178,7 +180,11 @@ static void kterm_cursor_shift_x();
 static void kterm_cursor_shift_y();
 
 // static void kterm_draw_pixel(uintptr_t x, uintptr_t y, uint32_t color);
-static void kterm_draw_char(uintptr_t x, uintptr_t y, char c, uint32_t color, bool defer_update);
+static inline void kterm_draw_char_ex(struct kterm_terminal_char* term_chr, char c, uint8_t color_idx, bool force_update, bool tgl_no_scroll);
+static void kterm_draw_char_abs(uintptr_t x, uintptr_t y, char c, uint8_t color_idx, bool force_update);
+static void kterm_draw_char(uintptr_t x, uintptr_t y, char c, uint32_t color, bool force_update);
+static void kterm_draw_abs_box(u64 x, u64 y, u64 w, u64 h, u8 color, bool transparent);
+static void kterm_draw_abs_str(u64 x, u64 y, const char* str, u8 color);
 
 static void kterm_enable_newline_tag();
 static void kterm_disable_newline_tag();
@@ -1255,6 +1261,10 @@ int kterm_init(driver_t* driver)
     printf(" Input source: %s\n\n", (_kterm_kbddev && _kterm_kbddev->dev && _kterm_kbddev->dev->name) ? _kterm_kbddev->dev->name : "None");
     kterm_print(" For any information about kterm, type: \'help\'\n");
 
+    kterm_draw_abs_box(0, 0, 32, 1, 0, false);
+    kterm_draw_abs_str(2, 0, "Hello!", 0);
+    kterm_draw_abs_str(3, 1, "This is an epic message!", 0);
+
     kterm_enable_newline_tag();
 
     /* Prompt a newline tag draw */
@@ -1761,15 +1771,8 @@ static inline struct kterm_terminal_char* kterm_get_term_char(uint32_t x, uint32
  *
  * Make sure we're in KTERM_MODE_TERMINAL, otherwise this means nothing
  */
-static inline void kterm_draw_char(uintptr_t x, uintptr_t y, char c, uint32_t color_idx, bool defer_update)
+static inline void kterm_draw_char_ex(struct kterm_terminal_char* term_chr, char c, uint8_t color_idx, bool force_update, bool tgl_no_scroll)
 {
-    struct kterm_terminal_char* term_chr;
-
-    // if (mode != KTERM_MODE_TERMINAL)
-    // return;
-
-    /* Grab the terminal character entry */
-    term_chr = kterm_get_term_char(x, y);
 
     if (term_chr->ch == c && term_chr->pallet_idx == color_idx)
         return;
@@ -1777,10 +1780,75 @@ static inline void kterm_draw_char(uintptr_t x, uintptr_t y, char c, uint32_t co
     term_chr->ch = c;
     term_chr->pallet_idx = color_idx;
 
-    if (defer_update)
+    if (tgl_no_scroll)
+        term_chr->no_scroll = !term_chr->no_scroll;
+
+    if (force_update)
+        return kterm_update_term_char(term_chr, 1);
+
+    /* If the character is a no-scroll character, only update it if we just toggled no_scroll */
+    if (term_chr->no_scroll && !tgl_no_scroll)
         return;
 
     kterm_update_term_char(term_chr, 1);
+}
+
+static void kterm_draw_char_abs(uintptr_t x, uintptr_t y, char c, uint8_t color_idx, bool force_update)
+{
+    struct kterm_terminal_char* term_chr;
+
+    /* Grab the terminal character entry */
+    term_chr = kterm_get_term_char(x, y);
+
+    if (!term_chr)
+        return;
+
+    /* If this character is not yet set to absolute, toggle it */
+    return kterm_draw_char_ex(term_chr, c, color_idx, force_update, !term_chr->no_scroll);
+}
+
+static inline void kterm_draw_char(uintptr_t x, uintptr_t y, char c, uint32_t color_idx, bool force_update)
+{
+    struct kterm_terminal_char* term_chr;
+
+    /* Grab the terminal character entry */
+    term_chr = kterm_get_term_char(x, y);
+
+    if (!term_chr)
+        return;
+
+    return kterm_draw_char_ex(term_chr, c, color_idx, force_update, false);
+}
+
+static void kterm_draw_abs_box(u64 x, u64 y, u64 w, u64 h, u8 color, bool transparent)
+{
+
+    for (u32 i = 0; i < w; i++) {
+        kterm_draw_char_abs(x + 1 + i, y, KTERM_HLINE_GLYPH, 0, false);
+        kterm_draw_char_abs(x + 1 + i, y + 1 + h, KTERM_HLINE_GLYPH, 0, false);
+    }
+
+    for (u32 i = 0; i < h; i++) {
+        kterm_draw_char_abs(x, y + 1 + i, KTERM_VLINE_GLYPH, 0, false);
+        kterm_draw_char_abs(x + w + 1, y + 1 + i, KTERM_VLINE_GLYPH, 0, false);
+    }
+
+    if (!transparent)
+        for (u32 _y = 0; _y < h; _y++)
+            for (u32 _x = 0; _x < w; _x++)
+                kterm_draw_char_abs(x + 1 + _x, y + 1 + _y, ' ', _current_background_idx, false);
+
+    kterm_draw_char_abs(x, y, KTERM_LT_CORNER_GLYPH, 0, false);
+    kterm_draw_char_abs(x + w + 1, y, KTERM_RT_CORNER_GLYPH, 0, false);
+
+    kterm_draw_char_abs(x, y + h + 1, KTERM_LB_CORNER_GLYPH, 0, false);
+    kterm_draw_char_abs(x + w + 1, y + h + 1, KTERM_RB_CORNER_GLYPH, 0, false);
+}
+
+static void kterm_draw_abs_str(u64 x, u64 y, const char* str, u8 color)
+{
+    for (u32 i = 0; i < strlen(str); i++)
+        kterm_draw_char_abs(x + i, y, str[i], color, true);
 }
 
 static inline const char* kterm_get_buffer_contents()
