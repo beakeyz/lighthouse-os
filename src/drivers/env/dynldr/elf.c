@@ -218,6 +218,8 @@ kerror_t _elf_do_headers(elf_image_t* image)
         case SHT_PROGBITS:
             if (strncmp(LIGHTENTRY_SECTION_NAME, image->elf_shstrtab + shdr->sh_name, strlen(LIGHTENTRY_SECTION_NAME)) == 0)
                 image->elf_lightentry_hdr = shdr;
+            else if (strncmp(LIGHTEXIT_SECTION_NAME, image->elf_shstrtab + shdr->sh_name, strlen(LIGHTEXIT_SECTION_NAME)) == 0)
+                image->elf_lightexit_hdr = shdr;
 
             break;
         }

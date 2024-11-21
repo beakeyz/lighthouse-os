@@ -47,6 +47,8 @@
 #define KTERM_CURSOR_WIDTH 2
 #define KTERM_MAX_PALLET_ENTRY_COUNT 256
 
+#define KTERM_MAX_BOX_COUNT 32
+
 enum KTERM_BASE_CLR {
     BASE_CLR_RED = 0,
     BASE_CLR_YELLOW,
@@ -148,6 +150,18 @@ static size_t _c_prompt_buffersize;
 static size_t _c_prompt_idx;
 static bool _c_prompt_hide_input;
 static bool _c_prompt_is_submitted;
+
+/*
+ * Kterm box representation
+ */
+struct kterm_box {
+    uint32_t id;
+    kterm_box_constr_t constr;
+};
+
+/* Box stuff */
+static struct kterm_box* __kterm_box_vector;
+static uint32_t __kterm_nr_boxes;
 
 /* Login stuff */
 static kterm_login_t _c_login;
@@ -1177,6 +1191,16 @@ int kterm_init(driver_t* driver)
     /* TODO: integrate video device accel */
     // map our framebuffer
 
+    /* Allocate a box vector */
+    __kterm_box_vector = kmalloc(KTERM_MAX_BOX_COUNT * sizeof(struct kterm_box));
+
+    /* Quick assert */
+    ASSERT(__kterm_box_vector);
+
+    /* Clear the thing */
+    memset(__kterm_box_vector, 0, KTERM_MAX_BOX_COUNT * sizeof(struct kterm_box));
+    __kterm_nr_boxes = 0;
+
     /*
      * TODO: Call the kernel video interface instead of invoking the core video driver
      *
@@ -1292,8 +1316,49 @@ int kterm_exit()
      */
     kernel_panic("kterm_exit");
 
+    kfree(__kterm_box_vector);
+
     kterm_fini_lwnd_emulation();
 
+    return 0;
+}
+
+static kerror_t __kterm_add_box(kterm_box_constr_t* constr)
+{
+    u32 target_idx;
+
+    if (!constr || !constr->p_id)
+        return -KERR_INVAL;
+
+    /* Find a free box slot */
+    for (target_idx = 0; target_idx < KTERM_MAX_BOX_COUNT; target_idx++)
+        if (!__kterm_box_vector[target_idx].constr.p_id)
+            break;
+
+    if (target_idx >= KTERM_MAX_BOX_COUNT)
+        return -KERR_RANGE;
+
+    /* Allocate this box slot */
+    __kterm_box_vector[target_idx].id = target_idx;
+
+    /* Copy the constructor data */
+    memcpy(&__kterm_box_vector[target_idx].constr, constr, sizeof(*constr));
+
+    /* Update the pointer to our own id */
+    __kterm_box_vector[target_idx].constr.p_id = &__kterm_box_vector[target_idx].id;
+
+    /* Update the constructors own id */
+    *constr->p_id = target_idx;
+
+    return 0;
+}
+
+static kerror_t __kterm_remove_box(uint32_t id)
+{
+    if (id >= KTERM_MAX_BOX_COUNT)
+        return -KERR_RANGE;
+
+    memset(&__kterm_box_vector[id], 0, sizeof(struct kterm_box));
     return 0;
 }
 
@@ -1305,6 +1370,7 @@ int kterm_exit()
 uintptr_t kterm_on_packet(aniva_driver_t* driver, dcc_t code, void __user* buffer, size_t size, void* out_buffer, size_t out_size)
 {
     lwindow_t* uwnd = NULL;
+    kterm_box_constr_t* constr;
     proc_t* c_proc = get_current_proc();
 
     /* Check pointer */
@@ -1328,6 +1394,35 @@ uintptr_t kterm_on_packet(aniva_driver_t* driver, dcc_t code, void __user* buffe
             size = (strlen(_c_login.cwd) + 1);
 
         memcpy(buffer, _c_login.cwd, size);
+        break;
+    case KTERM_DRV_CREATE_BOX:
+        if (size != sizeof(kterm_box_constr_t))
+            return DRV_STAT_INVAL;
+
+        constr = buffer;
+
+        /* NOTE: This function writes to user memory */
+        if (__kterm_add_box(constr))
+            return DRV_STAT_INVAL;
+
+        /* Draw the shit */
+        kterm_draw_abs_box(constr->x, constr->y, strlen(constr->content) + 2, 3, constr->color, false);
+        kterm_draw_abs_str(constr->x + 1, constr->y, constr->title, 0);
+        kterm_draw_abs_str(constr->x + 1, constr->y + 1, constr->content, 0);
+
+        break;
+    case KTERM_DRV_UPDATE_BOX:
+        if (size != sizeof(kterm_box_constr_t))
+            return DRV_STAT_INVAL;
+
+        constr = buffer;
+
+        /* Draw the shit */
+        kterm_draw_abs_box(constr->x, constr->y, strlen(constr->content) + 2, 3, constr->color, false);
+        kterm_draw_abs_str(constr->x + 1, constr->y, constr->title, 0);
+        kterm_draw_abs_str(constr->x + 1, constr->y + 1, constr->content, 0);
+
+    case KTERM_DRV_REMOVE_BOX:
         break;
     case LWND_DCC_CREATE:
         /* Switch the kterm mode to KTERM_MODE_GRAPHICS and prepare a canvas for the graphical application to run

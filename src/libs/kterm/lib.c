@@ -22,6 +22,16 @@ int kterm_get_cwd(const char** cwd)
     return 0;
 }
 
+int kterm_create_box(uint32_t* p_id, uint32_t x, uint32_t y, uint8_t color_idx, const char* title, const char* content)
+{
+    return 0;
+}
+
+int kterm_update_box(uint32_t p_id, uint32_t x, uint32_t y, uint8_t color_idx, const char* title, const char* content)
+{
+    return 0;
+}
+
 /*!
  * @brief: Entrypoint for the kterm userkit
  *

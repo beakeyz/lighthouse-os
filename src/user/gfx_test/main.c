@@ -1,4 +1,5 @@
 #include "libgfx/video.h"
+#include "lightos/dynamic.h"
 #include "lightui/draw.h"
 #include <lightui/window.h>
 
@@ -30,8 +31,19 @@ int main()
 
     lightui_window_update(wnd);
 
+    HANDLE kterm_handle = HNDL_INVAL;
+    int (*p_kterm_update_box)(uint32_t p_id, uint32_t x, uint32_t y, uint8_t color_idx, const char* title, const char* content);
+
+    if (!load_library("Root/System/Lib/kterm.lib", &kterm_handle))
+        goto close_and_quit;
+
+    /* Get the function address */
+    if (!get_func_address(kterm_handle, "kterm_update_box", (void**)&p_kterm_update_box))
+        goto close_and_quit;
+
     while (true) { }
 
+close_and_quit:
     lightui_close_window(wnd);
     return 0;
 }
