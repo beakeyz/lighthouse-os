@@ -1,6 +1,7 @@
 #include "sys_exit.h"
 #include "libk/flow/error.h"
 #include "logging/log.h"
+#include "proc/kprocs/reaper.h"
 #include "proc/proc.h"
 #include "proc/thread.h"
 #include "sched/scheduler.h"
@@ -33,7 +34,14 @@ uintptr_t sys_exit_handler(uintptr_t code)
 
     /* There are more threads in this process */
     if (current_proc->m_thread_count > 1) {
+        /* We're dying ;-; */
         thread_set_state(current_thread, DYING);
+
+        /* Register ourselves to the reaper */
+        reaper_register_thread(current_thread);
+
+        /* Remove from this mofoking scheduler */
+        scheduler_remove_thread(current_thread);
 
         goto exit_and_yield;
     }

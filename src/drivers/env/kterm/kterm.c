@@ -1285,9 +1285,11 @@ int kterm_init(driver_t* driver)
     printf(" Input source: %s\n\n", (_kterm_kbddev && _kterm_kbddev->dev && _kterm_kbddev->dev->name) ? _kterm_kbddev->dev->name : "None");
     kterm_print(" For any information about kterm, type: \'help\'\n");
 
+    /*
     kterm_draw_abs_box(0, 0, 32, 1, 0, false);
     kterm_draw_abs_str(2, 0, "Hello!", 0);
     kterm_draw_abs_str(3, 1, "This is an epic message!", 0);
+    */
 
     kterm_enable_newline_tag();
 

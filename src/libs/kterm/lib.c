@@ -2,6 +2,8 @@
 #include "lightos/driver/drv.h"
 #include "lightos/lib/lightos.h"
 #include "string.h"
+#include <errno.h>
+#include <stdio.h>
 
 static HANDLE kterm_handle;
 
@@ -29,6 +31,37 @@ int kterm_create_box(uint32_t* p_id, uint32_t x, uint32_t y, uint8_t color_idx, 
 
 int kterm_update_box(uint32_t p_id, uint32_t x, uint32_t y, uint8_t color_idx, const char* title, const char* content)
 {
+    uint32_t title_len, content_len;
+
+    printf("Updating kterm box\n");
+
+    if (!title || !content)
+        return -EINVAL;
+
+    title_len = strlen(title);
+    content_len = strlen(content);
+
+    kterm_box_constr_t constr = {
+        .x = x,
+        .y = y,
+        .color = color_idx,
+        .title = { 0 },
+        .content = { 0 },
+        .p_id = &p_id,
+    };
+
+    if (title_len >= sizeof(constr.title))
+        title_len = sizeof(constr.title) - 1;
+
+    if (content_len >= sizeof(constr.content))
+        content_len = sizeof(constr.content) - 1;
+
+    memcpy((void*)&constr.title, title, title_len);
+    memcpy((void*)&constr.content, content, content_len);
+
+    /* Send the driver the message */
+    driver_send_msg(kterm_handle, KTERM_DRV_UPDATE_BOX, &constr, sizeof(constr));
+
     return 0;
 }
 

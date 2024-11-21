@@ -5,6 +5,7 @@
 #include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"
 #include "lightos/driver/loader.h"
+#include "logging/log.h"
 #include "mem/kmem_manager.h"
 #include "priv.h"
 #include "proc/core.h"
@@ -366,6 +367,8 @@ static int __libinit_thread_eventhook(kevent_ctx_t* _ctx, void* param)
     dynamic_library_t* lib;
     kevent_thread_ctx_t* ctx;
 
+    KLOG_DBG("__libinit_thread_eventhook triggered!\n");
+
     /* Kinda weird lmao */
     if (_ctx->buffer_size != sizeof(*ctx))
         return 0;
@@ -388,6 +391,8 @@ static int __libinit_thread_eventhook(kevent_ctx_t* _ctx, void* param)
             continue;
 
         ASSERT_MSG(lib->lib_wait_thread, "FUCK: got a library initialize thread, but no thread waiting for this initialize!");
+
+        KLOG_DBG("Unblocking wait thread: %s\n", lib->lib_wait_thread->m_name);
 
         thread_unblock(lib->lib_wait_thread);
 
@@ -445,6 +450,9 @@ kerror_t await_lib_init(dynamic_library_t* lib)
 
     /* Add the thread to the process */
     proc_add_thread(target_proc, lib_entry_thread);
+
+    /* Add the fucker to the scheduler */
+    scheduler_add_thread(lib_entry_thread, SCHED_PRIO_MID);
 
     /* Block until we get the thread death event for the lib entry thread */
     thread_block(lib_wait_thread);
