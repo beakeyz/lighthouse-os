@@ -451,11 +451,18 @@ kerror_t await_lib_init(dynamic_library_t* lib)
     /* Add the thread to the process */
     proc_add_thread(target_proc, lib_entry_thread);
 
+    pause_scheduler();
+
     /* Add the fucker to the scheduler */
     scheduler_add_thread(lib_entry_thread, SCHED_PRIO_MID);
 
     /* Block until we get the thread death event for the lib entry thread */
-    thread_block(lib_wait_thread);
+    thread_block_unpaused(lib_wait_thread);
+
+    /* Chill */
+    resume_scheduler();
+
+    scheduler_yield();
 
     /* Remove the hook when we're done */
     kevent_remove_hook("thread", lib->name);

@@ -125,6 +125,7 @@ void thread_unregister_mutex(thread_t* thread, struct mutex* lock);
  * we will get unblocked when the mutex is released
  */
 void thread_block(thread_t* thread);
+void thread_block_unpaused(thread_t* thread);
 void thread_unblock(thread_t* thread);
 void thread_sleep(thread_t* thread);
 void thread_wakeup(thread_t* thread);

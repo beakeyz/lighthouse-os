@@ -468,19 +468,28 @@ void thread_exit_init_state(thread_t* from, registers_t* regs)
 {
 }
 
-void thread_block(thread_t* thread)
+void thread_block_unpaused(thread_t* thread)
 {
-    thread_t* current_thread = get_current_scheduling_thread();
-
-    pause_scheduler();
-
-    // KLOG_DBG("Blocking thread: %s\n", thread->m_name);
+    if (thread->m_current_state == BLOCKED || thread->m_current_state == SLEEPING)
+        return;
 
     thread_set_state(thread, BLOCKED);
 
     /* Need to inactivate this thread */
     scheduler_inactivate_thread(thread);
+}
 
+void thread_block(thread_t* thread)
+{
+    thread_t* current_thread = get_current_scheduling_thread();
+
+    /* Pause and chilll */
+    pause_scheduler();
+
+    /* Set the thread into a blocking state */
+    thread_block_unpaused(thread);
+
+    /* Wake the scheduler again */
     resume_scheduler();
 
     // FIXME: we do allow blocking other threads here, we need to

@@ -44,6 +44,8 @@ int kterm_update_box(uint32_t p_id, uint32_t x, uint32_t y, uint8_t color_idx, c
     kterm_box_constr_t constr = {
         .x = x,
         .y = y,
+        .w = 0,
+        .h = 0,
         .color = color_idx,
         .title = { 0 },
         .content = { 0 },
@@ -58,6 +60,11 @@ int kterm_update_box(uint32_t p_id, uint32_t x, uint32_t y, uint8_t color_idx, c
 
     memcpy((void*)&constr.title, title, title_len);
     memcpy((void*)&constr.content, content, content_len);
+
+    /* Content will occupy a single line */
+    constr.h = 3;
+    /* Make the box as long ast the content_len is. One unit width corresponds with one character */
+    constr.w = content_len + 2;
 
     /* Send the driver the message */
     driver_send_msg(kterm_handle, KTERM_DRV_UPDATE_BOX, &constr, sizeof(constr));
