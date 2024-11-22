@@ -1,0 +1,6 @@
+{
+    "name": "usbmntr",
+    "linking": "dynamic",
+    "type": "process",
+    "libs": []
+}

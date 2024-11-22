@@ -444,6 +444,9 @@ void kthread_entry(void)
     if (!drv)
         drv = load_external_driver("Root/System/kterm.drv");
 
+    /* Launch the usb monitor */
+    proc_exec("Root/Users/Admin/Core/usbmntr", NULL, get_admin_profile(), PROC_KERNEL);
+
     while (true)
         /* Block this thread to save cycles */
         thread_sleep(root_proc->m_init_thread);

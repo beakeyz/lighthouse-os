@@ -4,7 +4,8 @@ USER_SRC=$(SRC)/user
 # These are fancy admin core programs
 ADMIN_CORE_PROCS := 	\
 	./init 				\
-	./sysconf
+	./sysconf			\
+	./usbmntr
 
 # Define where the userapp sources are located
 USER_PATHS := 			\

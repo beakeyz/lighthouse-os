@@ -12,31 +12,31 @@
 
 struct compl
 {
-    float real;
-    float imag;
+    double real;
+    double imag;
 };
 
-static float compl_get_len_sq(struct compl *c)
+static double compl_get_len_sq(struct compl *c)
 {
     return (c->real * c->real) + (c->imag * c->imag);
 }
 
 static inline void compl_square(struct compl *z)
 {
-    float new_real = (z->real * z->real) - (z->imag * z->imag);
-    float new_imag = 2 * (z->real * z->imag);
+    double new_real = (z->real * z->real) - (z->imag * z->imag);
+    double new_imag = 2 * (z->real * z->imag);
 
     z->real = new_real;
     z->imag = new_imag;
 }
 
-static inline void compl_scale(struct compl *z, float scalar)
+static inline void compl_scale(struct compl *z, double scalar)
 {
     z->imag *= scalar;
     z->real *= scalar;
 }
 
-static inline void compl_add(struct compl *z, float scalar)
+static inline void compl_add(struct compl *z, double scalar)
 {
     z->imag += scalar;
     z->real += scalar;
@@ -45,7 +45,6 @@ static inline void compl_add(struct compl *z, float scalar)
 static inline void compl_funct(struct compl *z)
 {
     compl_square(z);
-    // compl_square(z);
 
     z->imag -= 0.8f;
 }
@@ -54,7 +53,7 @@ static inline void compl_funct(struct compl *z)
 static lightui_window_t* window;
 static struct compl offset_vec;
 static struct compl origin_vec;
-static float scale;
+static double scale;
 static lcolor_t* img;
 
 #define EXIT_ERROR(str) (printf("[ERROR]: %s\n", str) - 1)

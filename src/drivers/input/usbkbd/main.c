@@ -10,6 +10,7 @@
 #include "devices/shared.h"
 #include "drivers/input/i8042/i8042.h"
 #include "libk/flow/error.h"
+#include "libk/math/math.h"
 #include "libk/stddef.h"
 #include "lightos/event/key.h"
 #include "logging/log.h"
@@ -41,6 +42,12 @@ typedef struct usbkbd {
     uint8_t prev_resp[8];
     uint16_t mod_keys;
     uint16_t c_scancodes[7];
+
+    /* How many times we've polled the device until now */
+    size_t nr_poll_calls;
+
+    /* The manufacurer-given name of this device */
+    const char* device_name;
 
     hid_event_t c_ctx;
 
@@ -135,9 +142,45 @@ static int usbkbd_enable(device_t* device)
     return 0;
 }
 
+static int usbkbd_getinfo(device_t* dev, driver_t* drv, uintptr_t offset, void* buffer, size_t size)
+{
+    DEVINFO* pDevinfo;
+    hid_device_t* hiddev;
+    usbkbd_t* kbd;
+
+    if (size != sizeof(*pDevinfo))
+        return -KERR_INVAL;
+
+    /* Grab the devinfo buffer */
+    pDevinfo = (DEVINFO*)buffer;
+    hiddev = (hid_device_t*)dev->private;
+
+    if (!pDevinfo || !hiddev)
+        return -KERR_INVAL;
+
+    if (get_usbkbd(&kbd, nullptr, hiddev))
+        return -KERR_INVAL;
+
+    pDevinfo->class = dev->class;
+    pDevinfo->subclass = dev->subclass;
+    pDevinfo->ctype = dev->type;
+    pDevinfo->deviceid = dev->device_id;
+    pDevinfo->vendorid = dev->vendor_id;
+
+    if (kbd->device_name)
+        memcpy(pDevinfo->devicename, kbd->device_name, MIN(sizeof(pDevinfo->devicename) - 1, strlen(kbd->device_name)));
+
+    /* Let the broski know how many times we've polled until now */
+    if (pDevinfo->dev_specific_info && pDevinfo->dev_specific_size == sizeof(size_t))
+        *(size_t*)pDevinfo->dev_specific_info = kbd->nr_poll_calls;
+
+    return 0;
+}
+
 static device_ctl_node_t _usbkbd_ctllist[] = {
     DEVICE_CTL(DEVICE_CTLC_ENABLE, usbkbd_enable, NULL),
     DEVICE_CTL(DEVICE_CTLC_DISABLE, usbkbd_disable, NULL),
+    DEVICE_CTL(DEVICE_CTLC_GETINFO, usbkbd_getinfo, NULL),
     DEVICE_CTL_END,
 };
 
@@ -182,6 +225,9 @@ create_usbkbd(usbkbd_t** ret, driver_t* usbkbd_driver, usb_device_t* dev)
     /* Prepare the hid context */
     _ret->c_ctx.type = HID_EVENT_KEYPRESS;
     _ret->c_ctx.device = _ret->hiddev;
+
+    /* Grab the device name */
+    _ret->device_name = "TODO: Get kb name";
 
     /* Link it to our list */
     _ret->next = keyboards;
@@ -330,6 +376,9 @@ static int usbkbd_irq(usb_xfer_t* xfer)
     /* This sucks balls */
     if (!kbd)
         return -1;
+
+    /* Add a poll count */
+    kbd->nr_poll_calls++;
 
     if (usb_xfer_is_err(xfer))
         goto resubmit;
