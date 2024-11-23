@@ -7,7 +7,6 @@
 #include "fs/file.h"
 #include "libk/flow/error.h"
 #include "libk/stddef.h"
-#include "logging/log.h"
 #include "mem/kmem_manager.h"
 #include "oss/core.h"
 #include "oss/node.h"
@@ -320,7 +319,7 @@ static struct oss_node_ops ramfs_node_ops = {
     .f_destroy = ramfs_destroy,
 };
 
-static void __tar_create_superblock(oss_node_t* node, volume_t* device)
+static void __tar_init_superblock(oss_node_t* node, volume_t* device)
 {
     if (!node)
         return;
@@ -376,7 +375,7 @@ oss_node_t* mount_ramfs(fs_type_t* type, const char* mountpoint, volume_t* devic
 
     oss_node_t* node = create_fs_oss_node(mountpoint, type, &ramfs_node_ops);
 
-    __tar_create_superblock(node, device);
+    __tar_init_superblock(node, device);
 
     if ((device->flags & VOLUME_FLAG_COMPRESSED) == VOLUME_FLAG_COMPRESSED && (device->flags & VOLUME_FLAG_HAD_SYSTEM) != VOLUME_FLAG_HAD_SYSTEM) {
 
@@ -389,6 +388,8 @@ oss_node_t* mount_ramfs(fs_type_t* type, const char* mountpoint, volume_t* devic
         /*
          * We need to allocate for the decompressed size
          * TODO: set this region to read-only after the decompress is done
+         *
+         * NOTE: This is a long-term allocation. This needs to persist, even after the volume is unmounted or some shit
          */
         error = __kmem_kernel_alloc_range(&TAR_BLOCK_START(node), decompressed_size, KMEM_CUSTOMFLAG_GET_MAKE, KMEM_FLAG_WRITABLE);
 
@@ -410,6 +411,9 @@ oss_node_t* mount_ramfs(fs_type_t* type, const char* mountpoint, volume_t* devic
 
         device->info.min_offset = (uintptr_t)TAR_BLOCK_START(node);
         device->info.max_offset = (uintptr_t)TAR_BLOCK_START(node) + decompressed_size;
+
+        /* Reinit the superblock */
+        __tar_init_superblock(node, device);
     }
 
     return node;

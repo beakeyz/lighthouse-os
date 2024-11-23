@@ -928,6 +928,8 @@ static int _ehci_add_async_int_xfer(ehci_hcd_t* ehci, ehci_xfer_t* e_xfer)
 
 static int _ehci_link_transfer(ehci_hcd_t* ehci, ehci_xfer_t* e_xfer)
 {
+    KLOG_INFO("EHCI: Linking!\n");
+
     if (e_xfer->xfer->req_type == USB_INT_XFER)
         return _ehci_add_async_int_xfer(ehci, e_xfer);
 

@@ -373,6 +373,8 @@ static int usbkbd_irq(usb_xfer_t* xfer)
 
     kbd = xfer->priv_ctx;
 
+    KLOG_INFO("USBKBD: Recieved!\n");
+
     /* This sucks balls */
     if (!kbd)
         return -1;
@@ -455,6 +457,12 @@ static int usbkbd_probe(driver_t* this, usb_device_t* udev, usb_interface_buffer
 
     if (error)
         return error;
+
+    /* Select the boot protocol, which we use */
+    error = usb_device_submit_ctl(udev, 0x21, USB_REQ_SET_PROTOCOL, 0, 0, 0, NULL, NULL);
+
+    if (error)
+        goto dealloc_and_exit;
 
     /* Submit an interrupt transfer */
     error = usb_device_submit_int(udev, &kbd->probe_xfer, usbkbd_irq, USB_DIRECTION_DEVICE_TO_HOST, interface->ep_list, kbd->this_resp, sizeof(kbd->this_resp));

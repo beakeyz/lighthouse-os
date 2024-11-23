@@ -690,6 +690,8 @@ void init_root_volume()
     root_ramdisk = nullptr;
     root_device = volume_device_find(0);
 
+    KLOG_DBG("Trying to find root volume...\n");
+
     oss_detach_fs(FS_DEFAULT_ROOT_MP, &initial_ramfs_node);
 
     if (initial_ramfs_node)
@@ -727,6 +729,7 @@ void init_root_volume()
 
     cycle_next:
         root_device = volume_device_find(device_index++);
+        cur_part = nullptr;
     }
 
     initrd_mp = FS_INITRD_MP;
@@ -739,8 +742,11 @@ void init_root_volume()
 
     if (!root_ramdisk || oss_attach_fs(nullptr, initrd_mp, "cramfs", root_ramdisk))
         kernel_panic("Could not find a root device to mount! TODO: fix");
-    else
+    else {
         _set_bootdevice(root_ramdisk);
+
+        KLOG_DBG("Could not find root volume. Remounting ramfs (at: %%/%s/)\n", initrd_mp);
+    }
 }
 
 void init_root_ram_volume()

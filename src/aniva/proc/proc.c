@@ -244,6 +244,11 @@ proc_t* create_kernel_proc(FuncPtr entry, uintptr_t args)
 /*!
  * @brief: Execute an executable at @path
  *
+ * FIXME: We are giving away a reference to the process with this function, even though the process might get
+ * absolutely astrosmacked (aka terminated and destroyed) at any time. When this happens, we still have this
+ * reference floating around, which may cause very nasty bugs. Fix this ASAP, either with reference counting,
+ * or buffer objects
+ *
  * @cmd: The path to the executable to execute. Also includes the
  * command parameters.
  * @profile: The profile to which we want to register this process

@@ -406,12 +406,6 @@ void kthread_entry(void)
     */
 
     /*
-     * Remove the early TTY right before we finish low-level system setup. After
-     * this point we're able to support our own debug capabilities
-     */
-    destroy_early_tty();
-
-    /*
      * Setup is done: we can start scheduling stuff
      * At this point, the kernel should have created a bunch of userspace processes that are ready to run on the next schedules. Most of the
      * 'userspace stuff' will consist of user tracking, configuration and utility processes. Any windowing will be done by the kernel this driver
@@ -434,7 +428,13 @@ void kthread_entry(void)
     };
 
     /* Execute the buffer */
-    proc_exec(init_buffer, vec, get_admin_profile(), PROC_KERNEL | PROC_SYNC);
+    ASSERT_MSG(proc_exec(init_buffer, vec, get_admin_profile(), PROC_KERNEL | PROC_SYNC) != nullptr, "Failed to launch init process");
+
+    /*
+     * Remove the early TTY right before we finish low-level system setup. After
+     * this point we're able to support our own debug capabilities
+     */
+    destroy_early_tty();
 
     drv = nullptr;
 

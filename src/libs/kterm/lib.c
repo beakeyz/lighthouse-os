@@ -57,7 +57,7 @@ int kterm_update_box(uint32_t p_id, uint32_t x, uint32_t y, uint8_t color_idx, c
     memcpy((void*)&constr.content, content, content_len);
 
     /* Content will occupy a single line */
-    constr.h = 3;
+    constr.h = 1;
     /* Make the box as long ast the content_len is. One unit width corresponds with one character */
     constr.w = content_len + 2;
 

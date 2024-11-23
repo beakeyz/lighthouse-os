@@ -171,7 +171,6 @@ static kerror_t gather_ports_info(ahci_device_t* device)
 
     FOREACH(i, device->m_ports)
     {
-
         ahci_port_t* port = i->data;
 
         status = ahci_port_gather_info(port);
@@ -316,7 +315,6 @@ ahci_device_t* create_ahci_device(pci_device_t* identifier)
 
 void destroy_ahci_device(ahci_device_t* device)
 {
-
     __unregister_ahci_device(device);
 
     FOREACH(i, device->m_ports)
