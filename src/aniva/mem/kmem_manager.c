@@ -14,7 +14,6 @@
 #include "system/resource.h"
 #include <dev/core.h>
 #include <dev/driver.h>
-#include <dev/driver.h>
 #include <libk/stddef.h>
 #include <libk/string.h>
 #include <mem/heap.h>

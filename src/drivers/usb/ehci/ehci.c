@@ -242,14 +242,14 @@ static inline void _ehci_check_xfer_status(ehci_xfer_t* xfer)
 
     /* Loop over the descriptors to check the status of the transfer */
     do {
-        // KLOG_DBG("Qtd: %llx : %s\n", c_qtd->qtd_dma_addr, (c_qtd->hw_token & EHCI_QTD_STATUS_ACTIVE) ? "Active" : "Inactive");
+        // KLOG_DBG("%d\n", c_qtd->hw_token);
 
         /* Still busy */
-        if (c_qtd->hw_token & EHCI_QTD_STATUS_ACTIVE)
+        if ((c_qtd->hw_token & EHCI_QTD_STATUS_ACTIVE) == EHCI_QTD_STATUS_ACTIVE)
             break;
 
         /* Error occured in the transfer! Yikes */
-        if (c_qtd->hw_token & EHCI_QTD_STATUS_ERRMASK) {
+        if ((c_qtd->hw_token & EHCI_QTD_STATUS_ERRMASK)) {
             xfer->xfer->xfer_flags |= (USB_XFER_FLAG_ERROR | USB_XFER_FLAG_DONE);
             break;
         }

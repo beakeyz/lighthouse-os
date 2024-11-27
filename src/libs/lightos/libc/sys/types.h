@@ -61,7 +61,7 @@ typedef void (*FuncPtr)();
 /*
  * Definitions for accurate byte-sizes
  */
-#define Kib 1024
+#define Kib 1024ULL
 #define Mib Kib* Kib
 #define Gib Mib* Kib
 #define Tib Gib* Kib

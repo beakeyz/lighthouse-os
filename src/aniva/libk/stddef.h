@@ -67,7 +67,7 @@ typedef void (*FuncPtr)();
 
 #define arrlen(arr) (sizeof((arr)) / sizeof((arr)[0]))
 
-#define Kib 1024
+#define Kib 1024ULL
 #define Mib Kib* Kib
 #define Gib Mib* Kib
 #define Tib Gib* Kib

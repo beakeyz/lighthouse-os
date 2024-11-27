@@ -277,14 +277,17 @@ static int print_ex(uint8_t flags, const char* msg, uint8_t type)
     return 0;
 }
 
-static int USED _kputch(uint8_t typeflags, char c, char** out)
+static int USED _kputch(uint8_t typeflags, char c, char** out, size_t* p_cur_size)
 {
+    /* We don't use this variable */
+    (void)p_cur_size;
+
     return print_ex(typeflags, &c, LOG_TYPE_CHAR);
 }
 
 int kputch(char c)
 {
-    return _kputch(LOGGER_FLAG_INFO, c, NULL);
+    return _kputch(LOGGER_FLAG_INFO, c, NULL, NULL);
 }
 
 int print(const char* msg)
@@ -297,7 +300,7 @@ int println(const char* msg)
     return print_ex(LOGGER_FLAG_INFO, msg, LOG_TYPE_LINE);
 }
 
-static inline void _print_hex(uint8_t typeflags, uint64_t value, int prec, int (*output_cb)(uint8_t typeflags, char c, char** out), char** out)
+static inline void _print_hex(uint8_t typeflags, uint64_t value, int prec, int (*output_cb)(uint8_t typeflags, char c, char** out, size_t* p_cur_size), char** out, size_t* max_size)
 {
     uint32_t idx;
     char tmp[128];
@@ -328,10 +331,10 @@ static inline void _print_hex(uint8_t typeflags, uint64_t value, int prec, int (
     tmp[len - 1 - idx] = hex_chars[last];
 
     for (uint32_t i = 0; i < len; i++)
-        output_cb(typeflags, tmp[i], out);
+        output_cb(typeflags, tmp[i], out, max_size);
 }
 
-static inline int _print_decimal(uint8_t typeflags, int64_t value, int prec, int (*output_cb)(uint8_t typeflags, char c, char** out), char** out)
+static inline int _print_decimal(uint8_t typeflags, int64_t value, int prec, int (*output_cb)(uint8_t typeflags, char c, char** out, size_t* p_cur_size), char** out, size_t* max_size)
 {
     char tmp[128];
     uint8_t size = 1;
@@ -360,12 +363,12 @@ static inline int _print_decimal(uint8_t typeflags, int64_t value, int prec, int
     tmp[size - 1 - index] = remain + '0';
 
     for (uint32_t i = 0; i < size; i++)
-        output_cb(typeflags, tmp[i], out);
+        output_cb(typeflags, tmp[i], out, max_size);
 
     return size;
 }
 
-static inline int _vprintf(uint8_t typeflags, const char* fmt, va_list args, int (*output_cb)(uint8_t typeflags, char c, char** out), char** out)
+static inline int _vprintf(uint8_t typeflags, const char* fmt, va_list args, int (*output_cb)(uint8_t typeflags, char c, char** out, size_t* p_cur_size), char** out, size_t max_size)
 {
     int prec;
     const char* prefix;
@@ -387,7 +390,7 @@ static inline int _vprintf(uint8_t typeflags, const char* fmt, va_list args, int
 
         if (prefix)
             for (const char* i = prefix; *i; i++)
-                output_cb(typeflags, *i, out);
+                output_cb(typeflags, *i, out, &max_size);
     }
 
     for (const char* c = fmt; *c; c++) {
@@ -446,10 +449,10 @@ static inline int _vprintf(uint8_t typeflags, const char* fmt, va_list args, int
 
             if (value < 0) {
                 value = -value;
-                output_cb(typeflags, '-', out);
+                output_cb(typeflags, '-', out, &max_size);
             }
 
-            _print_decimal(typeflags, value, prec, output_cb, out);
+            _print_decimal(typeflags, value, prec, output_cb, out, &max_size);
             break;
         }
         case 'p':
@@ -471,7 +474,7 @@ static inline int _vprintf(uint8_t typeflags, const char* fmt, va_list args, int
                 value = 0;
             }
 
-            _print_hex(typeflags, value, prec, output_cb, out);
+            _print_hex(typeflags, value, prec, output_cb, out, &max_size);
             break;
         }
         case 's': {
@@ -479,18 +482,18 @@ static inline int _vprintf(uint8_t typeflags, const char* fmt, va_list args, int
 
             if (!max_length)
                 while (*str)
-                    output_cb(typeflags, *str++, out);
+                    output_cb(typeflags, *str++, out, &max_size);
             else
                 while (max_length--)
                     if (*str)
-                        output_cb(typeflags, *str++, out);
+                        output_cb(typeflags, *str++, out, &max_size);
                     else
-                        output_cb(typeflags, ' ', out);
+                        output_cb(typeflags, ' ', out, &max_size);
 
             break;
         }
         default: {
-            output_cb(typeflags, *c, out);
+            output_cb(typeflags, *c, out, &max_size);
             break;
         }
         }
@@ -498,7 +501,7 @@ static inline int _vprintf(uint8_t typeflags, const char* fmt, va_list args, int
         continue;
 
     kputch_cycle:
-        output_cb(typeflags, *c, out);
+        output_cb(typeflags, *c, out, &max_size);
     }
 
     try_unlock_logging();
@@ -512,7 +515,7 @@ int vprintf(const char* fmt, va_list args)
     /*
      * These kinds of prints should go to all loggers
      */
-    error = _vprintf(LOGGER_FLAG_NO_PREFIX | LOGGER_FLAG_DEBUG | LOGGER_FLAG_INFO | LOGGER_FLAG_WARNINGS, fmt, args, _kputch, NULL);
+    error = _vprintf(LOGGER_FLAG_NO_PREFIX | LOGGER_FLAG_DEBUG | LOGGER_FLAG_INFO | LOGGER_FLAG_WARNINGS, fmt, args, _kputch, NULL, NULL);
 
     return error;
 }
@@ -524,7 +527,7 @@ void log(const char* msg)
 
 void vlogf(const char* fmt, va_list args)
 {
-    (void)_vprintf(LOGGER_FLAG_INFO, fmt, args, _kputch, NULL);
+    (void)_vprintf(LOGGER_FLAG_INFO, fmt, args, _kputch, NULL, NULL);
 }
 
 void logf(const char* fmt, ...)
@@ -561,15 +564,30 @@ int printf(const char* fmt, ...)
     return error;
 }
 
-static int __bufout(uint8_t typeflags, char c, char** out)
+static int __bufout(uint8_t typeflags, char c, char** out, size_t* p_cur_size)
 {
+    /* If there is no size left, don't try to do weird shit */
+    if (!(*p_cur_size))
+        return 0;
+
+    /* Reduced the current size */
+    (*p_cur_size)--;
+
+    /* Put a character in the current working place */
     **out = c;
+    /* Go to the next fucker */
     (*out)++;
-    /* Null terminate */
+    /* Null terminate just in case*/
     **out = '\0';
+
     return 0;
 }
 
+/*!
+ * @brief: Unsafe string formating function
+ *
+ * This just keeps going until the format string is completely processed
+ */
 int sfmt(char* buf, const char* fmt, ...)
 {
     int error;
@@ -577,7 +595,26 @@ int sfmt(char* buf, const char* fmt, ...)
     va_list args;
     va_start(args, fmt);
 
-    error = _vprintf(NULL, fmt, args, __bufout, &buf);
+    error = _vprintf(NULL, fmt, args, __bufout, &buf, (size_t)-1ULL);
+
+    va_end(args);
+
+    return error;
+}
+
+/*!
+ * @brief: Safer string formating function
+ *
+ * Here we also pass the size of the buffer we're formatting, so we don't overshoot it
+ */
+int sfmt_sz(char* buf, size_t bsize, const char* fmt, ...)
+{
+    int error;
+
+    va_list args;
+    va_start(args, fmt);
+
+    error = _vprintf(NULL, fmt, args, __bufout, &buf, bsize);
 
     va_end(args);
 
@@ -591,7 +628,7 @@ int vkdbgf(bool prefix, const char* fmt, va_list args)
     if (!prefix)
         flags |= LOGGER_FLAG_NO_PREFIX;
 
-    return _vprintf(flags, fmt, args, _kputch, NULL);
+    return _vprintf(flags, fmt, args, _kputch, NULL, NULL);
 }
 
 int kdbgf(const char* fmt, ...)
@@ -630,7 +667,7 @@ int kdbgc(char c)
 {
     int error;
 
-    error = _kputch(LOGGER_FLAG_DEBUG, c, NULL);
+    error = _kputch(LOGGER_FLAG_DEBUG, c, NULL, NULL);
 
     return error;
 }
@@ -642,7 +679,7 @@ int kwarnf(const char* fmt, ...)
     va_list args;
     va_start(args, fmt);
 
-    error = _vprintf(LOGGER_FLAG_WARNINGS, fmt, args, _kputch, NULL);
+    error = _vprintf(LOGGER_FLAG_WARNINGS, fmt, args, _kputch, NULL, NULL);
 
     va_end(args);
 
@@ -671,7 +708,7 @@ int kwarnc(char c)
 {
     int error;
 
-    error = _kputch(LOGGER_FLAG_WARNINGS, c, NULL);
+    error = _kputch(LOGGER_FLAG_WARNINGS, c, NULL, NULL);
 
     return error;
 }

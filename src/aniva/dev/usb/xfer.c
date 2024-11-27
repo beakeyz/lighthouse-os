@@ -139,12 +139,19 @@ int usb_xfer_complete(usb_xfer_t* xfer)
 {
     int error = 0;
 
+    if ((xfer->xfer_flags & USB_XFER_FLAG_COMPLETED) == USB_XFER_FLAG_COMPLETED)
+        return -KERR_HANDLED;
+
+    /* Mark the thing as completed */
+    xfer->xfer_flags |= USB_XFER_FLAG_COMPLETED;
+
     /* Call the completion method if it exists */
     if (xfer->f_completion_cb)
         error = xfer->f_completion_cb(xfer);
 
     /* Ring the semaphore to signal completion */
     sem_post(xfer->status_sem);
+
     return error;
 }
 
@@ -164,7 +171,7 @@ int usb_xfer_enqueue(usb_xfer_t* xfer, struct usb_hcd* hcd)
         return -KERR_INVAL;
 
     /* Clear xfer flags */
-    xfer->xfer_flags &= ~(USB_XFER_FLAG_DONE | USB_XFER_FLAG_ERROR | USB_XFER_FLAG_REQUEUE);
+    xfer->xfer_flags &= ~(USB_XFER_FLAG_DONE | USB_XFER_FLAG_ERROR | USB_XFER_FLAG_REQUEUE | USB_XFER_FLAG_COMPLETED);
 
     mutex_lock(hcd->hcd_lock);
 

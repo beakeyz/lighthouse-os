@@ -37,6 +37,7 @@ enum USB_XFER_DIRECTION {
 #define USB_XFER_FLAG_DATA_TGL 0x08
 /* This transfer has been completed and needs a requeue */
 #define USB_XFER_FLAG_REQUEUE 0x10
+#define USB_XFER_FLAG_COMPLETED 0x20
 
 /*!
  * Generic USB request structure for the

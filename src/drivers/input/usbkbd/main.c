@@ -373,7 +373,7 @@ static int usbkbd_irq(usb_xfer_t* xfer)
 
     kbd = xfer->priv_ctx;
 
-    KLOG_INFO("USBKBD: Recieved!\n");
+    // KLOG_INFO("USBKBD: Recieved!\n");
 
     /* This sucks balls */
     if (!kbd)

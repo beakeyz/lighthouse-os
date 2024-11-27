@@ -3,6 +3,7 @@
 #include "fs/file.h"
 #include "libk/flow/error.h"
 #include "lightos/handle_def.h"
+#include "logging/log.h"
 #include "oss/obj.h"
 #include "proc/hdrv/driver.h"
 #include "sync/mutex.h"
@@ -174,6 +175,8 @@ void destroy_khandle_map(khandle_map_t* map)
 {
     if (!map)
         return;
+
+    KLOG_INFO("Destroying khandle map! (0x%p)\n", map);
 
     destroy_mutex(map->lock);
 

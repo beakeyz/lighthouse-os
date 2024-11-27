@@ -65,6 +65,7 @@ void log_ex(logger_id_t id, const char* msg, va_list args, uint8_t type);
 
 /* Format strings */
 int sfmt(char* buf, const char* fmt, ...);
+int sfmt_sz(char* buf, size_t bsize, const char* fmt, ...);
 
 #if DBG_VERBOSE
 #define KLOG(fmt, ...) printf(fmt, __VA_ARGS__ - 0)

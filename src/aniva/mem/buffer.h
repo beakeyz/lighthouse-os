@@ -4,6 +4,7 @@
 #include "mem/zalloc/zalloc.h"
 #include "system/resource.h"
 #include <libk/stddef.h>
+#include <system/resource.h>
 
 /*
  * Aniva buffers
@@ -32,6 +33,14 @@ enum ANIVA_BUFFER_METHOD {
 typedef u64 buffer_handle_t;
 typedef buffer_handle_t BUFFER_HANDLE;
 
+typedef union __aniva_buffer_mem_attr {
+    struct {
+        pml_entry_t* page_map;
+        kresource_bundle_t* resource_bundle;
+    } kmem;
+    zone_allocator_t* zallocator;
+} aniva_buffer_mem_attr_t;
+
 /*
  * A unified struct to handle data exports.
  *
@@ -54,11 +63,15 @@ typedef struct aniva_buffer {
 
     /* Method of cleanup */
     enum ANIVA_BUFFER_METHOD method;
-    /*  */
-    u32 refc;
+    /* Reference count to keep track of this buffers lifetime */
+    i32 refc;
+
+    /* Memory attributes */
+    aniva_buffer_mem_attr_t mem_attr;
 
     /* Different cleanup methods */
     union {
+        FuncPtr f_cleanup;
         void (*f_malloc_cleanup)(void* ptr);
         void (*f_zalloc_cleanup)(zone_allocator_t* zalloc, void* ptr);
         void (*f_kzalloc_cleanup)(void* ptr, size_t len);
@@ -67,9 +80,9 @@ typedef struct aniva_buffer {
     } cleanup;
 } aniva_buffer_t;
 
-void aniva_buffer_export(aniva_buffer_t* buffer, void* data, size_t len, enum ANIVA_BUFFER_METHOD method);
+int aniva_buffer_export(buffer_handle_t* phandle, void* data, size_t dsize, enum ANIVA_BUFFER_METHOD method, aniva_buffer_mem_attr_t* mem_attr, FuncPtr f_cleanup);
 
-int aniva_buffer_unref(aniva_buffer_t* buffer);
-int aniva_buffer_ref(aniva_buffer_t* buffer);
+int aniva_buffer_release(buffer_handle_t handle);
+int aniva_buffer_unpack(buffer_handle_t handle, void** pdata, size_t* psize);
 
 #endif // !__ANIVA_MEMORY_BUFFER__

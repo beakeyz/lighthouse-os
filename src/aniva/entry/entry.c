@@ -21,6 +21,7 @@
 #include "libk/multiboot.h"
 #include "libk/stddef.h"
 #include "logging/log.h"
+#include "mem/buffer.h"
 #include "mem/zalloc/zalloc.h"
 #include "oss/core.h"
 #include "proc/core.h"
@@ -199,6 +200,9 @@ static kerror_t _start_subsystems(void)
 
     // Initialize libk
     init_libk();
+
+    // Initialize buffer
+    init_aniva_buffers();
 
     // Initialize kevent
     init_kevents();

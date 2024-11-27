@@ -20,9 +20,7 @@ static int dir_khandle_open(khandle_driver_t* driver, const char* path, u32 flag
     if (!dir)
         return HNDL_NOT_FOUND;
 
-    init_khandle(bHandle, &type, dir);
-
-    khandle_set_flags(bHandle, flags);
+    init_khandle_ex(bHandle, type, flags, dir);
 
     return 0;
 }

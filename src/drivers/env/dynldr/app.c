@@ -70,9 +70,9 @@ void destroy_loaded_app(loaded_app_t* app)
     destroy_list(app->symbol_list);
     destroy_hashmap(app->exported_symbols);
 
-    kfree(app);
-
     app->proc = nullptr;
+
+    kfree(app);
 }
 
 void* proc_map_into_kernel(proc_t* proc, vaddr_t uaddr, size_t size)

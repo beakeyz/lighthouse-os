@@ -400,12 +400,12 @@ void __destroy_proc(proc_t* proc)
     /* Yeet handles */
     __proc_clear_handles(proc);
 
-    /* loop over all the resources of this process and release them by using __kmem_dealloc */
-    __proc_clear_shared_resources(proc);
-
     /* Free everything else */
     destroy_mutex(proc->m_lock);
     destroy_khandle_map(&proc->m_handle_map);
+
+    /* loop over all the resources of this process and release them by using __kmem_dealloc */
+    __proc_clear_shared_resources(proc);
 
     /*
      * Kill the root pd if it has one, other than the currently active page dir.

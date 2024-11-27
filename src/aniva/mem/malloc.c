@@ -546,7 +546,6 @@ void memory_sized_deallocate(memory_allocator_t* allocator, void* addr, size_t a
 
 void memory_deallocate(memory_allocator_t* allocator, void* addr)
 {
-
     heap_node_buffer_t* current_buffer;
 
     if (!addr || !allocator)
