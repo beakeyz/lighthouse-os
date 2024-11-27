@@ -394,6 +394,7 @@ static inline void __proc_kill_threads(proc_t* proc)
  */
 void __destroy_proc(proc_t* proc)
 {
+    KLOG_DBG("Killing: %s\n", proc->m_name);
     /* Yeet threads */
     __proc_kill_threads(proc);
 
@@ -402,11 +403,15 @@ void __destroy_proc(proc_t* proc)
 
     /* Free everything else */
     destroy_mutex(proc->m_lock);
+
     destroy_khandle_map(&proc->m_handle_map);
+
+    KLOG_DBG("Doing shared resources\n");
 
     /* loop over all the resources of this process and release them by using __kmem_dealloc */
     __proc_clear_shared_resources(proc);
 
+    KLOG_DBG("Doing page dir\n");
     /*
      * Kill the root pd if it has one, other than the currently active page dir.
      * We already kinda expect this to only be called from kernel context, but
@@ -415,6 +420,8 @@ void __destroy_proc(proc_t* proc)
      */
     if (proc->m_root_pd.m_root != get_current_processor()->m_page_dir)
         kmem_destroy_page_dir(proc->m_root_pd.m_root);
+
+    KLOG_DBG("Doing penv\n");
 
     /* Kill the environment */
     destroy_penv(proc->m_env);

@@ -658,7 +658,7 @@ static void __clear_mem_resource(kresource_t* resource, kresource_bundle_t* bund
     // printf("(%s) Start: 0x%llx, Size: 0x%llx, dir: %p\n", resource->m_name, start, resource->m_size, bundle->page_dir);
 
     if ((resource->m_flags & KRES_FLAG_MEM_KEEP_PHYS) != KRES_FLAG_MEM_KEEP_PHYS)
-        __kmem_dealloc_ex(bundle->page_dir ? bundle->page_dir->m_root : NULL, bundle, start, size, false, true, true);
+        __kmem_dealloc_ex(bundle->page_dir ? bundle->page_dir->m_root : NULL, bundle, start, size, true, true, true);
 }
 
 /*!

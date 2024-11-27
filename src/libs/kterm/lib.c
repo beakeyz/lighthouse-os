@@ -28,8 +28,6 @@ int kterm_update_box(uint32_t p_id, uint32_t x, uint32_t y, uint8_t color_idx, c
 {
     uint32_t title_len, content_len;
 
-    printf("Updating kterm box\n");
-
     if (!title || !content)
         return -EINVAL;
 

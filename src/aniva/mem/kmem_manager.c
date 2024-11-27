@@ -574,16 +574,12 @@ void kmem_set_phys_page_free(uintptr_t idx)
 
 void kmem_set_phys_range_used(uintptr_t start_idx, size_t page_count)
 {
-    for (uintptr_t i = 0; i < page_count; i++) {
-        kmem_set_phys_page_used(start_idx + i);
-    }
+    bitmap_mark_range(KMEM_DATA.m_phys_bitmap, start_idx, page_count);
 }
 
 void kmem_set_phys_range_free(uintptr_t start_idx, size_t page_count)
 {
-    for (uintptr_t i = 0; i < page_count; i++) {
-        kmem_set_phys_page_free(start_idx + i);
-    }
+    bitmap_unmark_range(KMEM_DATA.m_phys_bitmap, start_idx, page_count);
 }
 
 bool kmem_is_phys_page_used(uintptr_t idx)
@@ -1026,7 +1022,7 @@ int __kmem_kernel_dealloc(uintptr_t virt_base, size_t size)
 int __kmem_dealloc(pml_entry_t* map, kresource_bundle_t* resources, uintptr_t virt_base, size_t size)
 {
     /* NOTE: process is nullable, so it does not matter if we are not in a process at this point */
-    return __kmem_dealloc_ex(map, resources, virt_base, size, false, false, false);
+    return __kmem_dealloc_ex(map, resources, virt_base, size, true, false, false);
 }
 
 int __kmem_dealloc_unmap(pml_entry_t* map, kresource_bundle_t* resources, uintptr_t virt_base, size_t size)
@@ -1545,28 +1541,15 @@ int kmem_to_current_pagemap(vaddr_t vaddr, pml_entry_t* external_map)
  */
 int kmem_copy_kernel_mapping(pml_entry_t* new_table)
 {
-    bool is_present;
     pml_entry_t* kernel_root;
-    pml_entry_t* kernel_lvl_3;
 
     const uintptr_t kernel_pml4_idx = 256;
     const uintptr_t end_idx = 511;
 
     kernel_root = (void*)kmem_from_phys((uintptr_t)kmem_get_krnl_dir(), KMEM_DATA.m_high_page_base);
 
-    for (uintptr_t i = kernel_pml4_idx; i <= end_idx; i++) {
-
-        /* Grab the pml entries */
-        kernel_lvl_3 = &kernel_root[i];
-
-        /* Check again (If this exists we'll be fine to copy everything) */
-        is_present = pml_entry_is_bit_set(kernel_lvl_3, PDE_PRESENT);
-
-        if (!is_present)
-            continue;
-
-        new_table[i].raw_bits = kernel_lvl_3->raw_bits;
-    }
+    for (uintptr_t i = kernel_pml4_idx; i <= end_idx; i++)
+        new_table[i].raw_bits = kernel_root[i].raw_bits;
 
     return (0);
 }
@@ -1578,24 +1561,11 @@ int kmem_copy_kernel_mapping(pml_entry_t* new_table)
  */
 static int __clear_shared_kernel_mapping(pml_entry_t* dir)
 {
-    bool is_present;
-    pml_entry_t* kernel_lvl_3;
-
     const uintptr_t kernel_pml4_idx = 256;
-    const uintptr_t end_idx = 511;
+    const uintptr_t end_idx = 512;
 
-    for (uintptr_t i = kernel_pml4_idx; i <= end_idx; i++) {
-        /* Grab the pml entries */
-        kernel_lvl_3 = &dir[i];
-
-        /* Check again */
-        is_present = pml_entry_is_bit_set(kernel_lvl_3, PDE_PRESENT);
-
-        if (!is_present)
-            continue;
-
+    for (uintptr_t i = kernel_pml4_idx; i < end_idx; i++)
         dir[i].raw_bits = NULL;
-    }
 
     return (0);
 }
@@ -1638,7 +1608,7 @@ int kmem_destroy_page_dir(pml_entry_t* dir)
 
     const uintptr_t dir_entry_limit = SMALL_PAGE_SIZE / sizeof(pml_entry_t);
 
-    for (uintptr_t i = 0; i < dir_entry_limit; i++) {
+    for (uintptr_t i = 0; i < (dir_entry_limit >> 1); i++) {
 
         /* Check the root pagedir entry (pml4 entry) */
         if (!pml_entry_is_bit_set(&dir[i], PDE_PRESENT))

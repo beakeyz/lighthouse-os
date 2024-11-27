@@ -176,7 +176,7 @@ void destroy_khandle_map(khandle_map_t* map)
     if (!map)
         return;
 
-    KLOG_INFO("Destroying khandle map! (0x%p)\n", map);
+    KLOG_INFO("Destroying khandle map! (0x%p)\n", map->handles);
 
     destroy_mutex(map->lock);
 

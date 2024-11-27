@@ -95,7 +95,7 @@ void bitmap_unmark_range(bitmap_t* this, uint32_t index, size_t length)
     }
 
     for (uint32_t i = 0; i < length; i++)
-        this->m_map[(index + i) >> 3] &= ~(1 << ((index + i) % 8));
+        this->m_map[(index + i) >> 3] &= ~(1 << ((index + i) & 7));
 }
 
 void bitmap_mark_range(bitmap_t* this, uint32_t index, size_t length)
@@ -106,7 +106,7 @@ void bitmap_mark_range(bitmap_t* this, uint32_t index, size_t length)
     }
 
     for (uint32_t i = 0; i < length; i++)
-        this->m_map[(index + i) >> 3] |= (1 << ((index + i) % 8));
+        this->m_map[(index + i) >> 3] |= (1 << ((index + i) & 7));
 }
 
 int bitmap_find_free_range_ex(bitmap_t* this, size_t length, enum BITMAP_SEARCH_DIR dir, uintptr_t* p_result)
