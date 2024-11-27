@@ -20,6 +20,11 @@ static int __proc_open(struct khandle_driver* driver, const char* path, u32 flag
     return 0;
 }
 
+static int __proc_open_rel(struct khandle_driver* driver, khandle_t* rel_handle, const char* path, u32 flags, enum HNDL_MODE mode, khandle_t* phandle)
+{
+    return 0;
+}
+
 static khandle_driver_t __proc_driver = {
     .name = "processes",
     .handle_type = HNDL_TYPE_PROC,

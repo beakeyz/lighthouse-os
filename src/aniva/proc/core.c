@@ -75,7 +75,10 @@ proc_t* find_proc(const char* path)
     if (KERR_ERR(oss_resolve_obj(path, &obj)))
         return nullptr;
 
-    if (!obj || obj->type != OSS_OBJ_TYPE_PROC)
+    if (!obj)
+        return nullptr;
+
+    if (obj->type != OSS_OBJ_TYPE_PROC)
         return nullptr;
 
     /* Yay this object contains our thing =D */
