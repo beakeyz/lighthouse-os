@@ -1,18 +1,14 @@
--I
-./src/aniva/
+-I./src/aniva/
+-I./src/
+-I./src/libs/
+-I./src/libs/lightos/libc
 
--I 
-./src/
-
--I
-./src/libs/
-
--I
-./src/libs/lightos/libc
+-I./src/lightloader/efi/include
+-I./src/lightloader/common/include
 
 -DDBG_VERBOSE=1
 
 -nostdlib
+-ffreestanding 
 -Wall
 -Werror
--ffreestanding 

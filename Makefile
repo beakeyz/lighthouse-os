@@ -20,6 +20,7 @@ export SYSROOT_DIR=$(WORKING_DIR)/system
 
 export LIBRARY_BIN_PATH=$(WORKING_DIR)/out/libs
 
+export EMU=qemu-system-x86_64
 export CC=$(CROSSCOMPILER_BIN_DIR)/x86_64-pc-lightos-gcc
 export LD=$(CROSSCOMPILER_BIN_DIR)/x86_64-pc-lightos-ld
 export OBJCOPY=$(CROSSCOMPILER_BIN_DIR)/x86_64-pc-lightos-objcopy
@@ -28,9 +29,19 @@ export NM=$(CROSSCOMPILER_BIN_DIR)/x86_64-pc-lightos-nm
 export ASM=nasm
 
 export KERNEL_NAME=aniva
-export RAMDISK_NAME=anivaRamdisk
+export RAMDISK_NAME=nvrdisk
 export KERNEL_FILENAME=$(KERNEL_NAME).elf
 export RAMDISK_FILENAME=$(RAMDISK_NAME).igz
+
+# Name defs
+export LOADER_ELF=lightloader.elf
+export LOADER_EFI=LIGHTLOADER.EFI
+
+# Define lightloader directories
+export LOADER_OUT=$(OUT)/lightloader
+export LOADER_SRC=$(SRC)/lightloader
+
+
 # 1) verbose
 # 2) debug
 # 3) info
@@ -84,6 +95,12 @@ libs: ## Build system libraries
 user: ## Build userspace stuff
 	@make -j$(nproc) -C ./src/user build
 
+modules: ## Build the shared system modules (modules.obj)
+	@make -j$(nproc) -C ./src/modules build
+
+loader: ## Build the bootloader sources
+	@make -j$(nproc) -C ./src/lightloader build
+
 ramdisk: ## Create the system ramdisk
 	@echo -e "TODO: create ramdisk"
 	@cd $(PROJECT_DIR)/.. && python3 $(PROJECT_DIR)/x.py ramdisk
@@ -93,12 +110,58 @@ clean: ## Remove any build artifacts
 	@rm -r $(OUT)
 	@echo -e "Cleaned build artifacts!"
 
-all: aniva drivers libs user ramdisk
+all: modules loader aniva drivers libs user ramdisk
 	@echo Built the entire project =D
+
+LIGHTOS_IMG=lightos.img
+BOOTRT_DIR=$(OUT)/__bootrt
+LOOPBACK_DEV=$(OUT)/loopback_dev
+
+$(OUT)/$(LIGHTOS_IMG):
+	@rm -f $@
+	@dd if=/dev/zero of=$@ iflag=fullblock bs=1M count=64 && sync
+
+image: $(OUT)/$(LIGHTOS_IMG)
+	@sudo rm -rf $(BOOTRT_DIR)
+	@sudo rm -rf $(LOOPBACK_DEV)
+	@mkdir -p $(BOOTRT_DIR)
+	@echo -e [Image] Setting up disk image...
+	@sudo losetup -Pf --show $(OUT)/$(LIGHTOS_IMG) > $(LOOPBACK_DEV)
+	@sudo parted `cat $(LOOPBACK_DEV)` mklabel gpt
+	@sudo parted `cat $(LOOPBACK_DEV)` mkpart primary 2048s 100% >/dev/null
+	@sudo parted `cat $(LOOPBACK_DEV)` set 1 boot on >/dev/null
+	@sudo parted `cat $(LOOPBACK_DEV)` set 1 hidden on >/dev/null
+	@sudo parted `cat $(LOOPBACK_DEV)` set 1 esp on >/dev/null
+	@sudo partprobe `cat $(LOOPBACK_DEV)` >/dev/null # Sync >
+
+	@echo -e [Image] Creating filesystem...
+	@sudo mkfs.fat -F 32 `cat $(LOOPBACK_DEV)`p1 >/dev/null
+	@sync
+	@sudo mount `cat $(LOOPBACK_DEV)`p1 $(BOOTRT_DIR)
+
+	@echo -e [Image] Copying filesystems...
+	@sudo mkdir -p $(BOOTRT_DIR)/EFI/BOOT
+	@sudo cp $(LOADER_OUT)/$(LOADER_EFI) $(BOOTRT_DIR)/EFI/BOOT/BOOTX64.EFI # Copy bootloader binary
+	@sudo cp $(OUT)/$(KERNEL_FILENAME) $(BOOTRT_DIR) # Copy the kernel
+	@sudo cp $(OUT)/$(RAMDISK_FILENAME) $(BOOTRT_DIR) # Copy the ramdisk
+	@sudo cp -r $(SYSROOT_DIR)/* $(BOOTRT_DIR) # Copy the rest of the filesystem
+
+	@echo -e [Image] Cleaning up...
+	@sync
+	@sudo umount $(BOOTRT_DIR)
+	@sudo losetup -d `cat $(LOOPBACK_DEV)`
+	@rm -rf $(BOOTRT_DIR)
+	@rm -rf $(LOOPBACK_DEV)
+	@echo -e [Image] Done!
+
+debug: all image
+	@echo Debugging: Running system in QEMU
+	@$(EMU) -m 1G -enable-kvm -net none -M q35 -usb $(OUT)/$(LIGHTOS_IMG) -bios ./ovmf/OVMF.fd -serial stdio -device usb-ehci -device usb-kbd -device usb-mouse
+	# @$(EMU) -m 1G -enable-kvm -net none -M q35 -usb $(OUT)/$(LIGHTOS_IMG) -bios ./ovmf/OVMF.fd -serial stdio
 
 install-gcc-hdrs:
 	@$(MAKE) -C ./cross_compiler/build/binutils install
 	@$(MAKE) -C ./cross_compiler/build/gcc install-gcc
 	@$(MAKE) -C ./cross_compiler/build/gcc install-target-libgcc
 
-.PHONY: aniva drivers libs user ramdisk clean all install-gcc-hdrs
+.PHONY: aniva drivers loader modules libs user ramdisk clean all install-gcc-hdrs

@@ -16,7 +16,7 @@ class Header(object):
 
 class RamdiskManager(object):
 
-    OUT_PATH: str = "out/anivaRamdisk.igz"
+    OUT_PATH: str = "out/nvrdisk.igz"
     SYSROOT_PATH: str = "system"
 
     DRV_BINARIES_PATH: str = "out/drivers"
@@ -211,6 +211,28 @@ class RamdiskManager(object):
 
             os.system(f"cp {hdr.fullpath} {hdr_new_path}")
 
+        # Clear this shit out
+        self.gathered_headers.clear()
+
+        # Now gather the lightos headers
+        self.__gather_headers(self.c.LIGHTOS_LIB_SRC_DIR)
+
+        # Second, copy those headers over to the system include directory
+        if self.gathered_headers is None:
+            return False
+
+        for hdr in self.gathered_headers:
+            hdr: Header = hdr
+            # Relative header path
+            hdr_rel: str = str(hdr.fullpath).replace(self.c.LIGHTOS_LIB_SRC_DIR, "")
+            # Previous strip should have made sure hdr_rel starts with a '/'
+            hdr_new_path: str = self.c.SYSROOT_LIGHTOS_HEADERS_DIR + "/" + hdr_rel
+
+            # Make sure this exists
+            self.__ensure_existance(hdr_new_path.replace(hdr.filename, ""))
+
+            os.system(f"cp {hdr.fullpath} {hdr_new_path}")
+
         return True
 
     def __copy_drivers(self) -> bool:
@@ -294,9 +316,9 @@ class RamdiskManager(object):
 
         self.__copy_headers()
 
-        with tarfile.open(self.OUT_PATH, "w:gz") as anivaRamdisk:
+        with tarfile.open(self.OUT_PATH, "w:gz") as nvrdisk:
             # Add the ./system directory as the root for this ramdisk
-            self.add_rd_entry(anivaRamdisk, self.SYSROOT_PATH, "/")
+            self.add_rd_entry(nvrdisk, self.SYSROOT_PATH, "/")
 
     def remove_ramdisk(self) -> bool:
         return False

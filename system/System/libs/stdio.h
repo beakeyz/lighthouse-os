@@ -4,7 +4,6 @@
 #ifndef ANIVA_KERNEL
 
 #include "stdarg.h"
-#include <stddef.h>
 #include <stdint.h>
 
 #define SEEK_SET 0

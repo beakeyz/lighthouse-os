@@ -43,7 +43,8 @@ class Consts:
 
     SYSROOT_DIR = PROJECT_DIR + "/" + SYSROOT_DIR_NAME
     SYSROOT_HEADERS_DIR = SYSROOT_DIR + "/System/libs"
-    LIBC_SRC_DIR = LIGHTOS_LIB_SRC_DIR
+    SYSROOT_LIGHTOS_HEADERS_DIR = SYSROOT_DIR + "/System/lightos"
+    LIBC_SRC_DIR = LIGHTOS_LIB_SRC_DIR + "/libc"
     LIBS_OUT_DIR = OUT_DIR + "/libs"
     PROJECT_MANAGEMENT_DIR = PROJECT_DIR + "/project"
     COMPILER_DIR = PROJECT_DIR + "/cross_compiler/bin"
