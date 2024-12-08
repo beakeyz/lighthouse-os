@@ -1,5 +1,5 @@
-#include "devices/device.h"
-#include "devices/shared.h"
+#include "lightos/dev/device.h"
+#include "lightos/dev/shared.h"
 #include "lightos/fs/shared.h"
 #include "lightos/handle_def.h"
 #include "lightos/sysvar/var.h"

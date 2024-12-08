@@ -1,7 +1,7 @@
 #include "dev/core.h"
 #include "dev/driver.h"
 #include "dev/io/hid/event.h"
-#include "devices/shared.h"
+#include "lightos/dev/shared.h"
 #include "drivers/input/i8042/i8042.h"
 #include "irq/interrupts.h"
 #include "libk/flow/error.h"

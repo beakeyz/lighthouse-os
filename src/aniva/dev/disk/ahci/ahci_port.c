@@ -6,15 +6,15 @@
 #include "dev/disk/shared.h"
 #include "dev/disk/volume.h"
 #include "dev/driver.h"
-#include "devices/pci.h"
-#include "devices/shared.h"
+#include "lightos/dev/pci.h"
+#include "lightos/dev/shared.h"
 #include "libk/flow/error.h"
 #include "libk/io.h"
 #include "libk/stddef.h"
 #include "logging/log.h"
 #include "mem/kmem_manager.h"
 #include "sched/scheduler.h"
-#include "volumeio/shared.h"
+#include "lightos/volume/shared.h"
 #include <mem/heap.h>
 
 static void decode_disk_model_number(char* model_number)

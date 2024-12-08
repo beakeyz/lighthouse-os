@@ -3,7 +3,7 @@
 #include <errno.h>
 #include <lightos/proc/cmdline.h>
 #include <stdio.h>
-#include <volumeio/volumeio.h>
+#include <lightos/volume/volumeio.h>
 
 /* Parameters */
 static const char target_volume[256] = { 0 };

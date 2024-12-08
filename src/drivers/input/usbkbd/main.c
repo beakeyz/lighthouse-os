@@ -7,7 +7,7 @@
 #include "dev/usb/spec.h"
 #include "dev/usb/usb.h"
 #include "dev/usb/xfer.h"
-#include "devices/shared.h"
+#include "lightos/dev/shared.h"
 #include "drivers/input/i8042/i8042.h"
 #include "libk/flow/error.h"
 #include "libk/math/math.h"

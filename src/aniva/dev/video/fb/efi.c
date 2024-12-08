@@ -3,7 +3,7 @@
 #include "dev/driver.h"
 #include "dev/video/device.h"
 #include "dev/video/framebuffer.h"
-#include "devices/shared.h"
+#include "lightos/dev/shared.h"
 #include "entry/entry.h"
 #include "libk/flow/error.h"
 #include "libk/multiboot.h"

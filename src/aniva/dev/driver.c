@@ -2,7 +2,7 @@
 #include "dev/device.h"
 #include "dev/driver.h"
 #include "dev/loader.h"
-#include "devices/shared.h"
+#include "lightos/dev/shared.h"
 #include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"
 #include "oss/obj.h"

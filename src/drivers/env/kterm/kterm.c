@@ -8,7 +8,7 @@
 #include "dev/video/device.h"
 #include "dev/video/events.h"
 #include "dev/video/framebuffer.h"
-#include "devices/shared.h"
+#include "lightos/dev/shared.h"
 #include "drivers/env/kterm/font.h"
 #include "drivers/env/kterm/fs.h"
 #include "drivers/env/kterm/util.h"

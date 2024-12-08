@@ -8,10 +8,7 @@ LIBRARY_PATHS := \
 	./librt \
 	./libgfx \
 	./lightui \
-	./devices \
-	./kterm \
-	./sysconf \
-	./volumeio
+	./kterm
 
 export LIBRARY_SHARED_FILE_EXT := .lib
 export LIBRARY_STATIC_FILE_EXT := .obj

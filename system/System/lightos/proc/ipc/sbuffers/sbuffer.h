@@ -13,4 +13,15 @@
  * TODO: Define and implement
  */
 
+#include <stddef.h>
+
+/* This buffer may only get mapped by other processes as read-only */
+#define LIGHTOS_SBUFFER_FLAGS_READONLY 0x00000001
+
+typedef struct lightos_sbuffer {
+    uint32_t flags;
+    size_t bsize;
+    void* bptr;
+} lightos_sbuffer_t;
+
 #endif // !__LIGHTOS_SHARED_BUFFERS__

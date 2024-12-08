@@ -1,8 +1,8 @@
-#include "devices/shared.h"
+#include "lightos/dev/shared.h"
 #include "lightos/handle.h"
 #include "lightos/handle_def.h"
-#include <devices/device.h>
-#include <lightos/dynamic.h>
+#include <lightos/dev/device.h>
+#include <lightos/lib.h>
 #include <lightos/proc/process.h>
 
 #include <errno.h>
@@ -20,11 +20,11 @@ static inline void __try_get_kterm_lib()
     __kterm_update_fn = nullptr;
 
     /* Try to load the kterm library */
-    if (!load_library("kterm.lib", &kterm))
+    if (!lib_load("kterm.lib", &kterm))
         return;
 
     /* Grab the update box function from the library */
-    if (!get_func_address(kterm, "kterm_update_box", (void**)&update_box))
+    if (!lib_get_function(kterm, "kterm_update_box", (void**)&update_box))
         return;
 
     __kterm_update_fn = update_box;

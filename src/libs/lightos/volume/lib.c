@@ -1,11 +1,11 @@
-#include "devices/shared.h"
+#include "lightos/dev/shared.h"
 #include "lightos/handle.h"
 #include "lightos/handle_def.h"
+#include "lightos/volume/shared.h"
 #include "string.h"
 #include "volumeio.h"
-#include "volumeio/shared.h"
-#include <devices/device.h>
 #include <errno.h>
+#include <lightos/dev/device.h>
 #include <lightos/lib/lightos.h>
 #include <stdlib.h>
 
@@ -82,12 +82,4 @@ int volume_get(VOLUME_HNDL handle, lightos_volume_t* pvolume)
 void lightos_volume_clean(lightos_volume_t* lvolume)
 {
     free((void*)lvolume->volume_label);
-}
-
-/*
- * Put any initialization of the volumeIO library here
- */
-LIGHTENTRY int lib_entry()
-{
-    return 0;
 }

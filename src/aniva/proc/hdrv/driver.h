@@ -1,7 +1,7 @@
 #ifndef __ANIVA_PROC_HANDLE_DRIVER_H__
 #define __ANIVA_PROC_HANDLE_DRIVER_H__
 
-#include "devices/shared.h"
+#include "lightos/dev/shared.h"
 #include "libk/flow/error.h"
 #include "lightos/handle_def.h"
 #include "proc/handle.h"

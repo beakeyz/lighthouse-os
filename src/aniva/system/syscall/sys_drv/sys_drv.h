@@ -1,7 +1,7 @@
 #ifndef __ANIVA_SYS_IOCTL__
 #define __ANIVA_SYS_IOCTL__
 #include "dev/core.h"
-#include "devices/shared.h"
+#include "lightos/dev/shared.h"
 #include "lightos/handle_def.h"
 #include "lightos/sysvar/shared.h"
 #include <libk/stddef.h>

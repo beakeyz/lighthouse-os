@@ -4,7 +4,7 @@
 #include "dev/usb/spec.h"
 #include "dev/usb/usb.h"
 #include "dev/usb/xfer.h"
-#include "devices/pci.h"
+#include "lightos/dev/pci.h"
 #include "drivers/usb/ehci/ehci_spec.h"
 #include "libk/data/linkedlist.h"
 #include "libk/data/queue.h"

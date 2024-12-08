@@ -3,7 +3,7 @@
 
 #include "mem/kmem_manager.h"
 #include <dev/device.h>
-#include <volumeio/shared.h>
+#include <lightos/volume/shared.h>
 
 struct volume;
 struct mbr_table;

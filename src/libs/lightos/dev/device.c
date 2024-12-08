@@ -1,5 +1,5 @@
 #include "device.h"
-#include "devices/shared.h"
+#include "lightos/dev/shared.h"
 #include "lightos/handle.h"
 #include "lightos/handle_def.h"
 #include "lightos/syscall.h"
@@ -219,7 +219,7 @@ BOOL device_query_info(DEV_HANDLE handle, DEVINFO* binfo)
     return device_send_ctl_ex(handle, DEVICE_CTLC_GETINFO, NULL, binfo, sizeof(*binfo));
 }
 
-int init_devices()
+int __init_devices()
 {
     _cached_devices = NULL;
     return 0;

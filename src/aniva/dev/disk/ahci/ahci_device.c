@@ -6,7 +6,7 @@
 #include "dev/driver.h"
 #include "dev/pci/io.h"
 #include "dev/pci/pci.h"
-#include "devices/pci.h"
+#include "lightos/dev/pci.h"
 #include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"
 #include "libk/io.h"

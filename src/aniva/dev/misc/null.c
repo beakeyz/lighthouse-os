@@ -1,7 +1,7 @@
 #include "null.h"
 #include "dev/device.h"
 #include "dev/driver.h"
-#include "devices/shared.h"
+#include "lightos/dev/shared.h"
 #include "oss/node.h"
 #include "oss/obj.h"
 #include "system/profile/attr.h"

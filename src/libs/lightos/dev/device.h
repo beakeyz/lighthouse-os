@@ -2,7 +2,7 @@
 #define __LIGHTOS_DEVICES_DEVICE__
 
 #include "lightos/system.h"
-#include <devices/shared.h>
+#include <lightos/dev/shared.h>
 #include <lightos/handle.h>
 
 /*

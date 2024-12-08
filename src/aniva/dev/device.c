@@ -5,7 +5,7 @@
 #include "dev/group.h"
 #include "dev/misc/null.h"
 #include "dev/usb/usb.h"
-#include "devices/shared.h"
+#include "lightos/dev/shared.h"
 #include "libk/flow/error.h"
 #include "libk/stddef.h"
 #include "mem/heap.h"

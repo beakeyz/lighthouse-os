@@ -1,5 +1,5 @@
 #include "libgfx/video.h"
-#include "lightos/dynamic.h"
+#include "lightos/lib.h"
 #include "lightui/draw.h"
 #include <lightui/window.h>
 #include <stdio.h>
@@ -37,13 +37,13 @@ int main()
 
     printf("Trying to load kterm.lib\n");
 
-    if (!load_library("kterm.lib", &kterm_handle))
+    if (!lib_load("kterm.lib", &kterm_handle))
         goto close_and_quit;
 
     printf("Trying to get address\n");
 
     /* Get the function address */
-    if (!get_func_address(kterm_handle, "kterm_update_box", (void**)&p_kterm_update_box))
+    if (!lib_get_function(kterm_handle, "kterm_update_box", (void**)&p_kterm_update_box))
         goto close_and_quit;
 
     p_kterm_update_box(0, 4, 4, 0, "Hello", "World!");

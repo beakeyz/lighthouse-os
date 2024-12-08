@@ -1,4 +1,4 @@
-#include "dynamic.h"
+#include "lib.h"
 #include "lightos/handle.h"
 #include "lightos/handle_def.h"
 #include "lightos/syscall.h"
@@ -10,7 +10,7 @@
  * driver
  */
 
-BOOL load_library(const char* path, HANDLE* out_handle)
+BOOL lib_load(const char* path, HANDLE* out_handle)
 {
     HANDLE hdl;
 
@@ -26,12 +26,18 @@ BOOL load_library(const char* path, HANDLE* out_handle)
     return TRUE;
 }
 
-BOOL unload_library(HANDLE handle)
+BOOL lib_unload(HANDLE handle)
 {
     return close_handle(handle);
 }
 
-BOOL get_func_address(HANDLE lib_handle, const char* func, VOID** faddr)
+BOOL lib_open(const char* path, HANDLE* phandle)
+{
+    exit_noimpl("lib_open");
+    return FALSE;
+}
+
+BOOL lib_get_function(HANDLE lib_handle, const char* func, VOID** faddr)
 {
     uintptr_t addr;
 
@@ -48,4 +54,16 @@ BOOL get_func_address(HANDLE lib_handle, const char* func, VOID** faddr)
 
     *faddr = (void*)addr;
     return true;
+}
+
+VOID* lib_get_load_addr(HANDLE lib)
+{
+    exit_noimpl("lib_get_load_addr");
+    return NULL;
+}
+
+QWORD lib_get_load_size(HANDLE lib)
+{
+    exit_noimpl("lib_get_load_size");
+    return NULL;
 }

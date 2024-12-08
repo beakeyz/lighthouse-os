@@ -1,5 +1,5 @@
 #include "dev/pci/pci.h"
-#include "devices/pci.h"
+#include "lightos/dev/pci.h"
 #include <dev/core.h>
 #include <dev/driver.h>
 #include <dev/driver.h>

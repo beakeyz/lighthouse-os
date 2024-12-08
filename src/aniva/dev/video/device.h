@@ -4,7 +4,7 @@
 #include "dev/core.h"
 #include "dev/device.h"
 #include "dev/video/connector.h"
-#include "devices/shared.h"
+#include "lightos/dev/shared.h"
 
 #define VIDDEV_FLAG_FB (0x01)
 #define VIDDEV_FLAG_GPU (0x02)
