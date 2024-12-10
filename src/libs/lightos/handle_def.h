@@ -1,6 +1,8 @@
 #ifndef __LIGHTENV_HANDLE_DEF__
 #define __LIGHTENV_HANDLE_DEF__
 
+#include <sys/types.h>
+
 typedef int handle_t, HANDLE;
 
 /*
@@ -44,10 +46,9 @@ typedef enum HANDLE_TYPE {
     /* An entire process environment */
     HNDL_TYPE_PROC_ENV,
 
+    NR_HNDL_TYPES,
 } HANDLE_TYPE,
     handle_type_t;
-
-#define N_HNDL_TYPES 20
 
 #define HNDL_INVAL (-1) /* Tried to get a handle from an invalid source */
 #define HNDL_NOT_FOUND (-2) /* Could not resolve the handle on the kernel side */
@@ -56,16 +57,37 @@ typedef enum HANDLE_TYPE {
 #define HNDL_NO_PERM (-5) /* No permission to recieve a handle */
 #define HNDL_PROTECTED (-6) /* Handle target is protected and cant have handles right now */
 
-#define HNDL_FLAG_BUSY (0x0001) /* khandle is busy and we have given up waiting for it */
-#define HNDL_FLAG_WAITING (0x0002) /* khandle is busy but we are waiting for it to be free so operations on this handle can be queued if needed */
-#define HNDL_FLAG_LOCKED (0x0004) /* khandle is locked by the kernel and can't be opperated by userspace (think of shared libraries and stuff) */
-#define HNDL_FLAG_READACCESS (0x0008)
-#define HNDL_FLAG_WRITEACCESS (0x0010)
+#define HNDL_IS_VALID(handle) (handle >= 0)
+
+/*
+ * Type for flags we pass to handle functions
+ */
+typedef union handle_flags {
+    struct {
+        /* Reserve 16 bits for handle flags */
+        u16 s_flags;
+        /* We don't even need this many bytes to represent the type */
+        enum HANDLE_TYPE s_type : 16;
+        /* Use the remaining bits for a (possibly unused) relative handle */
+        HANDLE s_rel_hndl;
+    };
+    u64 raw;
+} handle_flags_t;
+
+static inline handle_flags_t handle_flags(u32 flags, enum HANDLE_TYPE type, HANDLE rel_hndl)
+{
+    return (handle_flags_t) {
+        .s_flags = flags,
+        .s_type = type,
+        .s_rel_hndl = rel_hndl
+    };
+}
+
+#define HNDL_FLAG_READACCESS (0x1ULL)
+#define HNDL_FLAG_WRITEACCESS (0x2ULL)
 #define HNDL_FLAG_R (HNDL_FLAG_READACCESS)
 #define HNDL_FLAG_W (HNDL_FLAG_WRITEACCESS)
 #define HNDL_FLAG_RW (HNDL_FLAG_READACCESS | HNDL_FLAG_WRITEACCESS)
-#define HNDL_FLAG_RECURSIVE (0x0020) /* Does recursive open/close/destroy/ect. operations on this handle */
-#define HNDL_FLAG_INVALID (0x8000) /* khandle is not pointing to anything and any accesses to it should be regarded as disbehaviour */
 
 #define HNDL_FLAG_PERM_MASK 0xff
 #define HNDL_FLAG_PERM_OFFSET 23
@@ -73,7 +95,7 @@ typedef enum HANDLE_TYPE {
 
 /*
  * We use this mask to easily clear out any flags that indicate a certain state of the handle
- * Since permissions (Like Read/Write) and state (locked/waiting) are stored in the same dword,
+ * Since permissions (Like Read/Write) and state (locked/waiting) are stored in the same ,
  * we want to have this to avoid any confusion
  */
 #define HNDL_OPT_MASK (HNDL_FLAG_BUSY | HNDL_FLAG_LOCKED | HNDL_FLAG_WAITING | HNDL_FLAG_INVALID)

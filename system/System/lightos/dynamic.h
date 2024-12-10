@@ -6,15 +6,15 @@
 #include "sys/types.h"
 
 extern BOOL lib_load(
-    __IN__ const char* path,
-    __OUT__ HANDLE* out_handle);
+     const char* path,
+     HANDLE* out_handle);
 
 extern BOOL lib_unload(
-    __IN__ HANDLE handle);
+     HANDLE handle);
 
 extern BOOL lib_get_function(
-    __IN__ HANDLE lib_handle,
-    __IN__ const char* func,
-    __OUT__ VOID** faddr);
+     HANDLE lib_handle,
+     const char* func,
+     VOID** faddr);
 
 #endif // !__ANIVA_LIBENV_DYNAMIC__

@@ -13,9 +13,13 @@
  *  - Ask the allocator to allocate in another process (for that we use handles and 'allocator sharing')
  */
 
-#include "lightos/handle_def.h"
-#include "lightos/system.h"
+#include "lightos/error.h"
 #include "sys/types.h"
+
+#define ALIGN_UP(addr, size) \
+    (((addr) % (size) == 0) ? (addr) : (addr) + (size) - ((addr) % (size)))
+
+#define ALIGN_DOWN(addr, size) ((addr) - ((addr) % (size)))
 
 /*
  * Try to allocate a new pool for this process
@@ -27,48 +31,7 @@
  *
  * Flags indicate the protection level
  */
-VOID* allocate_pool(
-    __INOUT__ size_t* poolsize,
-    __IN__ DWORD flags,
-    __IN__ __OPTIONAL__ DWORD pooltype);
-
-DWORD deallocate_pool(
-    __IN__ VOID* pooladdr,
-    __IN__ size_t poolsize);
-
-/*
- * Advanced pool allocation
- * Allocates the pool in the address-space of another
- * process, specified by the handle
- *
- * Otherwise, the same rules apply as to allocate_pool
- */
-VOID* allocate_pool_av(
-    __IN__ HANDLE handle,
-    __INOUT__ size_t* poolsize,
-    __IN__ DWORD flags,
-    __IN__ __OPTIONAL__ DWORD pooltype);
-
-/*
- * Find out what flags this pool has
- */
-int query_pool_flags(
-    __IN__ VOID* pooladdr,
-    __OUT__ DWORD* flags);
-
-/*
- * Customize the flags of a certain pool
- */
-int modify_pool_flags(
-    __IN__ VOID* pool,
-    __IN__ DWORD flags);
-
-/*
- * Get the poolcount, either from this process, or another process
- * from which we have a handle
- */
-int get_pool_count(
-    __OUT__ DWORD* poolcount,
-    __IN__ __OPTIONAL__ HANDLE handle);
+VOID* allocate_vmem(size_t len, u32 flags);
+error_t deallocate_vmem(VOID* addr, size_t len);
 
 #endif // !__LIGHTENV_MEM_ALLOC__

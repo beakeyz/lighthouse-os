@@ -59,7 +59,7 @@ int main()
 
     process_handle = open_proc(target_path, NULL, NULL);
 
-    if (!handle_verify(process_handle))
+    if (handle_verify(process_handle))
         return -EBADHANDLE;
 
     /* Failing to close is most likely a permission issue */

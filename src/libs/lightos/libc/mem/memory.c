@@ -152,10 +152,10 @@ static struct malloc_pool* _create_malloc_pool(size_t entrysize)
     poolsize = _calculate_poolsize(entrysize) + sizeof(*ret);
 
     /* Allocate a memorypool where we can put our malloc pool */
-    ret = allocate_pool(&poolsize, MEMPOOL_FLAG_RW, MEMPOOL_TYPE_DEFAULT);
+    ret = allocate_vmem(poolsize, VMEM_FLAG_READ | VMEM_FLAG_WRITE);
 
     /* Syscall memory for us */
-    if (!poolsize)
+    if (!ret)
         return nullptr;
 
     memset(ret, 0, sizeof(*ret));

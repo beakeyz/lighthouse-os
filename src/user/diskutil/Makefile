@@ -1,5 +1,5 @@
 PROCESS_NAME=diskutil
 LINK_TYPE=dynamic
-LIBRARIES := -l:volumeio.lib
+LIBRARIES :=
 
 include ../user.mk

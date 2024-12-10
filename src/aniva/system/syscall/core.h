@@ -11,13 +11,6 @@
  * is invoked.
  */
 
-typedef uint64_t (*sys_fn_t)(
-    uint64_t arg0,
-    uint64_t arg1,
-    uint64_t arg2,
-    uint64_t arg3,
-    uint64_t arg4);
-
 #define SYSCALL_CALLED (0x00000001)
 #define SYSCALL_CUSTOM (0x00000002)
 

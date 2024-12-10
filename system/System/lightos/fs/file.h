@@ -5,8 +5,8 @@
 #include "lightos/system.h"
 
 HANDLE open_file(
-    __IN__ const char* path,
-    __IN__ DWORD flags,
-    __IN__ DWORD mode);
+     const char* path,
+    u32 flags,
+    u32 mode);
 
 #endif // !__LIGHTENV_FS_FILE__

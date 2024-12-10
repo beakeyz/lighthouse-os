@@ -17,6 +17,7 @@
  * FIXME: we should make this naming sceme consistent with PVAR_FLAG___ naming
  */
 enum SYSVAR_TYPE {
+    SYSVAR_TYPE_INVAL = -1,
     SYSVAR_TYPE_UNSET = 0,
 
     SYSVAR_TYPE_STRING,
@@ -24,6 +25,9 @@ enum SYSVAR_TYPE {
     SYSVAR_TYPE_WORD,
     SYSVAR_TYPE_DWORD,
     SYSVAR_TYPE_QWORD,
+    SYSVAR_TYPE_GUID,
+    SYSVAR_TYPE_PATH,
+    SYSVAR_TYPE_ENUM,
 };
 
 /*
@@ -113,7 +117,7 @@ typedef struct pvr_file_header {
 /*
  * If the type of a variable is a string, value_off will still just be a offset into the
  * value table, but that value will then be an offset into the string table, since the value
- * table only holds qword values
+ * table only holds u64 values
  */
 typedef struct pvr_file_var {
     uint32_t key_off;

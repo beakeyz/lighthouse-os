@@ -4,7 +4,7 @@
 
 BOOL cache_keyevent(lwindow_t* wnd)
 {
-    return driver_send_msg(wnd->lwnd_handle, LWND_DCC_GETKEY, wnd, sizeof(*wnd));
+    return driver_send_msg(wnd->lwnd_handle, LWND_DCC_GETKEY, 0, wnd, sizeof(*wnd));
 }
 
 BOOL get_key_event(lwindow_t* wnd, lkey_event_t* keyevent)

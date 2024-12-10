@@ -12,24 +12,15 @@
 #define MEMPOOL_ALIGN (0x1000)
 #define MEMPOOL_ENTSZ_ALIGN (8)
 
-enum MEMPOOL_TYPE {
-    MEMPOOL_TYPE_DEFAULT = 0,
-    MEMPOOL_TYPE_BUFFER = 1,
-    MEMPOOL_TYPE_IO = 2
-};
-
-/* I/O opperation permissions */
-#define MEMPOOL_FLAG_R (0x00000001)
-#define MEMPOOL_FLAG_W (0x00000002)
-#define MEMPOOL_FLAG_RW (MEMPOOL_FLAG_R | MEMPOOL_FLAG_W)
-
-/* Proctect this pool from process-to-process memory allocation (allocator sharing) */
-#define MEMPOOL_FLAG_PTPALLOC_PROT (0x00000004)
-/* Pool location resides in memory */
-#define MEMPOOL_FLAG_MEMBACKED (0x00000008)
-/* Pool location resides on disk */
-#define MEMPOOL_FLAG_DISKBACKED (0x00000010)
-/* This pool is used by the processes memory allocation stack */
-#define MEMPOOL_FLAG_MALLOCPOOL (0x00000020)
+/* This range of memory should be readable */
+#define VMEM_FLAG_READ 0x00000001UL
+/* This range of memory should be writable */
+#define VMEM_FLAG_WRITE 0x00000002UL
+/* This range of memory may contain executable code */
+#define VMEM_FLAG_EXEC 0x00000004UL
+/* Other processes may map the same (part of this) region of memory */
+#define VMEM_FLAG_SHARED 0x00000008UL
+/* Deletes the specified mapping */
+#define VMEM_FLAG_DELETE 0x00000010UL
 
 #endif // !__LIGHTENV_MEMFLAGS__

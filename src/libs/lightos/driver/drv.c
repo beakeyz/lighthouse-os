@@ -2,12 +2,12 @@
 #include "lightos/handle.h"
 #include "lightos/handle_def.h"
 #include "lightos/syscall.h"
-#include "lightos/system.h"
+#include "stdlib.h"
 #include "sys/types.h"
 
-BOOL open_driver(const char* name, DWORD flags, DWORD mode, HANDLE* handle)
+BOOL open_driver(const char* name, u32 flags, u32 mode, HANDLE* handle)
 {
-    BOOL result;
+    error_t error;
     HANDLE ret;
     HANDLE_TYPE type = HNDL_TYPE_DRIVER;
 
@@ -19,9 +19,9 @@ BOOL open_driver(const char* name, DWORD flags, DWORD mode, HANDLE* handle)
     if (ret == HNDL_INVAL)
         goto fail_exit;
 
-    result = get_handle_type(ret, &type);
+    error = handle_get_type(ret, &type);
 
-    if (!result) {
+    if (error) {
         close_handle(ret);
         goto fail_exit;
     }
@@ -36,41 +36,37 @@ fail_exit:
     return FALSE;
 }
 
-BOOL driver_send_msg(HANDLE handle, DWORD code, VOID* buffer, size_t size)
+BOOL driver_send_msg(HANDLE handle, u32 code, u64 offset, VOID* buffer, size_t size)
 {
-    BOOL ret;
-    QWORD sys_status;
+    error_t error;
+    error_t sys_status;
     HANDLE_TYPE type = HNDL_TYPE_NONE;
 
     /* Can't give either a size but or a buffer */
     if ((!buffer && size) || (buffer && !size))
         return FALSE;
 
-    ret = get_handle_type(handle, &type);
+    error = handle_get_type(handle, &type);
 
-    if (!ret || type != HNDL_TYPE_DRIVER)
+    if (error || type != HNDL_TYPE_DRIVER)
         return FALSE;
 
-    sys_status = syscall_4(SYSID_SEND_MSG, handle, code, (uintptr_t)buffer, size);
+    sys_status = sys_send_msg(handle, code, offset, buffer, size);
 
-    if (sys_status != SYS_OK)
+    if (sys_status != 0)
         return FALSE;
 
     return TRUE;
 }
 
-BOOL load_driver(const char* path, DWORD flags, HANDLE* handle)
+BOOL load_driver(const char* path, u32 flags, HANDLE* handle)
 {
     return open_driver(path, flags, HNDL_MODE_CREATE, handle);
 }
 
 BOOL unload_driver(HANDLE handle)
 {
-    QWORD stat = syscall_1(SYSID_UNLOAD_DRV, handle);
-
-    if (stat != SYS_OK)
-        return FALSE;
-
+    exit_noimpl("unload_driver");
     return TRUE;
 }
 

@@ -3,7 +3,6 @@
 #include "lightos/handle.h"
 #include "lightos/handle_def.h"
 #include "lightos/syscall.h"
-#include "lightos/system.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -51,7 +50,7 @@ static struct cached_device** _get_cached_device_by_handle(DEV_HANDLE handle)
     return ret;
 }
 
-DEV_HANDLE open_device(const char* path, DWORD flags)
+DEV_HANDLE open_device(const char* path, u32 flags)
 {
     DEV_HANDLE ret;
     struct cached_device** dev_slot;
@@ -66,7 +65,7 @@ DEV_HANDLE open_device(const char* path, DWORD flags)
 
     ret = open_handle(path, HNDL_TYPE_DEVICE, flags, HNDL_MODE_NORMAL);
 
-    if (handle_verify(ret) == FALSE)
+    if (handle_verify(ret))
         return ret;
 
     /* Allocate new slot */
@@ -112,81 +111,77 @@ close_and_exit:
 
 BOOL handle_is_device(HANDLE handle)
 {
-    BOOL res;
+    error_t error;
     HANDLE_TYPE type;
 
     /* Check the handle type */
-    res = get_handle_type(handle, &type);
+    error = handle_get_type(handle, &type);
 
-    if (!res || type != HNDL_TYPE_DEVICE)
+    if (error || type != HNDL_TYPE_DEVICE)
         return FALSE;
 
     return TRUE;
 }
 
-size_t device_read(DEV_HANDLE handle, VOID* buf, size_t bsize, QWORD offset)
+size_t device_read(DEV_HANDLE handle, VOID* buf, size_t bsize, u64 offset)
 {
-    BOOL res;
-    QWORD end_offset;
+    error_t error;
+    u64 end_offset;
 
     /* Check if we're actually reading from a device */
-    res = handle_is_device(handle);
-
-    if (!res)
+    if (!handle_is_device(handle))
         return NULL;
 
     /* Set the offset to read at */
-    res = handle_set_offset(handle, offset);
+    error = handle_set_offset(handle, offset);
 
-    if (!res)
+    if (error)
         return NULL;
 
     /* Do the actual read on the handle */
-    res = handle_read(handle, bsize, buf);
+    error = handle_read(handle, buf, bsize);
 
-    if (!res)
+    if (error)
         return NULL;
 
     end_offset = NULL;
 
     /* Get the offset at the end of the read */
-    res = handle_get_offset(handle, &end_offset);
+    error = handle_get_offset(handle, &end_offset);
 
-    if (!res || offset > end_offset)
+    if (error || offset > end_offset)
         return NULL;
 
     return (end_offset - offset);
 }
 
-size_t device_write(DEV_HANDLE handle, VOID* buf, size_t bsize, QWORD offset)
+size_t device_write(DEV_HANDLE handle, VOID* buf, size_t bsize, u64 offset)
 {
-    BOOL res;
-    QWORD end_offset;
+    error_t error;
+    u64 end_offset;
 
     /* Check if we're actually writing to a device */
-    res = handle_is_device(handle);
-
-    if (!res)
+    if (!handle_is_device(handle))
         return NULL;
 
     /* Set the offset to write at */
-    res = handle_set_offset(handle, offset);
+    error = handle_set_offset(handle, offset);
 
-    if (!res)
+    if (error)
         return NULL;
 
     /* Do the actual write on the handle */
-    res = handle_write(handle, bsize, buf);
+    error = handle_write(handle, buf, bsize);
 
-    if (!res)
+    if (error)
         return NULL;
 
     end_offset = NULL;
 
     /* Get the offset at the end of the write */
-    res = handle_get_offset(handle, &end_offset);
+    error = handle_get_offset(handle, &end_offset);
 
-    if (!res || offset > end_offset)
+    if (error || offset > end_offset)
         return NULL;
 
     return (end_offset - offset);
@@ -209,7 +204,9 @@ BOOL device_send_ctl(DEV_HANDLE handle, enum DEVICE_CTLC code)
 
 BOOL device_send_ctl_ex(DEV_HANDLE handle, enum DEVICE_CTLC code, uintptr_t offset, VOID* buf, size_t bsize)
 {
-    if (syscall_5(SYSID_SEND_CTL, handle, code, offset, (uintptr_t)buf, bsize))
+    error_t err = sys_send_ctl(handle, code, offset, buf, bsize);
+
+    if (err)
         return FALSE;
     return TRUE;
 }

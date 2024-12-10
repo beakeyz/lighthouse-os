@@ -1,141 +1,78 @@
 #include "handle.h"
 #include "lightos/handle_def.h"
 #include "lightos/syscall.h"
-#include "lightos/system.h"
 #include "stdlib.h"
 #include <stdio.h>
 
-/*
- * Use the value of the handle to detirmine if it might be
- * invalide, otherwise use a syscall (TODO) to verify if the
- * handle gives a valid result
- */
-BOOL handle_verify(handle_t handle)
+error_t handle_verify(HANDLE handle)
 {
     if (handle < 0)
-        return FALSE;
-
-    /* TODO: syscall for verification */
-
-    return TRUE;
+        return -EINVAL;
+    return 0;
 }
 
-BOOL get_handle_type(HANDLE handle, HANDLE_TYPE* type)
+error_t handle_get_type(HANDLE handle, HANDLE_TYPE* type)
 {
-    char t = syscall_1(SYSID_GET_HNDL_TYPE, handle);
+    if (!type)
+        return -EINVAL;
 
-    if (t < 0)
-        return FALSE;
+    *type = sys_handle_get_type(handle);
 
-    /* NOTE: HANDLE_TYPE is unsigned */
-    *type = t;
-
-    return TRUE;
+    return 0;
 }
 
-BOOL handle_expand_type(HANDLE handle)
+error_t close_handle(HANDLE handle)
 {
-    exit_noimpl("TODO: handle_expand_type");
-    return FALSE;
+    return sys_close(handle);
 }
 
-BOOL handle_reclassify(HANDLE handle, HANDLE_TYPE type)
-{
-    exit_noimpl("TODO: handle_reclassify");
-    return FALSE;
-}
-
-BOOL close_handle(HANDLE handle)
-{
-    QWORD result = syscall_1(SYSID_CLOSE, handle);
-
-    if (result == SYS_OK)
-        return TRUE;
-
-    return FALSE;
-}
-
-/*
- * Send a syscall to open a handle
- */
-HANDLE
-open_handle(const char* path, HANDLE_TYPE type, DWORD flags, DWORD mode)
-{
-    if (!path)
-        path = "\0";
-
-    return syscall_4(SYSID_OPEN, (uint64_t)path, type, flags, mode);
-}
-
-HANDLE
-open_handle_rel(HANDLE rel_handle, const char* path, HANDLE_TYPE type, DWORD flags, DWORD mode)
+HANDLE open_handle(const char* path, HANDLE_TYPE type, u32 flags, enum HNDL_MODE mode)
 {
     if (!path)
         return HNDL_INVAL;
 
-    return syscall_5(SYSID_OPEN_REL, rel_handle, (uintptr_t)path, type, flags, mode);
+    return sys_open(path, handle_flags(flags, type, HNDL_INVAL), mode, NULL, NULL);
 }
 
-BOOL handle_set_offset(HANDLE handle, QWORD offset)
+HANDLE open_handle_rel(HANDLE rel_handle, const char* path, HANDLE_TYPE type, u32 flags, enum HNDL_MODE mode)
 {
-    QWORD result;
+    if (!path)
+        return HNDL_INVAL;
 
-    if (!handle_verify(handle))
-        return FALSE;
-
-    result = syscall_3(SYSID_SEEK, handle, offset, SEEK_SET);
-
-    if (result != SYS_OK)
-        return FALSE;
-
-    return TRUE;
+    return sys_open(path, handle_flags(flags, type, rel_handle), mode, NULL, NULL);
 }
 
-BOOL handle_get_offset(HANDLE handle, QWORD* boffset)
+error_t handle_set_offset(HANDLE handle, u64 offset)
 {
-    QWORD value;
-
-    if (!boffset || !handle_verify(handle))
-        return FALSE;
-
-    value = syscall_3(SYSID_SEEK, handle, NULL, SEEK_CUR);
-
-    if (value == SYS_INV)
-        return FALSE;
-
-    *boffset = value;
-    return TRUE;
+    return sys_seek(handle, offset, SEEK_SET);
 }
 
-BOOL handle_read(HANDLE handle, QWORD buffer_size, VOID* buffer)
+error_t handle_get_offset(HANDLE handle, u64* poffset)
 {
-    return (handle_read_ex(handle, buffer_size, buffer, NULL) == buffer_size);
+    if (!poffset)
+        return -EINVAL;
+
+    *poffset = sys_seek(handle, NULL, SEEK_CUR);
+    return 0;
 }
 
-BOOL handle_read_ex(HANDLE handle, QWORD buffer_size, VOID* buffer, QWORD* bBytesRead)
+error_t handle_read(HANDLE handle, VOID* buffer, u64 buffer_size)
 {
-    QWORD bytes_read;
-
-    if (!buffer_size || !buffer)
-        return FALSE;
-
-    bytes_read = syscall_3(SYSID_READ, handle, (uintptr_t)buffer, buffer_size);
-
-    if (bBytesRead)
-        *bBytesRead = bytes_read;
-
-    return (bytes_read == buffer_size);
+    return handle_read_ex(handle, buffer, buffer_size, NULL);
 }
 
-BOOL handle_write(HANDLE handle, QWORD buffer_size, VOID* buffer)
+error_t handle_read_ex(HANDLE handle, VOID* buffer, u64 buffer_size, u64* preadsize)
 {
-    uintptr_t error;
+    if (!buffer || !buffer_size)
+        return EINVAL;
 
-    /* NOTE: sys write returns a syscall statuscode */
-    error = syscall_3(SYSID_WRITE, handle, (uintptr_t)buffer, buffer_size);
+    return sys_read(handle, buffer, buffer_size, preadsize);
+}
 
-    if (error != SYS_OK)
-        return FALSE;
+error_t handle_write(HANDLE handle, VOID* buffer, size_t buffer_size)
+{
+    if (!buffer || !buffer_size)
+        return EINVAL;
 
-    return TRUE;
+    return sys_write(handle, buffer, buffer_size);
 }

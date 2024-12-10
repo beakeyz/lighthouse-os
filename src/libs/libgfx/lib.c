@@ -13,10 +13,10 @@ static HANDLE lwnd_driver;
 
 BOOL get_lwnd_drv_path(char* buffer, size_t bufsize)
 {
-    return sysvar_read_from_profile("User", LWND_DRV_PATH_VAR, NULL, bufsize, (void*)buffer);
+    return sysvar_read_from_profile("User", LWND_DRV_PATH_VAR, NULL, (void*)buffer, bufsize);
 }
 
-BOOL request_lwindow(lwindow_t* p_wnd, const char* title, DWORD width, DWORD height, DWORD flags)
+BOOL request_lwindow(lwindow_t* p_wnd, const char* title, u32 width, u32 height, u32 flags)
 {
     if (!p_wnd || !width || !height)
         return FALSE;
@@ -33,7 +33,7 @@ BOOL request_lwindow(lwindow_t* p_wnd, const char* title, DWORD width, DWORD hei
     p_wnd->lwnd_handle = lwnd_driver;
 
     /* Send it a message that we want to make a window */
-    return driver_send_msg(p_wnd->lwnd_handle, LWND_DCC_CREATE, p_wnd, sizeof(*p_wnd));
+    return driver_send_msg(p_wnd->lwnd_handle, LWND_DCC_CREATE, 0, p_wnd, sizeof(*p_wnd));
 }
 
 BOOL close_lwindow(lwindow_t* wnd)
@@ -43,7 +43,7 @@ BOOL close_lwindow(lwindow_t* wnd)
     if (!wnd)
         return FALSE;
 
-    res = driver_send_msg(wnd->lwnd_handle, LWND_DCC_CLOSE, wnd, sizeof(*wnd));
+    res = driver_send_msg(wnd->lwnd_handle, LWND_DCC_CLOSE, 0, wnd, sizeof(*wnd));
 
     if (!res)
         return FALSE;

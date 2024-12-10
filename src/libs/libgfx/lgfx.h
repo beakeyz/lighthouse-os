@@ -30,7 +30,7 @@ extern BOOL get_lwnd_drv_path(char* buffer, size_t bufsize);
  * The window manager will keep track of which window comes from which
  * process by looking at who the request is comming from
  */
-extern BOOL request_lwindow(lwindow_t* p_wnd, const char* title, DWORD width, DWORD height, DWORD flags);
+extern BOOL request_lwindow(lwindow_t* p_wnd, const char* title, u32 width, u32 height, u32 flags);
 extern BOOL close_lwindow(lwindow_t* wnd);
 
 extern BOOL lwindow_move(lwindow_t* wnd, uint32_t newx, uint32_t newy);

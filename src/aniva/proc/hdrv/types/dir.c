@@ -81,11 +81,11 @@ static int dir_khandle_read(khandle_driver_t* driver, khandle_t* handle, void* b
     target_dir = handle->reference.dir;
 
     if (idx >= target_dir->child_capacity)
-        return SYS_INV;
+        return EINVAL;
 
     /* Read into the entry */
     if (!KERR_OK(dir_read(target_dir, idx, &target_entry)))
-        return SYS_INV;
+        return EINVAL;
 
     /* Clear the buffer */
     memset(user_direntry, 0, sizeof(*user_direntry));
@@ -122,7 +122,7 @@ static int dir_khandle_read(khandle_driver_t* driver, khandle_t* handle, void* b
 
 close_and_fail:
     close_direntry(&target_entry);
-    return SYS_INV;
+    return EINVAL;
 }
 
 static khandle_driver_t dir_khandle_driver = {

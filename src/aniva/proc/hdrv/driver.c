@@ -21,7 +21,7 @@ struct khandle_driver_reg {
     khandle_driver_t* pHandleDriver;
 };
 
-static struct khandle_driver_reg __khandle_drivers[N_HNDL_TYPES];
+static struct khandle_driver_reg __khandle_drivers[NR_HNDL_TYPES];
 static mutex_t* __khandle_driver_lock;
 
 extern khandle_driver_t* _khdrv_start[];
@@ -39,7 +39,7 @@ kerror_t khandle_driver_register(driver_t* parent, khandle_driver_t* driver)
     struct khandle_driver_reg* slot;
 
     /* Check for invalid params */
-    if (!driver || driver->handle_type >= N_HNDL_TYPES)
+    if (!driver || driver->handle_type >= NR_HNDL_TYPES)
         return -KERR_INVAL;
 
     /* Grab the slot for this driver type */
@@ -75,7 +75,7 @@ kerror_t khandle_driver_remove_ex(HANDLE_TYPE type)
 {
     struct khandle_driver_reg* slot;
 
-    if (type >= N_HNDL_TYPES)
+    if (type >= NR_HNDL_TYPES)
         return -KERR_RANGE;
 
     mutex_lock(__khandle_driver_lock);
@@ -101,7 +101,7 @@ kerror_t khandle_driver_find(HANDLE_TYPE type, khandle_driver_t** pDriver)
 {
     khandle_driver_t* driver;
 
-    if (!pDriver || type >= N_HNDL_TYPES)
+    if (!pDriver || type >= NR_HNDL_TYPES)
         return -KERR_RANGE;
 
     /* Reset */

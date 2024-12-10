@@ -58,7 +58,7 @@ int main()
     device = open_device("Dev/hid/usbkbd_0", HNDL_FLAG_RW);
 
     /* Check if it exist */
-    if (!handle_verify(device))
+    if (handle_verify(device))
         return ENODEV;
 
     /* Set up this shit */

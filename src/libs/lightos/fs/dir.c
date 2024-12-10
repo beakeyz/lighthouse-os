@@ -8,14 +8,14 @@
 #include <stdlib.h>
 #include <string.h>
 
-Directory* open_dir(const char* path, DWORD flags, DWORD mode)
+Directory* open_dir(const char* path, u32 flags, u32 mode)
 {
     HANDLE handle;
     Directory* dir;
 
     handle = open_handle(path, HNDL_TYPE_DIR, flags, mode);
 
-    if (!handle_verify(handle))
+    if (handle_verify(handle))
         return nullptr;
 
     dir = malloc(sizeof(*dir));
@@ -128,9 +128,9 @@ DirEntry* dir_read_entry(Directory* dir, uint32_t idx)
     ent->idx = idx;
 
     /* Ask kernel uwu */
-    res = syscall_4(SYSID_DIR_READ, dir->handle, idx, (uint64_t)&ent->entry.name, sizeof(ent->entry.name));
+    res = sys_dir_read(dir->handle, idx, &ent->entry, sizeof(ent->entry.name));
 
-    if (res != SYS_OK)
+    if (res != 0)
         goto dealloc_and_exit;
 
     /* Make sure the last byte is null */
@@ -144,7 +144,7 @@ dealloc_and_exit:
     return nullptr;
 }
 
-HANDLE dir_entry_open(Directory* parent, DirEntry* entry, DWORD flags, DWORD mode)
+HANDLE dir_entry_open(Directory* parent, DirEntry* entry, u32 flags, u32 mode)
 {
     HANDLE_TYPE type;
 

@@ -1,7 +1,4 @@
-
-#include "errno.h"
 #include "lightos/syscall.h"
-#include "lightos/system.h"
 #include <stdio.h>
 
 void __attribute__((noreturn)) halt(void)
@@ -15,7 +12,7 @@ void exit(int result)
     /* TODO: Uninitialize libraries */
 
     /* Hard exit */
-    syscall_1(SYSID_EXIT, result);
+    sys_exit(result);
 
     /* We should never reach this point */
     halt();

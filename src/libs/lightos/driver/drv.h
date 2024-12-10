@@ -2,7 +2,6 @@
 #define __LIGHTENV_DRIVER__
 
 #include "lightos/handle_def.h"
-#include "lightos/system.h"
 
 #include "ctl.h"
 
@@ -24,11 +23,7 @@
  * @returns: FALSE on a fail, TRUE on success
  * @handle: buffer where the handle is placed. Caller should check if this is not HNDL_INVALID
  */
-extern BOOL open_driver(
-    __IN__ const char* name,
-    __IN__ DWORD flags,
-    __IN__ DWORD mode,
-    __OUT__ HANDLE* handle);
+extern BOOL open_driver(const char* name, u32 flags, u32 mode, HANDLE* handle);
 
 /*
  * Load a driver from a .drv file
@@ -38,25 +33,13 @@ extern BOOL open_driver(
  * @path: path to the driver binary. Should always end in .drv, which
  * is the filetype for driver binaries in the aniva kernel
  */
-extern BOOL load_driver(
-    __IN__ const char* path,
-    __IN__ DWORD flags,
-    __OUT__ __OPTIONAL__ HANDLE* handle);
+extern BOOL load_driver(const char* path, u32 flags, HANDLE* handle);
 
 /*
  * Unload a driver. Also closes the handle
  */
-extern BOOL unload_driver(
-    __IN__ HANDLE handle);
-
-extern BOOL driver_send_msg(
-    __IN__ HANDLE handle,
-    __IN__ DWORD code,
-    __IN__ VOID* buffer,
-    __IN__ size_t size);
-
-extern BOOL driver_query_info(
-    __IN__ HANDLE handle,
-    __OUT__ drv_info_t* info_buffer);
+extern BOOL unload_driver(HANDLE handle);
+extern BOOL driver_send_msg(HANDLE handle, u32 code, u64 offset, VOID* buffer, size_t size);
+extern BOOL driver_query_info(HANDLE handle, drv_info_t* info_buffer);
 
 #endif // !__LIGHTENV_DRIVER__

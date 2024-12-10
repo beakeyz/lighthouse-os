@@ -1,4 +1,3 @@
-#include "sys_proc.h"
 #include "fs/file.h"
 #include "libk/bin/elf.h"
 #include "libk/stddef.h"
@@ -57,33 +56,51 @@ clone_and_exit:
     return error;
 }
 
-u64 sys_create_proc(const char __user* cmd, FuncPtr __user entry)
+HANDLE sys_create_proc(const char __user* cmd, FuncPtr __user entry)
 {
     int error;
+    HANDLE ret;
+    khandle_t khndl = { 0 };
     proc_t* c_proc;
     proc_t* new_proc;
 
     c_proc = get_current_proc();
 
     if (kmem_validate_ptr(c_proc, (u64)cmd, sizeof(const char*)) || (entry && kmem_validate_ptr(c_proc, (u64)entry, sizeof(FuncPtr))))
-        return SYS_ERR;
+        return HNDL_INVAL;
 
     // error = proc_clone(c_proc, entry, name, &new_proc);
     error = _sys_do_create(c_proc, cmd, entry, &new_proc);
 
     /* If something went wrong here, we're mega fucked */
     if (error)
-        return SYS_KERR;
+        return HNDL_INVAL;
 
+    /* Initialize this shit */
+    init_khandle_ex(&khndl, HNDL_TYPE_PROC, HNDL_FLAG_RW, new_proc);
+
+    /* Try to bind this handle */
+    error = bind_khandle(&c_proc->m_handle_map, &khndl, (u32*)&ret);
+
+    /* Yikes */
+    if (error)
+        goto destroy_and_fail;
+
+    /* Schedule the new process */
     error = proc_schedule(new_proc, c_proc->m_env->profile, cmd, NULL, NULL, SCHED_PRIO_MID);
 
+    /* Destroy the thing if we failed */
     if (error)
-        destroy_proc(new_proc);
+        goto destroy_and_fail;
 
-    return error ? SYS_KERR : 0;
+    return ret;
+
+destroy_and_fail:
+    destroy_proc(new_proc);
+    return HNDL_INVAL;
 }
 
-u64 sys_destroy_proc(HANDLE proc, u32 flags)
+error_t sys_destroy_proc(HANDLE proc, u32 flags)
 {
     khandle_t* proc_handle;
     proc_t* c_proc;
@@ -95,10 +112,10 @@ u64 sys_destroy_proc(HANDLE proc, u32 flags)
     proc_handle = find_khandle(&c_proc->m_handle_map, proc);
 
     if (!proc_handle)
-        return SYS_INV;
+        return EINVAL;
 
     if (proc_handle->type != HNDL_TYPE_PROC)
-        return SYS_INV;
+        return EINVAL;
 
     target_proc = proc_handle->reference.process;
 
@@ -108,14 +125,14 @@ u64 sys_destroy_proc(HANDLE proc, u32 flags)
      */
     if ((flags & LIGHTOS_PROC_FLAG_FORCE) != LIGHTOS_PROC_FLAG_FORCE || c_proc->m_env->attr.ptype != PROFILE_TYPE_ADMIN)
         if (pattr_hasperm(&target_proc->m_env->attr, &c_proc->m_env->attr, PATTR_PROC_KILL))
-            return SYS_NOPERM;
+            return EPERM;
 
     /*
      * Try to terminate the process
      * NOTE: If we are trying to terminate ourselves, this call won't return
      */
     if (try_terminate_process(target_proc))
-        return SYS_ERR;
+        return EINVAL;
 
     return 0;
 }
@@ -124,7 +141,7 @@ u64 sys_destroy_proc(HANDLE proc, u32 flags)
  * @brief: Get the number of ms since a process launch
  *
  */
-uintptr_t sys_get_process_time_ms()
+uintptr_t sys_get_process_time()
 {
     proc_t* curr_prc;
     system_time_t time;
@@ -132,7 +149,7 @@ uintptr_t sys_get_process_time_ms()
     curr_prc = get_current_proc();
 
     if (!curr_prc)
-        return SYS_INV;
+        return EINVAL;
 
     if (time_get_system_time(&time))
         return 0;

@@ -11,7 +11,7 @@ int main()
     DEVINFO info;
     DEV_HANDLE device = open_device("Dev/Null", HNDL_FLAG_RW);
 
-    if (!handle_verify(device))
+    if (handle_verify(device))
         return -1;
 
     if (!device_query_info(device, &info))

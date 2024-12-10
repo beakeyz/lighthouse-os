@@ -52,7 +52,7 @@ static void check_hid_devices(bool* p_haskeyboard, bool* p_hasmouse)
         dev_handle = dir_entry_open(dir, c_entry, HNDL_FLAG_R, HNDL_MODE_NORMAL);
 
         /* Not a valid handle for some reason xD */
-        if (!handle_verify(dev_handle))
+        if (handle_verify(dev_handle))
             continue;
 
         /* Can't seem to query this device, go next */

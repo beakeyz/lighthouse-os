@@ -22,15 +22,10 @@ typedef int time_t;
 
 typedef uintptr_t process_result_t;
 
-typedef uint8_t byte_t;
-typedef uint16_t word_t;
-typedef uint32_t dword_t;
-typedef uint64_t qword_t;
-
-#define BYTE byte_t
-#define WORD word_t
-#define DWORD dword_t
-#define QWORD qword_t
+#define U8 u8
+#define U16 u16
+#define U32 u32
+#define U64 u64
 #define BOOL bool
 #define FLOAT32 float
 #define FLOAT64 double
@@ -65,11 +60,5 @@ typedef void (*FuncPtr)();
 #define Mib Kib* Kib
 #define Gib Mib* Kib
 #define Tib Gib* Kib
-
-/*
- * Few definitions for communicating status with the kernel
- */
-#define SUCCESS (0)
-#define ERROR (-1)
 
 #endif // !__LIGHTENV_LIBC_TYPES__

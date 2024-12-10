@@ -1,12 +1,6 @@
 #include "alloc.h"
 #include "lightos/memory/memflags.h"
 #include "lightos/syscall.h"
-#include "lightos/system.h"
-
-#define ALIGN_UP(addr, size) \
-    (((addr) % (size) == 0) ? (addr) : (addr) + (size) - ((addr) % (size)))
-
-#define ALIGN_DOWN(addr, size) ((addr) - ((addr) % (size)))
 
 /*!
  * @brief: Simply asks the kernel for memory
@@ -14,31 +8,23 @@
  * NOTE: These allocations might give nullptrs, but for this reason we can
  * check the @poolsize buffer to see if that is non-null
  */
-VOID* allocate_pool(size_t* poolsize, DWORD flags, DWORD pooltype)
+VOID* allocate_vmem(size_t len, u32 flags)
 {
-    VOID* buffer;
-    QWORD result;
-    size_t size;
+    u64 result;
 
-    if (!poolsize || !(*poolsize))
+    if (!len)
         return NULL;
 
-    buffer = NULL;
-    size = ALIGN_UP(*poolsize, MEMPOOL_ALIGN);
-
-    *poolsize = NULL;
+    len = ALIGN_UP(len, MEMPOOL_ALIGN);
 
     /* Request memory from the system */
-    result = syscall_3(SYSID_ALLOC_PAGE_RANGE, size, flags, (uint64_t)&buffer);
-
-    if (result != SYS_OK)
+    if (sys_alloc_vmem(len, flags, &result))
         return NULL;
 
-    *poolsize = size;
-    return buffer;
+    return (VOID*)result;
 }
 
-DWORD deallocate_pool(VOID* pooladdr, size_t poolsize)
+error_t deallocate_vmem(VOID* addr, size_t len)
 {
-    return NULL;
+    return sys_dealloc_vmem((vaddr_t)addr, len);
 }

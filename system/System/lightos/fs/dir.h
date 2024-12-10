@@ -3,7 +3,6 @@
 
 #include "lightos/fs/shared.h"
 #include "lightos/handle_def.h"
-#include "lightos/system.h"
 
 typedef struct _DirEntry {
     lightos_direntry_t entry;
@@ -24,18 +23,12 @@ typedef struct {
     DirEntry* entries;
 } Directory;
 
-extern Directory* open_dir(
-    __IN__ const char* path,
-    __IN__ DWORD flags,
-    __IN__ DWORD mode);
+extern Directory* open_dir(const char* path, u32 flags, u32 mode);
 
-extern void close_dir(
-    __IN__ Directory* dir);
+extern void close_dir(Directory* dir);
 
-extern DirEntry* dir_read_entry(
-    __IN__ Directory* dir,
-    __IN__ uint32_t idx);
+extern DirEntry* dir_read_entry(Directory* dir, uint32_t idx);
 
-extern HANDLE dir_entry_open(Directory* parent, DirEntry* entry, DWORD flags, DWORD mode);
+extern HANDLE dir_entry_open(Directory* parent, DirEntry* entry, u32 flags, u32 mode);
 
 #endif // !__LIGHTENV_FS_DIR__

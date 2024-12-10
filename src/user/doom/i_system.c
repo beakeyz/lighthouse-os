@@ -101,7 +101,7 @@ static byte* AutoAllocMemory(size_t* size, int default_ram, int min_ram)
 
         *size = default_ram * 1024 * 1024;
 
-        zonemem = allocate_pool(size, MEMPOOL_FLAG_RW, NULL);
+        zonemem = allocate_vmem(*size, VMEM_FLAG_READ | VMEM_FLAG_WRITE);
 
         // Failed to allocate?  Reduce zone size until we reach a size
         // that is acceptable.

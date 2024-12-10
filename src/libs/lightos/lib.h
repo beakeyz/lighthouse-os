@@ -12,8 +12,8 @@
  * library was loaded successfully. Returns FALSE otherwise
  */
 extern BOOL lib_load(
-    __IN__ const char* path,
-    __OUT__ HANDLE* out_handle);
+     const char* path,
+     HANDLE* out_handle);
 
 /*!
  * @brief: Unload a previously loaded library
@@ -21,7 +21,7 @@ extern BOOL lib_load(
  * Kill the handle
  */
 extern BOOL lib_unload(
-    __IN__ HANDLE handle);
+     HANDLE handle);
 
 /*!
  * @brief: Opens a loaded library
@@ -31,8 +31,8 @@ extern BOOL lib_unload(
  * TODO: Implement
  */
 extern BOOL lib_open(
-    __IN__ const char* path,
-    __OUT__ HANDLE* phandle);
+     const char* path,
+     HANDLE* phandle);
 
 /*!
  * @brief: Get the function address of a function in a loaded library
@@ -41,9 +41,9 @@ extern BOOL lib_open(
  * function address in @faddr in that case
  */
 extern BOOL lib_get_function(
-    __IN__ HANDLE lib_handle,
-    __IN__ const char* func,
-    __OUT__ VOID** faddr);
+     HANDLE lib_handle,
+     const char* func,
+     VOID** faddr);
 
 /*!
  * @brief: Gets the load address from the library
@@ -51,14 +51,14 @@ extern BOOL lib_get_function(
  * TODO: Implement
  */
 extern VOID* lib_get_load_addr(
-    __IN__ HANDLE lib);
+     HANDLE lib);
 
 /*!
  * @brief: Gets the load size of the library
  *
  * TODO: Implement
  */
-extern QWORD lib_get_load_size(
-    __IN__ HANDLE lib);
+extern u64 lib_get_load_size(
+     HANDLE lib);
 
 #endif // !__LIGHTOS_LIB_H__

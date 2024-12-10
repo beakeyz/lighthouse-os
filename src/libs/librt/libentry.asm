@@ -114,7 +114,7 @@ __exit_loop:
 
 __quick_exit:
   mov rbx, 0
-  mov rax, 0
+  mov rax, 1
 
   syscall
 

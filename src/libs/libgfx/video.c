@@ -4,7 +4,7 @@
 
 BOOL lwindow_force_update(lwindow_t* wnd)
 {
-    return driver_send_msg(wnd->lwnd_handle, LWND_DCC_UPDATE_WND, wnd, sizeof(*wnd));
+    return driver_send_msg(wnd->lwnd_handle, LWND_DCC_UPDATE_WND, 0, wnd, sizeof(*wnd));
 }
 
 BOOL lwindow_update(lwindow_t* wnd)
@@ -26,7 +26,7 @@ BOOL lwindow_request_framebuffer(lwindow_t* wnd, lframebuffer_t* fb)
     if (!wnd)
         return FALSE;
 
-    res = driver_send_msg(wnd->lwnd_handle, LWND_DCC_REQ_FB, wnd, sizeof(*wnd));
+    res = driver_send_msg(wnd->lwnd_handle, LWND_DCC_REQ_FB, 0, wnd, sizeof(*wnd));
 
     if (!res)
         return FALSE;

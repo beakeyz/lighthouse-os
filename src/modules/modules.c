@@ -8,11 +8,17 @@
  * supports certain functions
  */
 modules_version_t g_modules_version = MODULES_VERSION(0, 1, 0, 0);
+modules_ctx_t* g_modules_ctx;
 
 /*!
  * @brief: Wrapper for the modules version
  */
-extern modules_version_t get_modules_version()
+modules_version_t get_modules_version()
 {
     return g_modules_version;
+}
+
+void init_modules(modules_ctx_t* ctx)
+{
+    g_modules_ctx = ctx;
 }

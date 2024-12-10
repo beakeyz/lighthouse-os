@@ -2,7 +2,7 @@
 #include "lightos/handle.h"
 #include "lightos/handle_def.h"
 
-HANDLE open_profile(const char* name, DWORD flags)
+HANDLE open_profile(const char* name, u32 flags)
 {
     return open_handle(name, HNDL_TYPE_PROFILE, flags, HNDL_MODE_NORMAL);
 }

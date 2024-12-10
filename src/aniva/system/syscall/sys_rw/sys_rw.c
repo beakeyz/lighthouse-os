@@ -1,11 +1,9 @@
-
-#include "sys_rw.h"
 #include "fs/dir.h"
 #include "fs/file.h"
+#include "libk/flow/error.h"
 #include "lightos/fs/shared.h"
 #include "lightos/handle_def.h"
 #include "lightos/syscall.h"
-#include "logging/log.h"
 #include "mem/kmem_manager.h"
 #include "oss/obj.h"
 #include "proc/handle.h"
@@ -19,35 +17,35 @@
  * When writing to a handle (filediscriptor in unix terms) we have to
  * obey the privileges that the handle was opened with
  */
-uint64_t sys_write(handle_t handle, uint8_t __user* buffer, size_t length)
+error_t sys_write(HANDLE handle, void __user* buffer, size_t length)
 {
     proc_t* current_proc;
     khandle_t* khandle;
     khandle_driver_t* khandle_driver;
 
     if (!buffer)
-        return SYS_INV;
+        return EINVAL;
 
     current_proc = get_current_proc();
 
     if (!current_proc || kmem_validate_ptr(current_proc, (uintptr_t)buffer, length))
-        return SYS_INV;
+        return EINVAL;
 
     khandle = find_khandle(&current_proc->m_handle_map, handle);
 
     if ((khandle->flags & HNDL_FLAG_WRITEACCESS) != HNDL_FLAG_WRITEACCESS)
-        return SYS_NOPERM;
+        return EPERM;
 
     /* If we can't find a driver, the system does not support writing to this type of handle
      * in it's current state... */
     if (khandle_driver_find(khandle->type, &khandle_driver))
-        return SYS_INV;
+        return EINVAL;
 
     if (khandle_driver_write(khandle_driver, khandle, buffer, length))
         return 0;
 
     /* TODO: Return actual written length */
-    return SYS_OK;
+    return 0;
 }
 
 /*!
@@ -57,7 +55,7 @@ uint64_t sys_write(handle_t handle, uint8_t __user* buffer, size_t length)
  * both treaded like data-streams by the kernel). It's up to the underlying libc to abstract devices and
  * files further.
  */
-uint64_t sys_read(handle_t handle, uint8_t __user* buffer, size_t length)
+error_t sys_read(HANDLE handle, void* buffer, size_t size, size_t* pread_size)
 {
     proc_t* current_proc;
     khandle_t* khandle;
@@ -68,27 +66,30 @@ uint64_t sys_read(handle_t handle, uint8_t __user* buffer, size_t length)
 
     current_proc = get_current_proc();
 
-    if (!current_proc || kmem_validate_ptr(current_proc, (uintptr_t)buffer, length))
+    if (!current_proc || kmem_validate_ptr(current_proc, (uintptr_t)buffer, size))
         return NULL;
 
     khandle = find_khandle(&current_proc->m_handle_map, handle);
 
     if ((khandle->flags & HNDL_FLAG_READACCESS) != HNDL_FLAG_READACCESS)
-        return SYS_NOPERM;
+        return EPERM;
 
     /* If we can't find a driver, the system does not support reading this type of handle
      * in it's current state... */
     if (khandle_driver_find(khandle->type, &khandle_driver))
-        return SYS_INV;
+        return EINVAL;
 
-    if (khandle_driver_read(khandle_driver, khandle, buffer, length))
+    if (khandle_driver_read(khandle_driver, khandle, buffer, size))
         return 0;
 
-    /* TODO: Return actual read length */
-    return length;
+    /* FIXME: Do we need to check this address? */
+    if (pread_size)
+        *pread_size = size;
+
+    return 0;
 }
 
-uint64_t sys_seek(handle_t handle, uintptr_t offset, uint32_t type)
+size_t sys_seek(handle_t handle, uintptr_t offset, uint32_t type)
 {
     khandle_t* khndl;
     proc_t* curr_prc;
@@ -96,12 +97,12 @@ uint64_t sys_seek(handle_t handle, uintptr_t offset, uint32_t type)
     curr_prc = get_current_proc();
 
     if (!curr_prc)
-        return SYS_ERR;
+        return EINVAL;
 
     khndl = find_khandle(&curr_prc->m_handle_map, handle);
 
     if (!khndl)
-        return SYS_INV;
+        return EINVAL;
 
     switch (type) {
     case 0:
@@ -125,6 +126,12 @@ uint64_t sys_seek(handle_t handle, uintptr_t offset, uint32_t type)
     return khndl->offset;
 }
 
+error_t sys_dir_create(const char* path, i32 mode)
+{
+    kernel_panic("TODO: Implement syscall (sys_dir_create)");
+    return 0;
+}
+
 /*!
  * @brief: Read from a directory at index @idx
  */
@@ -136,26 +143,26 @@ uint64_t sys_dir_read(handle_t handle, uint32_t idx, lightos_direntry_t __user* 
 
     /* No driver to read directories, fuckkk */
     if (khandle_driver_find(HNDL_TYPE_DIR, &khandle_driver))
-        return SYS_INV;
+        return EINVAL;
 
     c_proc = get_current_proc();
 
     /* Check that our direntry is valid */
     if (kmem_validate_ptr(c_proc, (vaddr_t)b_dirent, 1))
-        return SYS_INV;
+        return EINVAL;
 
     /* Don't want to go poking in kernel memory */
     if ((vaddr_t)b_dirent >= KERNEL_MAP_BASE)
-        return SYS_INV;
+        return EINVAL;
 
     /* Find the right underlying dir object */
     khandle = find_khandle(&c_proc->m_handle_map, handle);
 
     if (!khandle || !khandle->reference.kobj)
-        return SYS_INV;
+        return EINVAL;
 
     if (khandle->type != HNDL_TYPE_DIR)
-        return SYS_INV;
+        return EINVAL;
 
     /* Set the right offset */
     khandle->offset = idx;

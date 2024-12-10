@@ -66,7 +66,7 @@ int __get_raw_cmdline()
     cmdline_var = open_sysvar(CMDLINE_VARNAME, HNDL_FLAG_R);
 
     /* Yikes^2 */
-    if (!handle_verify(cmdline_var))
+    if (handle_verify(cmdline_var))
         return error;
 
     __this_cmdline.raw = malloc(CMDLINE_MAX_LEN);

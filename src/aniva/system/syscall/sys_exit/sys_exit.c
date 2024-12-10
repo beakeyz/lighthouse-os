@@ -1,4 +1,3 @@
-#include "sys_exit.h"
 #include "libk/flow/error.h"
 #include "logging/log.h"
 #include "proc/kprocs/reaper.h"
@@ -11,7 +10,7 @@
  *
  * NOTE: Refactor to make more readable
  */
-uintptr_t sys_exit_handler(uintptr_t code)
+void sys_exit(error_t code)
 {
     KLOG_DBG("(sys_exit) Thread terminated with code: %d\n", code);
 

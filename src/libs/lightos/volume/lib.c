@@ -17,7 +17,7 @@ VOLUME_HNDL open_volume(const char* path, uint32_t flags, enum HNDL_MODE mode)
     handle = open_handle(path, HNDL_TYPE_DEVICE, flags, mode);
 
     /* Check if we even recieved a valid handle */
-    if (!handle_verify(handle))
+    if (handle_verify(handle))
         return handle;
 
     return handle;

@@ -13,7 +13,7 @@
  *
  * @pipe: The pipe struct to initialize
  */
-int init_lightos_pipe(lightos_pipe_t* pipe, const char* name, DWORD flags, DWORD max_listeners, DWORD datasize);
+int init_lightos_pipe(lightos_pipe_t* pipe, const char* name, u32 flags, u32 max_listeners, u32 datasize);
 
 /*!
  * @brief: Initialize a pipe for uniform data
@@ -21,8 +21,8 @@ int init_lightos_pipe(lightos_pipe_t* pipe, const char* name, DWORD flags, DWORD
  * Wrapper for init_lightos_pipe
  *
  */
-int init_lightos_pipe_uniform(lightos_pipe_t* pipe, const char* name, DWORD flags, DWORD max_listeners, DWORD datasize);
-int init_lightos_pipe_global(lightos_pipe_t* pipe, const char* name, DWORD flags, DWORD max_listeners, DWORD datasize);
+int init_lightos_pipe_uniform(lightos_pipe_t* pipe, const char* name, u32 flags, u32 max_listeners, u32 datasize);
+int init_lightos_pipe_global(lightos_pipe_t* pipe, const char* name, u32 flags, u32 max_listeners, u32 datasize);
 
 /*!
  * @brief: Destroys a lightos pipe object

@@ -2,6 +2,7 @@
 
 #include "lightos/handle_def.h"
 #include "lightos/lib/lightos.h"
+#include <lightos/error.h>
 #include <stdlib.h>
 #include <sys/types.h>
 
@@ -38,7 +39,7 @@ void lightapp_startup(MainEntry main)
     process_result_t result;
 
     if (!main)
-        exit(ERROR);
+        exit(EINVAL);
 
     __init_libc();
 

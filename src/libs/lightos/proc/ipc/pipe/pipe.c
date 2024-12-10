@@ -33,7 +33,7 @@ static inline int _lightos_pipe_create(lightos_pipe_t* ppipe)
     if (__check_upi())
         return -ENODEV;
 
-    if (driver_send_msg(upi_handle, LIGHTOS_UPI_MSG_CREATE_PIPE, ppipe, sizeof(*ppipe)))
+    if (driver_send_msg(upi_handle, LIGHTOS_UPI_MSG_CREATE_PIPE, 0, ppipe, sizeof(*ppipe)))
         return 0;
 
     return -1;
@@ -44,7 +44,7 @@ static inline int _lightos_pipe_destroy(HANDLE pipe)
     if (__check_upi())
         return -ENODEV;
 
-    if (driver_send_msg(upi_handle, LIGHTOS_UPI_MSG_DESTROY_PIPE, &pipe, sizeof(pipe)))
+    if (driver_send_msg(upi_handle, LIGHTOS_UPI_MSG_DESTROY_PIPE, 0, &pipe, sizeof(pipe)))
         return 0;
 
     return -1;
@@ -55,7 +55,7 @@ static inline int _lightos_pipe_connect(lightos_pipe_t* pipe)
     if (__check_upi())
         return -ENODEV;
 
-    if (driver_send_msg(upi_handle, LIGHTOS_UPI_MSG_CONNECT_PIPE, pipe, sizeof(*pipe)))
+    if (driver_send_msg(upi_handle, LIGHTOS_UPI_MSG_CONNECT_PIPE, 0, pipe, sizeof(*pipe)))
         return 0;
 
     return -1;
@@ -66,7 +66,7 @@ static inline int _lightos_pipe_disconnect(HANDLE pipe)
     if (__check_upi())
         return -ENODEV;
 
-    if (driver_send_msg(upi_handle, LIGHTOS_UPI_MSG_DISCONNECT_PIPE, &pipe, sizeof(pipe)))
+    if (driver_send_msg(upi_handle, LIGHTOS_UPI_MSG_DISCONNECT_PIPE, 0, &pipe, sizeof(pipe)))
         return 0;
 
     return -1;
@@ -77,7 +77,7 @@ static inline int _lightos_pipe_send(lightos_pipe_ft_t* ft)
     if (__check_upi())
         return -ENODEV;
 
-    if (driver_send_msg(upi_handle, LIGHTOS_UPI_MSG_SEND_TRANSACT, ft, sizeof(*ft)))
+    if (driver_send_msg(upi_handle, LIGHTOS_UPI_MSG_SEND_TRANSACT, 0, ft, sizeof(*ft)))
         return 0;
 
     return -1;
@@ -88,7 +88,7 @@ static inline int _lightos_pipe_accept(lightos_pipe_accept_t* accept)
     if (__check_upi())
         return -ENODEV;
 
-    if (driver_send_msg(upi_handle, LIGHTOS_UPI_MSG_ACCEPT_TRANSACT, accept, sizeof(*accept)))
+    if (driver_send_msg(upi_handle, LIGHTOS_UPI_MSG_ACCEPT_TRANSACT, 0, accept, sizeof(*accept)))
         return 0;
 
     return -1;
@@ -99,7 +99,7 @@ static inline int _lightos_pipe_deny(HANDLE pipe)
     if (__check_upi())
         return -ENODEV;
 
-    if (driver_send_msg(upi_handle, LIGHTOS_UPI_MSG_DENY_TRANSACT, &pipe, sizeof(pipe)))
+    if (driver_send_msg(upi_handle, LIGHTOS_UPI_MSG_DENY_TRANSACT, 0, &pipe, sizeof(pipe)))
         return 0;
 
     return -1;
@@ -107,7 +107,7 @@ static inline int _lightos_pipe_deny(HANDLE pipe)
 
 static inline int _lightos_pipe_preview(lightos_pipe_ft_t* ft)
 {
-    if (driver_send_msg(upi_handle, LIGHTOS_UPI_MSG_PREVIEW_TRANSACT, ft, sizeof(*ft)))
+    if (driver_send_msg(upi_handle, LIGHTOS_UPI_MSG_PREVIEW_TRANSACT, 0, ft, sizeof(*ft)))
         return 0;
 
     return -1;
@@ -115,13 +115,13 @@ static inline int _lightos_pipe_preview(lightos_pipe_ft_t* ft)
 
 static inline int _lightos_pipe_dump(lightos_pipe_dump_t* dump)
 {
-    if (driver_send_msg(upi_handle, LIGHTOS_UPI_MSG_DUMP_PIPE, dump, sizeof(*dump)))
+    if (driver_send_msg(upi_handle, LIGHTOS_UPI_MSG_DUMP_PIPE, 0, dump, sizeof(*dump)))
         return 0;
 
     return -1;
 }
 
-int init_lightos_pipe(lightos_pipe_t* pipe, const char* name, DWORD flags, DWORD max_listeners, DWORD datasize)
+int init_lightos_pipe(lightos_pipe_t* pipe, const char* name, u32 flags, u32 max_listeners, u32 datasize)
 {
     memset(pipe, 0, sizeof(*pipe));
 
@@ -135,7 +135,7 @@ int init_lightos_pipe(lightos_pipe_t* pipe, const char* name, DWORD flags, DWORD
     return _lightos_pipe_create(pipe);
 }
 
-int init_lightos_pipe_uniform(lightos_pipe_t* pipe, const char* name, DWORD flags, DWORD max_listeners, DWORD datasize)
+int init_lightos_pipe_uniform(lightos_pipe_t* pipe, const char* name, u32 flags, u32 max_listeners, u32 datasize)
 {
     if (!datasize)
         return -EINVAL;
@@ -143,7 +143,7 @@ int init_lightos_pipe_uniform(lightos_pipe_t* pipe, const char* name, DWORD flag
     return init_lightos_pipe(pipe, name, flags | LIGHTOS_UPIPE_FLAGS_UNIFORM, max_listeners, datasize);
 }
 
-int init_lightos_pipe_global(lightos_pipe_t* pipe, const char* name, DWORD flags, DWORD max_listeners, DWORD datasize)
+int init_lightos_pipe_global(lightos_pipe_t* pipe, const char* name, u32 flags, u32 max_listeners, u32 datasize)
 {
     if (!datasize)
         return -EINVAL;
@@ -218,7 +218,7 @@ int lightos_pipe_connect(lightos_pipe_t* pipe, const char* path)
     pipe_handle = open_handle(path, HNDL_TYPE_UPI_PIPE, HNDL_FLAG_RW, HNDL_MODE_NORMAL);
 
     /* Could not find this pipe */
-    if (!handle_verify(pipe_handle))
+    if (handle_verify(pipe_handle))
         return -EPIPE;
 
     /* Clear pipe */
@@ -244,7 +244,7 @@ int lightos_pipe_connect_rel(lightos_pipe_t* pipe, HANDLE rel_handle, const char
     pipe_handle = open_handle_rel(rel_handle, name, HNDL_TYPE_UPI_PIPE, HNDL_FLAG_RW, NULL);
 
     /* Could not find this pipe */
-    if (!handle_verify(pipe_handle))
+    if (handle_verify(pipe_handle))
         return -EPIPE;
 
     /* Clear pipe */

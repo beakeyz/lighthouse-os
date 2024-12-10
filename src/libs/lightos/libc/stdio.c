@@ -84,7 +84,7 @@ void __init_stdio(void)
     /* Open the stdio path variable */
     stdio_handle = open_sysvar(SYSVAR_STDIO, HNDL_FLAG_R);
 
-    if (!handle_verify(stdio_handle))
+    if (handle_verify(stdio_handle))
         return;
 
     /* Read it's value */
@@ -96,7 +96,7 @@ void __init_stdio(void)
     /* Open the handle type variable */
     stdio_handle = open_sysvar(SYSVAR_STDIO_HANDLE_TYPE, HNDL_FLAG_R);
 
-    if (!handle_verify(stdio_handle))
+    if (handle_verify(stdio_handle))
         return;
 
     /* Read which type of handle we need to open */
@@ -165,7 +165,7 @@ int __read_byte(FILE* stream, uint8_t* buffer)
         memset(stream->r_buff, 0, stream->r_buf_size);
 
         /* Yikes */
-        if (!handle_read_ex(stream->handle, stream->r_buf_size, stream->r_buff, &r_size))
+        if (!handle_read_ex(stream->handle, stream->r_buff, stream->r_buf_size, &r_size))
             return NULL;
 
         /* Yikes again */
@@ -252,7 +252,7 @@ FILE* fopen(const char* path, const char* modes)
     /* TODO: implement open flags and modes */
     hndl = open_handle(path, HNDL_TYPE_FILE, flags, mode);
 
-    if (!handle_verify(hndl))
+    if (handle_verify(hndl))
         return nullptr;
 
     ret = malloc(sizeof(*ret));
@@ -284,7 +284,7 @@ int fclose(FILE* file)
 
     fflush(file);
 
-    if (!close_handle(file->handle))
+    if (close_handle(file->handle))
         return -EBADHANDLE;
 
     if (file->w_buff)
@@ -315,7 +315,7 @@ int fflush(FILE* file)
         return 0;
 
     /* Call the kernel to empty our buffer */
-    syscall_3(SYSID_WRITE, file->handle, (uint64_t)((void*)file->w_buff), file->w_buf_written);
+    (void)sys_write(file->handle, file->w_buff, file->w_buf_written);
 
     /* Reset the buffer */
     memset(file->w_buff, 0, file->w_buf_written);
@@ -406,7 +406,7 @@ static size_t __file_get_offset(FILE* file, long offset, int whence)
     file->r_capacity = 0;
 
     /* Do the syscall */
-    return syscall_3(SYSID_SEEK, file->handle, offset, whence);
+    return sys_seek(file->handle, offset, whence);
 }
 
 /*

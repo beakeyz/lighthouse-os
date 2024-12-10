@@ -6,101 +6,10 @@
 #include "system/processor/processor.h"
 #include "system/processor/registers.h"
 
-#include "sys_alloc/sys_alloc_mem.h"
-#include "sys_drv/sys_drv.h"
-#include "sys_exit/sys_exit.h"
-#include "sys_open/sys_dir.h"
-#include "sys_open/sys_open.h"
-#include "sys_proc/sys_proc.h"
-#include "sys_rw/sys_rw.h"
-#include "system/syscall/sys_exec/sys_exec.h"
-
 extern void processor_enter_interruption(registers_t* registers, bool irq);
 extern void processor_exit_interruption(registers_t* registers);
 
 static USED void sys_handler(registers_t* regs);
-
-/*
- * TODO: instead of having a weird-ass static list, we
- * could dynamically register syscalls by using linker sections
- */
-static syscall_t __static_syscalls[] = {
-    [SYSID_EXIT] = { 0, SYSID_EXIT, (sys_fn_t)sys_exit_handler },
-    [SYSID_CLOSE] = {
-        0,
-        SYSID_CLOSE,
-        (sys_fn_t)sys_close,
-    },
-    [SYSID_READ] = {
-        0,
-        SYSID_READ,
-        (sys_fn_t)sys_read,
-    },
-    [SYSID_WRITE] = { 0, SYSID_WRITE, (sys_fn_t)sys_write },
-    [SYSID_OPEN] = { 0, SYSID_OPEN, (sys_fn_t)sys_open },
-    [SYSID_OPEN_REL] = { 0, SYSID_OPEN_REL, (sys_fn_t)sys_open_rel },
-    [SYSID_SEND_MSG] = {
-        0,
-        SYSID_SEND_MSG,
-        (sys_fn_t)sys_send_message,
-    },
-    [SYSID_SEND_CTL] = { 0, SYSID_SEND_CTL, (sys_fn_t)sys_send_ctl },
-    [SYSID_ALLOC_PAGE_RANGE] = {
-        0,
-        SYSID_ALLOC_PAGE_RANGE,
-        (sys_fn_t)sys_alloc_page_range,
-    },
-    [SYSID_SYSEXEC] = {
-        0,
-        SYSID_SYSEXEC,
-        (sys_fn_t)sys_exec,
-    },
-    [SYSID_GET_HNDL_TYPE] = {
-        0,
-        SYSID_GET_HNDL_TYPE,
-        (sys_fn_t)sys_get_handle_type,
-    },
-    [SYSID_GET_SYSVAR_TYPE] = {
-        0,
-        SYSID_GET_SYSVAR_TYPE,
-        (sys_fn_t)sys_get_pvar_type,
-    },
-    [SYSID_CREATE_SYSVAR] = {
-        0,
-        SYSID_CREATE_SYSVAR,
-        (sys_fn_t)sys_create_pvar,
-    },
-    [SYSID_CREATE_DIR] = {
-        0,
-        SYSID_CREATE_DIR,
-        (sys_fn_t)sys_create_dir,
-    },
-    [SYSID_DIR_READ] = {
-        0,
-        SYSID_DIR_READ,
-        (sys_fn_t)sys_dir_read,
-    },
-    [SYSID_SEEK] = { 0, SYSID_SEEK, (sys_fn_t)sys_seek },
-    [SYSID_GET_PROCESSTIME] = {
-        0,
-        SYSID_GET_PROCESSTIME,
-        (sys_fn_t)sys_get_process_time_ms,
-    },
-    [SYSID_SLEEP] = {
-        0,
-        SYSID_SLEEP,
-        (sys_fn_t)sys_sleep,
-    },
-    [SYSID_GET_FUNCADDR] = {
-        0,
-        SYSID_GET_FUNCADDR,
-        (sys_fn_t)sys_get_funcaddr,
-    },
-    [SYSID_CREATE_PROC] = { 0, SYSID_CREATE_PROC, (sys_fn_t)sys_create_proc },
-    [SYSID_DESTROY_PROC] = { 0, SYSID_DESTROY_PROC, (sys_fn_t)sys_destroy_proc },
-};
-
-static const size_t __static_syscall_count = (sizeof(__static_syscalls) / (sizeof(*__static_syscalls)));
 
 /*
  * This stub mimics interrupt behaviour
@@ -217,7 +126,7 @@ static inline void __syscall_set_retval(registers_t* regs, uintptr_t ret)
 
 static inline bool __is_static_syscall(enum SYSID id)
 {
-    return id < __static_syscall_count;
+    return id < __syscall_map_sz;
 }
 
 static inline bool __syscall_verify_sysid(enum SYSID id)
@@ -226,12 +135,20 @@ static inline bool __syscall_verify_sysid(enum SYSID id)
         return false;
 
     /* Let's hope uninitialised entries are zeroed =) */
-    if (!__static_syscalls[id].m_handler)
+    if (!__syscall_map[id])
         return false;
 
     return true;
 }
 
+/*!
+ * @brief: The generic syscall handler of the kernel
+ *
+ * Currently only looks through the static syscall map to see if there is a matching function
+ * pointer for the specified SYSID in the registers.
+ *
+ * TODO: Support custom syscall maps, Also TODO: check if that is a dumb idea
+ */
 static void sys_handler(registers_t* regs)
 {
     uintptr_t result;
@@ -259,7 +176,11 @@ static void sys_handler(registers_t* regs)
     calling_thread->m_c_sysid = args.syscall_id;
 
     /* Execute the main syscall handler (All permissions) */
-    call = __static_syscalls[args.syscall_id];
+    call = (syscall_t) {
+        .m_handler = __syscall_map[args.syscall_id],
+        .m_id = args.syscall_id,
+        .m_flags = SYSCALL_CALLED,
+    };
 
     /*
      * Syscalls are always called from the context of the process that

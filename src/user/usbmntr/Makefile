@@ -1,5 +1,5 @@
 PROCESS_NAME=usbmntr
 LINK_TYPE=dynamic
-LIBRARIES:= -l:devices.lib
+LIBRARIES:=
 
 include ../user.mk

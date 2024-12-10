@@ -2,7 +2,6 @@
 #include "lightos/handle.h"
 #include "lightos/handle_def.h"
 #include "lightos/syscall.h"
-#include "lightos/system.h"
 #include "stdlib.h"
 
 /*
@@ -19,7 +18,7 @@ BOOL lib_load(const char* path, HANDLE* out_handle)
 
     hdl = open_handle(path, HNDL_TYPE_SHARED_LIB, HNDL_FLAG_RW, NULL);
 
-    if (!handle_verify(hdl))
+    if (handle_verify(hdl))
         return FALSE;
 
     *out_handle = hdl;
@@ -39,7 +38,7 @@ BOOL lib_open(const char* path, HANDLE* phandle)
 
 BOOL lib_get_function(HANDLE lib_handle, const char* func, VOID** faddr)
 {
-    uintptr_t addr;
+    VOID* addr;
 
     if (!faddr)
         return FALSE;
@@ -47,7 +46,7 @@ BOOL lib_get_function(HANDLE lib_handle, const char* func, VOID** faddr)
     *faddr = NULL;
 
     /* Call the kernel =) */
-    addr = syscall_2(SYSID_GET_FUNCADDR, lib_handle, (uintptr_t)func);
+    addr = sys_get_function(lib_handle, func);
 
     if (!addr)
         return FALSE;
@@ -62,7 +61,7 @@ VOID* lib_get_load_addr(HANDLE lib)
     return NULL;
 }
 
-QWORD lib_get_load_size(HANDLE lib)
+u64 lib_get_load_size(HANDLE lib)
 {
     exit_noimpl("lib_get_load_size");
     return NULL;

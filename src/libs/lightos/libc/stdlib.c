@@ -195,7 +195,7 @@ int system(const char* cmd)
     if (!cmd_len)
         return -1;
 
-    return syscall_2(SYSID_SYSEXEC, (uintptr_t)cmd, cmd_len);
+    return sys_exec(cmd, cmd_len);
 }
 
 int isalnum(int c)

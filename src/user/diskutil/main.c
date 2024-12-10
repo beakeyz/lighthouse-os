@@ -85,7 +85,7 @@ int main()
     volume = open_volume(target_volume, vflags, mode);
 
     /* Fuck, could not find the device */
-    if (!handle_verify(volume))
+    if (handle_verify(volume))
         return -ENODEV;
 
     printf("[DEBUG] volume=%s, mode=%s, offset=%lld, size=%lld\n", target_volume, target_mode, target_offset, target_size);

@@ -67,7 +67,6 @@ void khandle_set_flags(khandle_t* handle, uint32_t flags)
         return;
 
     handle->flags = flags;
-    handle->flags &= ~(HNDL_OPT_MASK);
 }
 
 struct oss_node* khandle_get_relative_node(khandle_t* handle)

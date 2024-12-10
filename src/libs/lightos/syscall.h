@@ -14,34 +14,46 @@
  * sysids must be terminated
  */
 
+#include "lightos/dev/shared.h"
+#include "lightos/error.h"
+#include "lightos/fs/shared.h"
+#include "lightos/handle_def.h"
+#include "lightos/sysvar/shared.h"
+
+/*!
+ * @brief: Standard definition for a system function
+ */
+typedef uint64_t (*sys_fn_t)(
+    uint64_t arg0,
+    uint64_t arg1,
+    uint64_t arg2,
+    uint64_t arg3,
+    uint64_t arg4);
+
 enum SYSID {
     SYSID_INVAL,
     SYSID_EXIT, /* Exit the process */
     SYSID_CLOSE, /* Close a handle */
     SYSID_READ, /* Read from a handle */
     SYSID_WRITE, /* Write to a handle */
-    SYSID_OPEN,
-    SYSID_OPEN_REL,
+    SYSID_OPEN, /* Open/Create kernel objects */
     SYSID_SEND_MSG, /* Send a driver message */
     SYSID_SEND_CTL, /* Send a device control code */
-    SYSID_CREATE_THREAD,
-    SYSID_CREATE_PROC,
-    SYSID_CREATE_FILE,
 
-    SYSID_ALLOC_PAGE_RANGE,
-    SYSID_DEALLOC_PAGE_RANGE,
+    SYSID_ALLOC_VMEM, /* Allocates a range of virtual memory */
+    SYSID_DEALLOC_VMEM, /* Deallocates a range of virtual memory */
+    SYSID_MAP_VMEM, /* Map a range of virtual memory */
+    SYSID_PROTECT_VMEM, /* Change the memory flags of virtual memory */
 
     SYSID_SYSEXEC, /* Ask the system to do stuff for us */
-    SYSID_DESTROY_THREAD,
+    SYSID_CREATE_PROC,
     SYSID_DESTROY_PROC,
-    SYSID_DESTROY_FILE,
     SYSID_GET_HNDL_TYPE,
     SYSID_GET_SYSVAR_TYPE,
     SYSID_CREATE_SYSVAR,
     /* Directory syscalls */
-    SYSID_CREATE_DIR,
+    SYSID_DIR_CREATE,
     SYSID_DIR_READ,
-    SYSID_DIR_FIND,
     /* Manipulate the R/W offset of a handle */
     SYSID_SEEK,
     SYSID_GET_PROCESSTIME,
@@ -53,7 +65,7 @@ enum SYSID {
     SYSID_DESTROY_PROFILE,
 
     /* Dynamic loader-specific syscalls */
-    SYSID_GET_FUNCADDR,
+    SYSID_GET_FUNCTION,
 };
 
 /* Mask that marks a sysid invalid */
@@ -63,12 +75,71 @@ enum SYSID {
 #define SYSID_GET(id) (enum SYSID)((unsigned int)(id) & SYSID_INVAL_MASK)
 #define SYSID_SET_VALID(id, valid) ({if (valid) id &= ~SYSID_INVAL_MASK; else id |= SYSID_INVAL_MASK; })
 
-#define SYS_OK (0)
-#define SYS_INV (-1)
-#define SYS_KERR (-2)
-#define SYS_NOENT (-3)
-#define SYS_NOPERM (-4)
-#define SYS_NULL (-5)
-#define SYS_ERR (-6)
+/*
+ * Per-sysid implementation of raw syscalls
+ *
+ * These are implemented both in userspace, as in kernel space (with the same symbol names
+ * yayyyy)
+ */
+extern void sys_exit(error_t status);
+extern error_t sys_close(HANDLE handle);
+extern error_t sys_read(HANDLE handle, void* buffer, size_t size, size_t* pread_size);
+extern error_t sys_write(HANDLE handle, void* buffer, size_t size);
+extern HANDLE sys_open(const char* path, handle_flags_t flags, enum HNDL_MODE mode, void* buffer, size_t bsize);
+extern error_t sys_send_msg(HANDLE handle, u32 code, u64 offset, void* buffer, size_t bsize);
+extern error_t sys_send_ctl(HANDLE handle, enum DEVICE_CTLC code, u64 offset, void* buffer, size_t bsize);
+
+extern error_t sys_alloc_vmem(size_t size, u32 flags, vaddr_t* paddr);
+extern error_t sys_dealloc_vmem(vaddr_t addr, size_t size);
+extern void* sys_map_vmem(HANDLE handle, void* addr, size_t len, u32 flags);
+extern error_t sys_protect_vmem(void* addr, size_t len, u32 flags);
+
+extern error_t sys_exec(const char* cmd, size_t len);
+extern HANDLE sys_create_proc(const char* cmd, FuncPtr entry);
+extern error_t sys_destroy_proc(HANDLE proc, u32 flags);
+
+extern enum HANDLE_TYPE sys_handle_get_type(HANDLE handle);
+extern enum SYSVAR_TYPE sys_get_sysvar_type(HANDLE handle);
+extern HANDLE sys_create_sysvar(const char* key, handle_flags_t flags, enum SYSVAR_TYPE type, void* buffer, size_t len);
+
+extern error_t sys_dir_create(const char* path, i32 mode);
+extern size_t sys_dir_read(HANDLE handle, u32 idx, lightos_direntry_t* namebuffer, size_t blen);
+
+extern size_t sys_seek(HANDLE handle, u64 offset, u32 type);
+extern size_t sys_get_process_time(void);
+extern void sys_sleep(u64 ns);
+
+extern void* sys_get_function(HANDLE lib, const char* function);
+
+static const sys_fn_t __syscall_map[] = {
+    [SYSID_EXIT] = (sys_fn_t)sys_exit,
+    [SYSID_CLOSE] = (sys_fn_t)sys_close,
+    [SYSID_READ] = (sys_fn_t)sys_read,
+    [SYSID_WRITE] = (sys_fn_t)sys_write,
+    [SYSID_OPEN] = (sys_fn_t)sys_open,
+    [SYSID_SEND_MSG] = (sys_fn_t)sys_send_msg,
+    [SYSID_SEND_CTL] = (sys_fn_t)sys_send_ctl,
+    [SYSID_ALLOC_VMEM] = (sys_fn_t)sys_alloc_vmem,
+    [SYSID_DEALLOC_VMEM] = (sys_fn_t)sys_dealloc_vmem,
+    [SYSID_MAP_VMEM] = (sys_fn_t)sys_map_vmem,
+    [SYSID_PROTECT_VMEM] = (sys_fn_t)sys_protect_vmem,
+
+    [SYSID_SYSEXEC] = (sys_fn_t)sys_exec,
+    [SYSID_CREATE_PROC] = (sys_fn_t)sys_create_proc,
+    [SYSID_DESTROY_PROC] = (sys_fn_t)sys_destroy_proc,
+
+    [SYSID_GET_HNDL_TYPE] = (sys_fn_t)sys_handle_get_type,
+    [SYSID_GET_SYSVAR_TYPE] = (sys_fn_t)sys_get_sysvar_type,
+    [SYSID_CREATE_SYSVAR] = (sys_fn_t)sys_create_sysvar,
+
+    [SYSID_DIR_CREATE] = (sys_fn_t)sys_dir_create,
+    [SYSID_DIR_READ] = (sys_fn_t)sys_dir_read,
+
+    [SYSID_SEEK] = (sys_fn_t)sys_seek,
+    [SYSID_GET_PROCESSTIME] = (sys_fn_t)sys_get_process_time,
+    [SYSID_SLEEP] = (sys_fn_t)sys_sleep,
+    [SYSID_GET_FUNCTION] = (sys_fn_t)sys_get_function,
+};
+static const size_t __syscall_map_sz = (sizeof(__syscall_map) / (sizeof(*__syscall_map)));
 
 #endif // !__LIGHTENV_SYSCALL__

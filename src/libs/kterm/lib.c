@@ -16,7 +16,7 @@ int kterm_get_cwd(const char** cwd)
     const char buffer[256] = { 0 };
 
     /* Do a lil ioctl */
-    if (!driver_send_msg(kterm_handle, KTERM_DRV_GET_CWD, (void*)buffer, sizeof(buffer)))
+    if (!driver_send_msg(kterm_handle, KTERM_DRV_GET_CWD, 0, (void*)buffer, sizeof(buffer)))
         return -1;
 
     /* Copy the shit */
@@ -60,7 +60,7 @@ int kterm_update_box(uint32_t p_id, uint32_t x, uint32_t y, uint8_t color_idx, c
     constr.w = content_len + 2;
 
     /* Send the driver the message */
-    driver_send_msg(kterm_handle, KTERM_DRV_UPDATE_BOX, &constr, sizeof(constr));
+    driver_send_msg(kterm_handle, KTERM_DRV_UPDATE_BOX, 0, &constr, sizeof(constr));
 
     return 0;
 }

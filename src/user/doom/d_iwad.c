@@ -185,8 +185,8 @@ static char* steam_install_subdirs[] = {
 static char* GetRegistryString(registry_value_t* reg_val)
 {
     HKEY key;
-    DWORD len;
-    DWORD valtype;
+     len;
+     valtype;
     char* result;
 
     // Open the key (directory where the value is stored)

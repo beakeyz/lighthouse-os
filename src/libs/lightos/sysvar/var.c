@@ -5,7 +5,7 @@
 #include "lightos/syscall.h"
 #include "lightos/sysvar/shared.h"
 
-HANDLE open_sysvar_ex(HANDLE handle, char* key, uint16_t flags)
+HANDLE open_sysvar_ex(HANDLE handle, char* key, u32 flags)
 {
     if (!key)
         return HNDL_INVAL;
@@ -13,7 +13,7 @@ HANDLE open_sysvar_ex(HANDLE handle, char* key, uint16_t flags)
     return open_handle_rel(handle, key, HNDL_TYPE_SYSVAR, flags, HNDL_MODE_NORMAL);
 }
 
-HANDLE open_sysvar(char* key, uint16_t flags)
+HANDLE open_sysvar(char* key, u32 flags)
 {
     if (!key)
         return HNDL_INVAL;
@@ -21,13 +21,13 @@ HANDLE open_sysvar(char* key, uint16_t flags)
     return open_handle(key, HNDL_TYPE_SYSVAR, flags, HNDL_MODE_CURRENT_ENV);
 }
 
-BOOL create_sysvar(HANDLE handle, const char* key, enum SYSVAR_TYPE type, DWORD flags, VOID* value)
+extern HANDLE create_sysvar(HANDLE handle, const char* key, enum SYSVAR_TYPE type, u32 flags, VOID* value, size_t len)
 {
     if (!key)
         return FALSE;
 
-    /* Make sure this is a bool and not something like a qword */
-    return (syscall_5(SYSID_CREATE_SYSVAR, handle, (uintptr_t)key, type, flags, (uintptr_t)value) == TRUE);
+    /* Make sure this is a bool and not something like a u64 */
+    return sys_create_sysvar(key, handle_flags(flags, HNDL_TYPE_SYSVAR, handle), type, value, len);
 }
 
 BOOL sysvar_get_type(HANDLE var_handle, enum SYSVAR_TYPE* type)
@@ -35,17 +35,18 @@ BOOL sysvar_get_type(HANDLE var_handle, enum SYSVAR_TYPE* type)
     if (!type)
         return FALSE;
 
-    return syscall_2(SYSID_GET_SYSVAR_TYPE, var_handle, (uint64_t)type);
+    *type = sys_get_sysvar_type(var_handle);
+    return TRUE;
 }
 
-BOOL sysvar_read(HANDLE handle, void* buffer, QWORD buffer_size)
+BOOL sysvar_read(HANDLE handle, void* buffer, u64 buffer_size)
 {
     HANDLE_TYPE type;
 
-    if (!get_handle_type(handle, &type) || type != HNDL_TYPE_SYSVAR)
+    if (handle_get_type(handle, &type) || type != HNDL_TYPE_SYSVAR)
         return FALSE;
 
-    return handle_read(handle, buffer_size, buffer);
+    return handle_read(handle, buffer, buffer_size);
 }
 
 BOOL sysvar_read_bool(HANDLE h_var, BOOL* pvalue)
@@ -61,43 +62,43 @@ BOOL sysvar_read_bool(HANDLE h_var, BOOL* pvalue)
     return sysvar_read(h_var, pvalue, sizeof(*pvalue));
 }
 
-BOOL sysvar_write(HANDLE handle, QWORD buffer_size, void* buffer)
+BOOL sysvar_write(HANDLE handle, void* buffer, size_t bsize)
 {
     HANDLE_TYPE type;
 
-    if (!get_handle_type(handle, &type) || type != HNDL_TYPE_SYSVAR)
+    if (handle_get_type(handle, &type) || type != HNDL_TYPE_SYSVAR)
         return FALSE;
 
-    return handle_write(handle, buffer_size, buffer);
+    return handle_write(handle, buffer, bsize);
 }
 
 /*
  * NOTE: we open the profile and the varialbe with the same flags
  */
-BOOL sysvar_read_from_profile(char* profile_name, char* var_key, WORD flags, QWORD buffer_size, void* buffer)
+BOOL sysvar_read_from_profile(char* profile_name, char* var_key, u32 flags, void* buffer, size_t bsize)
 {
     HANDLE profile_handle;
     HANDLE var_handle;
 
-    if (!buffer || !buffer_size)
+    if (!buffer || !bsize)
         return FALSE;
 
     profile_handle = open_profile(profile_name, flags | HNDL_FLAG_READACCESS);
 
     /* Yikes */
-    if (!handle_verify(profile_handle))
+    if (handle_verify(profile_handle))
         return FALSE;
 
     var_handle = open_sysvar_ex(profile_handle, var_key, flags | HNDL_FLAG_READACCESS);
 
     /* Failed to open a handle to the variable, close the profile and exit */
-    if (!handle_verify(var_handle)) {
+    if (handle_verify(var_handle)) {
         close_handle(profile_handle);
         return FALSE;
     }
 
     /* Try to read the variable and simply exit with the result value */
-    sysvar_read(var_handle, buffer, buffer_size);
+    sysvar_read(var_handle, buffer, bsize);
 
     /* Close variable */
     close_handle(var_handle);
@@ -111,7 +112,7 @@ BOOL sysvar_read_from_profile(char* profile_name, char* var_key, WORD flags, QWO
 /*
  * NOTE: we open the profile and the varialbe with the same flags
  */
-BOOL sysvar_write_from_profile(char* profile_name, char* var_key, WORD flags, QWORD buffer_size, void* buffer)
+BOOL sysvar_write_from_profile(char* profile_name, char* var_key, u32 flags, void* buffer, size_t bsize)
 {
     BOOL result;
     HANDLE profile_handle;
@@ -120,19 +121,19 @@ BOOL sysvar_write_from_profile(char* profile_name, char* var_key, WORD flags, QW
     profile_handle = open_profile(profile_name, flags | HNDL_FLAG_WRITEACCESS);
 
     /* Yikes */
-    if (!handle_verify(profile_handle))
+    if (handle_verify(profile_handle))
         return FALSE;
 
     var_handle = open_sysvar_ex(profile_handle, var_key, flags | HNDL_FLAG_WRITEACCESS);
 
     /* Failed to open a handle to the variable, close the profile and exit */
-    if (!handle_verify(var_handle)) {
+    if (handle_verify(var_handle)) {
         close_handle(profile_handle);
         return FALSE;
     }
 
     /* Try to read the variable and simply exit with the result value */
-    result = sysvar_write(var_handle, buffer_size, buffer);
+    result = sysvar_write(var_handle, buffer, bsize);
 
     /* Close variable */
     close_handle(var_handle);

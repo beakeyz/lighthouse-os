@@ -1,5 +1,5 @@
 PROCESS_NAME=test
 LINK_TYPE=dynamic
-LIBRARIES := -l:devices.lib
+LIBRARIES :=
 
 include ../user.mk

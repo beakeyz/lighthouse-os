@@ -11,10 +11,7 @@
  * @key: The sysvar key. This will always be capital
  * @flags: The flags with which to open the sysvar
  */
-extern HANDLE open_sysvar_ex(
-    __IN__ HANDLE handle,
-    __IN__ char* key,
-    __IN__ WORD flags);
+extern HANDLE open_sysvar_ex(HANDLE handle, char* key, u32 flags);
 
 /*!
  * @brief: Open a sysvar
@@ -22,9 +19,7 @@ extern HANDLE open_sysvar_ex(
  * @key: The sysvar key. This will always be capital
  * @flags: The flags with which to open the sysvar
  */
-extern HANDLE open_sysvar(
-    __IN__ char* key,
-    __IN__ WORD flags);
+extern HANDLE open_sysvar(char* key, u32 flags);
 
 /*
  * Try to create a variable
@@ -34,59 +29,34 @@ extern HANDLE open_sysvar(
  * Fails if the variable already exists
  * Fails if we don't have permission to create variables on this profile
  */
-extern BOOL create_sysvar(
-    __IN__ HANDLE handle,
-    __IN__ const char* key,
-    __IN__ enum SYSVAR_TYPE type,
-    __IN__ DWORD flags,
-    __IN__ VOID* value);
+extern HANDLE create_sysvar(HANDLE handle, const char* key, enum SYSVAR_TYPE type, u32 flags, VOID* value, size_t len);
 
 /*
  * Grab the type of a certain profile variable
  */
-extern BOOL sysvar_get_type(
-    __IN__ HANDLE var_handle,
-    __OUT__ enum SYSVAR_TYPE* type);
+extern BOOL sysvar_get_type(HANDLE var_handle, enum SYSVAR_TYPE* type);
 
 /*
  * Read from a system variable
  */
-extern BOOL sysvar_read(
-    __IN__ HANDLE var_handle,
-    __OUT__ void* buffer,
-    __IN__ QWORD buffer_size);
+extern BOOL sysvar_read(HANDLE var_handle, void* buffer, size_t buffer_size);
 
-extern BOOL sysvar_read_bool(
-    __IN__ HANDLE h_var,
-    __OUT__ BOOL* pvalue);
+extern BOOL sysvar_read_bool(HANDLE h_var, BOOL* pvalue);
 /*
  * Write to a system variable
  */
-extern BOOL sysvar_write(
-    __IN__ HANDLE var_handle,
-    __IN__ QWORD buffer_size,
-    __IN__ void* buffer);
+extern BOOL sysvar_write(HANDLE var_handle, void* buffer, size_t bsize);
 
 /*!
  * @brief: Read from a system variable on a profile
  *
  */
-extern BOOL sysvar_read_from_profile(
-    __IN__ char* profile_name,
-    __IN__ char* var_key,
-    __IN__ WORD flags,
-    __IN__ QWORD buffer_size,
-    __OUT__ void* buffer);
+extern BOOL sysvar_read_from_profile(char* profile_name, char* var_key, u32 flags, void* buffer, size_t buffer_size);
 
 /*
  * Write to a profile variable in one go
  */
-extern BOOL sysvar_write_from_profile(
-    __IN__ char* profile_name,
-    __IN__ char* var_key,
-    __IN__ WORD flags,
-    __IN__ QWORD buffer_size,
-    __OUT__ void* buffer);
+extern BOOL sysvar_write_from_profile(char* profile_name, char* var_key, u32 flags, void* buffer, size_t buffer_size);
 
 /*!
  * @brief: Loads a PVR file into the environment of the current process
