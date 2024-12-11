@@ -139,6 +139,7 @@ typedef i32 error_t;
 #define ENOIMPL 169
 #define ENOCMD 170
 #define EKERR 171 /* Kernel error */
+#define EBADPARAMS 172
 
 #define ERESTARTSYS 512
 

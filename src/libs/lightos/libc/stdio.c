@@ -165,7 +165,7 @@ int __read_byte(FILE* stream, uint8_t* buffer)
         memset(stream->r_buff, 0, stream->r_buf_size);
 
         /* Yikes */
-        if (!handle_read_ex(stream->handle, stream->r_buff, stream->r_buf_size, &r_size))
+        if (handle_read_ex(stream->handle, stream->r_buff, stream->r_buf_size, &r_size))
             return NULL;
 
         /* Yikes again */
@@ -371,7 +371,6 @@ int fprintf(FILE* stream, const char* str, ...)
  */
 unsigned long long fread(void* buffer, unsigned long long size, unsigned long long count, FILE* file)
 {
-
     int r_count;
     uint8_t* i_buffer;
 

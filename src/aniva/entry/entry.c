@@ -21,6 +21,7 @@
 #include "libk/multiboot.h"
 #include "libk/stddef.h"
 #include "logging/log.h"
+#include "mem/aalloc/aalloc.h"
 #include "mem/buffer.h"
 #include "mem/zalloc/zalloc.h"
 #include "oss/core.h"
@@ -405,6 +406,30 @@ void kthread_entry(void)
     KLOG_INFO("kmalloc test (Start time: %ds, %dms, %dus) (End time: %ds, %dms, %dus)\n",
         bStartTime.s_since_boot, bStartTime.ms_since_last_s, bStartTime.us_since_last_ms,
         bEndTime.s_since_boot, bEndTime.ms_since_last_s, bEndTime.us_since_last_ms, );
+
+    a_allocator_t alloc;
+    void* buffer = kmalloc(1 * Mib);
+
+    init_basic_aalloc(&alloc, buffer, Mib);
+
+    time_get_system_time(&bStartTime);
+
+    buffers = aalloc_allocate(&alloc, (sizeof(void*) * 10000));
+
+    for (int i = 0; i < 10000; i++)
+        buffers[i] = aalloc_allocate(&alloc, 1024);
+
+    time_get_system_time(&bEndTime);
+
+    KLOG_INFO("aalloc test (Start time: %ds, %dms, %dus) (End time: %ds, %dms, %dus)\n",
+        bStartTime.s_since_boot, bStartTime.ms_since_last_s, bStartTime.us_since_last_ms,
+        bEndTime.s_since_boot, bEndTime.ms_since_last_s, bEndTime.us_since_last_ms, );
+
+    size_t used, free;
+
+    aalloc_get_info(&alloc, &used, &free);
+
+    KLOG_INFO("alloc info: used_sz=0x%llx, free_sz=0x%llx\n", used, free);
 
     kernel_panic("TEST");
     */

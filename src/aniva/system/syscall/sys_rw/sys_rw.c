@@ -128,7 +128,7 @@ size_t sys_seek(handle_t handle, uintptr_t offset, uint32_t type)
 
 error_t sys_dir_create(const char* path, i32 mode)
 {
-    kernel_panic("TODO: Implement syscall (sys_dir_create)");
+    // kernel_panic("TODO: Implement syscall (sys_dir_create)");
     return 0;
 }
 
