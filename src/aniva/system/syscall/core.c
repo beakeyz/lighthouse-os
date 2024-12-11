@@ -11,6 +11,37 @@ extern void processor_exit_interruption(registers_t* registers);
 
 static USED void sys_handler(registers_t* regs);
 
+static const sys_fn_t __syscall_map[] = {
+    [SYSID_EXIT] = (sys_fn_t)sys_exit,
+    [SYSID_CLOSE] = (sys_fn_t)sys_close,
+    [SYSID_READ] = (sys_fn_t)sys_read,
+    [SYSID_WRITE] = (sys_fn_t)sys_write,
+    [SYSID_OPEN] = (sys_fn_t)sys_open,
+    [SYSID_SEND_MSG] = (sys_fn_t)sys_send_msg,
+    [SYSID_SEND_CTL] = (sys_fn_t)sys_send_ctl,
+    [SYSID_ALLOC_VMEM] = (sys_fn_t)sys_alloc_vmem,
+    [SYSID_DEALLOC_VMEM] = (sys_fn_t)sys_dealloc_vmem,
+    [SYSID_MAP_VMEM] = (sys_fn_t)sys_map_vmem,
+    [SYSID_PROTECT_VMEM] = (sys_fn_t)sys_protect_vmem,
+
+    [SYSID_SYSEXEC] = (sys_fn_t)sys_exec,
+    [SYSID_CREATE_PROC] = (sys_fn_t)sys_create_proc,
+    [SYSID_DESTROY_PROC] = (sys_fn_t)sys_destroy_proc,
+
+    [SYSID_GET_HNDL_TYPE] = (sys_fn_t)sys_handle_get_type,
+    [SYSID_GET_SYSVAR_TYPE] = (sys_fn_t)sys_get_sysvar_type,
+    [SYSID_CREATE_SYSVAR] = (sys_fn_t)sys_create_sysvar,
+
+    [SYSID_DIR_CREATE] = (sys_fn_t)sys_dir_create,
+    [SYSID_DIR_READ] = (sys_fn_t)sys_dir_read,
+
+    [SYSID_SEEK] = (sys_fn_t)sys_seek,
+    [SYSID_GET_PROCESSTIME] = (sys_fn_t)sys_get_process_time,
+    [SYSID_SLEEP] = (sys_fn_t)sys_sleep,
+    [SYSID_GET_FUNCTION] = (sys_fn_t)sys_get_function,
+};
+static const size_t __syscall_map_sz = (sizeof(__syscall_map) / (sizeof(*__syscall_map)));
+
 /*
  * This stub mimics interrupt behaviour
  * TODO: move this to pure asm to avoid compiler funzies
