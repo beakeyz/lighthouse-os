@@ -1,6 +1,8 @@
+#include "dev/core.h"
 #include "fs/file.h"
 #include "libk/bin/elf.h"
 #include "libk/stddef.h"
+#include "lightos/driver/loader.h"
 #include "lightos/handle_def.h"
 #include "lightos/proc/shared.h"
 #include "lightos/syscall.h"
@@ -158,4 +160,14 @@ uintptr_t sys_get_process_time()
     // KLOG_DBG("Getting system time %d -> %lld\n", time.s_since_boot, time.ms_since_last_s);
 
     return ((time.s_since_boot - curr_prc->m_dt_since_boot) * 1000) + time.ms_since_last_s;
+}
+
+/*!
+ * @brief: Gets the exitvector of the current process
+ *
+ * This is only applicable if we're using the dynldr driver to load dynamic libraries.
+ */
+error_t sys_get_exitvec(dynldr_exit_vector_t** p_exitvec)
+{
+    return driver_send_msg_a(DYN_LDR_URL, DYN_LDR_GET_EXIT_VEC, NULL, NULL, p_exitvec, sizeof(dynldr_exit_vector_t*));
 }

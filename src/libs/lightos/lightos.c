@@ -1,3 +1,4 @@
+#include "lightos/syscall.h"
 #include <lightos/error.h>
 #include <lightos/lightos.h>
 #include <lightos/proc/cmdline.h>
@@ -72,7 +73,7 @@ int __init_lightos()
 
 LIGHTEXIT int __exit_lightos()
 {
-    printf("Called __exit_lightos =D\n");
+    // TODO
     return 0;
 }
 

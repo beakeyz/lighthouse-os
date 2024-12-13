@@ -333,6 +333,50 @@ static uint64_t _loader_msg(aniva_driver_t* driver, dcc_t code, void* in_buf, si
         *(const char**)out_buf = sym->name;
         break;
     }
+    case DYN_LDR_GET_EXIT_VEC: {
+        dynldr_exit_vector_t** vec = out_buf;
+        loaded_app_t* target_app;
+        dynamic_library_t* c_library;
+        u32 sz_exit_vec = 0;
+
+        /* Happy? */
+        if (!vec || out_bsize != sizeof(dynldr_exit_vector_t*))
+            return DRV_STAT_INVAL;
+
+        target_app = _get_app_from_proc(c_proc);
+
+        /* Walk the library list to count the size of the exit vec */
+        FOREACH(i, target_app->library_list)
+        {
+            c_library = (dynamic_library_t*)i->data;
+
+            if (c_library->exit)
+                sz_exit_vec++;
+        }
+
+        /* Try to allocate a range for the vector */
+        if (kmem_user_alloc_range((void**)vec, c_proc, sizeof(dynldr_exit_vector_t) + sizeof(void*) * sz_exit_vec, NULL, KMEM_FLAG_WRITABLE))
+            return -ENOMEM;
+
+        /* Set the thing */
+        (*vec)->nr_exits = sz_exit_vec;
+
+        /* Fill the buffer */
+        FOREACH(i, target_app->library_list)
+        {
+            c_library = (dynamic_library_t*)i->data;
+
+            /* Add the thing */
+            if (c_library->exit)
+                /*
+                 * Put in the exit vectors backwards, since that will be the reverse of how
+                 * the libraries got initialized
+                 */
+                (*vec)->vec_exits[(sz_exit_vec--) - 1] = c_library->exit;
+        }
+
+        break;
+    }
     default:
         return DRV_STAT_INVAL;
     }

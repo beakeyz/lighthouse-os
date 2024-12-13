@@ -15,6 +15,11 @@ void sys_exit(error_t status)
     syscall_1(SYSID_EXIT, status);
 }
 
+error_t sys_get_exitvec(dynldr_exit_vector_t** p_exitvec)
+{
+    return syscall_1(SYSID_GET_EXITVEC, (u64)p_exitvec);
+}
+
 error_t sys_close(HANDLE handle)
 {
     return syscall_1(SYSID_CLOSE, handle);

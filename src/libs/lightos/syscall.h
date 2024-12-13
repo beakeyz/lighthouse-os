@@ -15,10 +15,11 @@
  */
 
 #include "lightos/dev/shared.h"
-#include <lightos/types.h>
+#include "lightos/driver/loader.h"
 #include "lightos/fs/shared.h"
 #include "lightos/handle_def.h"
 #include "lightos/sysvar/shared.h"
+#include <lightos/types.h>
 
 /*!
  * @brief: Standard definition for a system function
@@ -33,6 +34,7 @@ typedef uint64_t (*sys_fn_t)(
 enum SYSID {
     SYSID_INVAL,
     SYSID_EXIT, /* Exit the process */
+    SYSID_GET_EXITVEC, /* Gets the exitvector */
     SYSID_CLOSE, /* Close a handle */
     SYSID_READ, /* Read from a handle */
     SYSID_WRITE, /* Write to a handle */
@@ -82,6 +84,7 @@ enum SYSID {
  * yayyyy)
  */
 extern void sys_exit(error_t status);
+extern error_t sys_get_exitvec(dynldr_exit_vector_t** p_exitvec);
 extern error_t sys_close(HANDLE handle);
 extern error_t sys_read(HANDLE handle, void* buffer, size_t size, size_t* pread_size);
 extern error_t sys_write(HANDLE handle, void* buffer, size_t size);
@@ -110,5 +113,37 @@ extern size_t sys_get_process_time(void);
 extern void sys_sleep(u64 ns);
 
 extern void* sys_get_function(HANDLE lib, const char* function);
+
+static const sys_fn_t __syscall_map[] = {
+    [SYSID_EXIT] = (sys_fn_t)sys_exit,
+    [SYSID_GET_EXITVEC] = (sys_fn_t)sys_get_exitvec,
+    [SYSID_CLOSE] = (sys_fn_t)sys_close,
+    [SYSID_READ] = (sys_fn_t)sys_read,
+    [SYSID_WRITE] = (sys_fn_t)sys_write,
+    [SYSID_OPEN] = (sys_fn_t)sys_open,
+    [SYSID_SEND_MSG] = (sys_fn_t)sys_send_msg,
+    [SYSID_SEND_CTL] = (sys_fn_t)sys_send_ctl,
+    [SYSID_ALLOC_VMEM] = (sys_fn_t)sys_alloc_vmem,
+    [SYSID_DEALLOC_VMEM] = (sys_fn_t)sys_dealloc_vmem,
+    [SYSID_MAP_VMEM] = (sys_fn_t)sys_map_vmem,
+    [SYSID_PROTECT_VMEM] = (sys_fn_t)sys_protect_vmem,
+
+    [SYSID_SYSEXEC] = (sys_fn_t)sys_exec,
+    [SYSID_CREATE_PROC] = (sys_fn_t)sys_create_proc,
+    [SYSID_DESTROY_PROC] = (sys_fn_t)sys_destroy_proc,
+
+    [SYSID_GET_HNDL_TYPE] = (sys_fn_t)sys_handle_get_type,
+    [SYSID_GET_SYSVAR_TYPE] = (sys_fn_t)sys_get_sysvar_type,
+    [SYSID_CREATE_SYSVAR] = (sys_fn_t)sys_create_sysvar,
+
+    [SYSID_DIR_CREATE] = (sys_fn_t)sys_dir_create,
+    [SYSID_DIR_READ] = (sys_fn_t)sys_dir_read,
+
+    [SYSID_SEEK] = (sys_fn_t)sys_seek,
+    [SYSID_GET_PROCESSTIME] = (sys_fn_t)sys_get_process_time,
+    [SYSID_SLEEP] = (sys_fn_t)sys_sleep,
+    [SYSID_GET_FUNCTION] = (sys_fn_t)sys_get_function,
+};
+static const size_t __syscall_map_sz = (sizeof(__syscall_map) / (sizeof(*__syscall_map)));
 
 #endif // !__LIGHTENV_SYSCALL__

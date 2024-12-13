@@ -37,7 +37,16 @@ enum DYNLDR_MSG_CODE {
      * OUT: (HANDLE) handle to the library
      */
     DYN_LDR_GET_LIB,
+    /*
+     * Returns a pointer to the exitvector of the current process
+     */
+    DYN_LDR_GET_EXIT_VEC,
 };
+
+typedef struct dynldr_exit_vector {
+    unsigned long long nr_exits;
+    void* vec_exits[];
+} dynldr_exit_vector_t;
 
 typedef struct dynldr_getfuncname_msg {
     const char* proc_path;

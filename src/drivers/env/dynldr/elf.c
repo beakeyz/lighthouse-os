@@ -8,11 +8,12 @@
 #include "libk/data/hashmap.h"
 #include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"
-#include <lightos/lightos.h>
+#include "logging/log.h"
 #include "mem/kmem_manager.h"
 #include "mem/zalloc/zalloc.h"
 #include "proc/proc.h"
 #include "system/resource.h"
+#include <lightos/lightos.h>
 
 /*!
  * @brief: Load static information of an elf image
@@ -216,10 +217,13 @@ kerror_t _elf_do_headers(elf_image_t* image)
 
             break;
         case SHT_PROGBITS:
-            if (strncmp(LIGHTENTRY_SECTION_NAME, image->elf_shstrtab + shdr->sh_name, strlen(LIGHTENTRY_SECTION_NAME)) == 0)
+            if (strncmp(LIGHTENTRY_SECTION_NAME, image->elf_shstrtab + shdr->sh_name, sizeof(LIGHTENTRY_SECTION_NAME) - 1) == 0) {
                 image->elf_lightentry_hdr = shdr;
-            else if (strncmp(LIGHTEXIT_SECTION_NAME, image->elf_shstrtab + shdr->sh_name, strlen(LIGHTEXIT_SECTION_NAME)) == 0)
+                KLOG("Found entry function for lib image %s: 0x%p\n", image->proc->m_name, image->elf_lightentry_hdr);
+            } else if (strncmp(LIGHTEXIT_SECTION_NAME, image->elf_shstrtab + shdr->sh_name, sizeof(LIGHTEXIT_SECTION_NAME) - 1) == 0) {
                 image->elf_lightexit_hdr = shdr;
+                KLOG("Found exit function for lib image %s: 0x%p\n", image->proc->m_name, image->elf_lightexit_hdr);
+            }
 
             break;
         }

@@ -1,6 +1,5 @@
 #include "fs/dir.h"
 #include "fs/file.h"
-#include "libk/flow/error.h"
 #include "lightos/fs/shared.h"
 #include "lightos/handle_def.h"
 #include "lightos/syscall.h"

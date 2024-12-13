@@ -15,10 +15,11 @@
  */
 
 #include "lightos/dev/shared.h"
-#include <lightos/types.h>
+#include "lightos/driver/loader.h"
 #include "lightos/fs/shared.h"
 #include "lightos/handle_def.h"
 #include "lightos/sysvar/shared.h"
+#include <lightos/types.h>
 
 /*!
  * @brief: Standard definition for a system function
@@ -33,6 +34,7 @@ typedef uint64_t (*sys_fn_t)(
 enum SYSID {
     SYSID_INVAL,
     SYSID_EXIT, /* Exit the process */
+    SYSID_GET_EXITVEC, /* Gets the exitvector */
     SYSID_CLOSE, /* Close a handle */
     SYSID_READ, /* Read from a handle */
     SYSID_WRITE, /* Write to a handle */
@@ -82,6 +84,7 @@ enum SYSID {
  * yayyyy)
  */
 extern void sys_exit(error_t status);
+extern error_t sys_get_exitvec(dynldr_exit_vector_t** p_exitvec);
 extern error_t sys_close(HANDLE handle);
 extern error_t sys_read(HANDLE handle, void* buffer, size_t size, size_t* pread_size);
 extern error_t sys_write(HANDLE handle, void* buffer, size_t size);
@@ -113,6 +116,7 @@ extern void* sys_get_function(HANDLE lib, const char* function);
 
 static const sys_fn_t __syscall_map[] = {
     [SYSID_EXIT] = (sys_fn_t)sys_exit,
+    [SYSID_GET_EXITVEC] = (sys_fn_t)sys_get_exitvec,
     [SYSID_CLOSE] = (sys_fn_t)sys_close,
     [SYSID_READ] = (sys_fn_t)sys_read,
     [SYSID_WRITE] = (sys_fn_t)sys_write,
