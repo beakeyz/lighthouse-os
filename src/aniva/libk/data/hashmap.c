@@ -160,7 +160,7 @@ hashmap_t* create_hashmap(size_t max_entries, uint32_t flags)
     hashmap_size = __get_hashmap_size(max_entries, flags);
     aligned_size = ALIGN_UP(hashmap_size, SMALL_PAGE_SIZE);
 
-    error = (__kmem_kernel_alloc_range((void**)&ret, aligned_size, 0, KMEM_FLAG_WRITABLE | KMEM_FLAG_KERNEL));
+    error = (kmem_kernel_alloc_range((void**)&ret, aligned_size, 0, KMEM_FLAG_WRITABLE | KMEM_FLAG_KERNEL));
 
     /* Fuck */
     if (error)
@@ -226,7 +226,7 @@ void destroy_hashmap(hashmap_t* map)
         return;
 
     __hashmap_cleanup(map);
-    __kmem_kernel_dealloc((vaddr_t)map, map->m_total_size);
+    kmem_kernel_dealloc((vaddr_t)map, map->m_total_size);
 }
 
 kerror_t hashmap_itterate(hashmap_t* map, void** p_itt_result, hashmap_itterate_fn_t fn, uint64_t arg0, uint64_t arg1)

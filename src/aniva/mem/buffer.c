@@ -27,7 +27,7 @@ static inline FuncPtr __get_cleanup_method(enum ANIVA_BUFFER_METHOD method)
     case ANIVA_BUFFER_METHOD_KZALLOC:
         return kzfree;
     case ANIVA_BUFFER_METHOD_KMEM:
-        return (FuncPtr)__kmem_dealloc;
+        return (FuncPtr)kmem_dealloc;
     default:
         break;
     }

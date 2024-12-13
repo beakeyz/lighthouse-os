@@ -115,7 +115,7 @@ int init_khandle_map(khandle_map_t* ret, uint32_t max_count)
     ret->lock = create_mutex(0);
 
     /* Ensure we can create this list that provides a maximum of 1024 handles */
-    error = __kmem_kernel_alloc_range((void**)&ret->handles, max_count * sizeof(khandle_t), NULL, KMEM_FLAG_WRITABLE | KMEM_FLAG_KERNEL);
+    error = kmem_kernel_alloc_range((void**)&ret->handles, max_count * sizeof(khandle_t), NULL, KMEM_FLAG_WRITABLE | KMEM_FLAG_KERNEL);
 
     if (error) {
         destroy_mutex(ret->lock);
@@ -181,7 +181,7 @@ void destroy_khandle_map(khandle_map_t* map)
 
     ASSERT_MSG(map->max_count, "Tried to destroy a khandle map without a max_count!");
 
-    ASSERT_MSG(__kmem_kernel_dealloc((vaddr_t)map->handles, map->max_count * sizeof(khandle_t)) == 0, "Failed to dealloc khandle map");
+    ASSERT_MSG(kmem_kernel_dealloc((vaddr_t)map->handles, map->max_count * sizeof(khandle_t)) == 0, "Failed to dealloc khandle map");
 }
 
 khandle_t* find_khandle(khandle_map_t* map, uint32_t user_handle)
@@ -218,7 +218,7 @@ static kerror_t __try_reallocate_handles(khandle_map_t* map, size_t new_max_coun
         return -1;
 
     /* Allocate new space */
-    error = __kmem_kernel_alloc_range((void**)&new_list, new_max_count * sizeof(khandle_t), NULL, KMEM_FLAG_WRITABLE | KMEM_FLAG_KERNEL);
+    error = kmem_kernel_alloc_range((void**)&new_list, new_max_count * sizeof(khandle_t), NULL, KMEM_FLAG_WRITABLE | KMEM_FLAG_KERNEL);
 
     if (error)
         return error;
@@ -227,7 +227,7 @@ static kerror_t __try_reallocate_handles(khandle_map_t* map, size_t new_max_coun
     memcpy(map->handles, new_list, map->max_count * sizeof(khandle_t));
 
     /* We can now deallocate the old list */
-    error = __kmem_kernel_dealloc((uint64_t)map->handles, map->max_count * sizeof(khandle_t));
+    error = kmem_kernel_dealloc((uint64_t)map->handles, map->max_count * sizeof(khandle_t));
 
     /* Update max_count */
     map->max_count = new_max_count;

@@ -92,7 +92,7 @@ static ALWAYS_INLINE void* get_hba_region(ahci_device_t* device)
     bar_addr = get_bar_address(bar5);
 
     /* Map the range */
-    ASSERT(!__kmem_kernel_alloc((void**)&hba_region, bar_addr, ALIGN_UP(sizeof(HBA), SMALL_PAGE_SIZE * 2), 0, KMEM_FLAG_DMA | KMEM_FLAG_KERNEL));
+    ASSERT(!kmem_kernel_alloc((void**)&hba_region, bar_addr, ALIGN_UP(sizeof(HBA), SMALL_PAGE_SIZE * 2), 0, KMEM_FLAG_DMA | KMEM_FLAG_KERNEL));
 
     return (void*)hba_region;
 }

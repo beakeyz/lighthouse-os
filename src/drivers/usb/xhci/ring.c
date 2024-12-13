@@ -31,7 +31,7 @@ xhci_ring_t* create_xhci_ring(xhci_hcd_t* hcd, uint32_t trb_count, uint32_t type
     ret->ring_type = type;
     ret->ring_size = ALIGN_UP(trb_count * sizeof(xhci_trb_t), SMALL_PAGE_SIZE);
 
-    ASSERT(!__kmem_kernel_alloc_range((void**)&ret->ring_buffer, ret->ring_size, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_DMA));
+    ASSERT(!kmem_kernel_alloc_range((void**)&ret->ring_buffer, ret->ring_size, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_DMA));
 
     ret->ring_dma = kmem_to_phys(nullptr, (vaddr_t)ret->ring_buffer);
 
@@ -53,7 +53,7 @@ xhci_ring_t* create_xhci_ring(xhci_hcd_t* hcd, uint32_t trb_count, uint32_t type
 
 void destroy_xhci_ring(xhci_ring_t* ring)
 {
-    ASSERT(!__kmem_dealloc(nullptr, nullptr, (vaddr_t)ring->ring_buffer, ring->ring_size));
+    ASSERT(!kmem_dealloc(nullptr, nullptr, (vaddr_t)ring->ring_buffer, ring->ring_size));
 
     kzfree(ring, sizeof(xhci_ring_t));
 }
@@ -149,7 +149,7 @@ xhci_interrupter_t* create_xhci_interrupter(struct xhci_hcd* xhci)
      */
     ret->erst.entry_count = 1;
     ret->erst.erst_size = ALIGN_UP(ret->erst.entry_count * sizeof(xhci_erst_entry_t), PAGE_SIZE);
-    ASSERT(!__kmem_kernel_alloc_range((void**)&ret->erst.entries, ret->erst.erst_size, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_DMA));
+    ASSERT(!kmem_kernel_alloc_range((void**)&ret->erst.entries, ret->erst.erst_size, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_DMA));
 
     for (uint32_t i = 0; i < ret->erst.entry_count; i++) {
         current_entry = &ret->erst.entries[i];
@@ -164,7 +164,7 @@ xhci_interrupter_t* create_xhci_interrupter(struct xhci_hcd* xhci)
 
 void destory_xhci_interrupter(xhci_interrupter_t* interrupter)
 {
-    __kmem_dealloc(nullptr, nullptr, (vaddr_t)interrupter->erst.entries, interrupter->erst.erst_size);
+    kmem_dealloc(nullptr, nullptr, (vaddr_t)interrupter->erst.entries, interrupter->erst.erst_size);
 
     destroy_xhci_ring(interrupter->event_ring);
 

@@ -507,7 +507,7 @@ static int xhci_create_scratchpad(xhci_hcd_t* xhci)
     memset(sp, 0, sizeof(xhci_scratchpad_t));
 
     /* Allocate the dma arrray */
-    ASSERT(!__kmem_kernel_alloc_range(
+    ASSERT(!kmem_kernel_alloc_range(
         (void**)&sp->array,
         sizeof(uintptr_t) * xhci->scratchpad_count, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_DMA));
 
@@ -523,7 +523,7 @@ static int xhci_create_scratchpad(xhci_hcd_t* xhci)
         paddr_t dma_addr;
 
         /* Allocate the buffer address for the scratchpad */
-        ASSERT(!__kmem_kernel_alloc_range((void**)&buffer_addr, SMALL_PAGE_SIZE, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_DMA));
+        ASSERT(!kmem_kernel_alloc_range((void**)&buffer_addr, SMALL_PAGE_SIZE, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_DMA));
 
         /* Get it's DMA address */
         dma_addr = kmem_to_phys(nullptr, buffer_addr);
@@ -549,11 +549,11 @@ static void xhci_destroy_scratchpad(xhci_hcd_t* xhci)
 
     /* Deallocate the buffers */
     for (uintptr_t i = 0; i < xhci->scratchpad_count; i++) {
-        __kmem_kernel_dealloc((vaddr_t)scratchpad->buffers[i], SMALL_PAGE_SIZE);
+        kmem_kernel_dealloc((vaddr_t)scratchpad->buffers[i], SMALL_PAGE_SIZE);
     }
 
     /* Deallocate the dma array */
-    __kmem_kernel_dealloc((vaddr_t)scratchpad->array, sizeof(uintptr_t) * xhci->scratchpad_count);
+    kmem_kernel_dealloc((vaddr_t)scratchpad->array, sizeof(uintptr_t) * xhci->scratchpad_count);
 
     /* Free the buffers buffer */
     kfree(scratchpad->buffers);
@@ -603,7 +603,7 @@ static int xhci_prepare_memory(usb_hcd_t* hcd)
     mmio_write_dword(&xhci->op_regs->config_reg, xhci->max_slots);
 
     /* Allocate the dctx array */
-    ASSERT(!__kmem_kernel_alloc_range((void**)&xhci->dctx_array_ptr, sizeof(xhci_dev_ctx_array_t), NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_DMA | KMEM_FLAG_WRITETHROUGH));
+    ASSERT(!kmem_kernel_alloc_range((void**)&xhci->dctx_array_ptr, sizeof(xhci_dev_ctx_array_t), NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_DMA | KMEM_FLAG_WRITETHROUGH));
     xhci->dctx_array_ptr->dma = kmem_to_phys(nullptr, (vaddr_t)xhci->dctx_array_ptr);
 
     /* Clear the dctx array */
@@ -823,7 +823,7 @@ int xhci_setup(usb_hcd_t* hcd)
      * them better lmao
      */
     xhci->register_size = ALIGN_UP(xhci_register_size, SMALL_PAGE_SIZE);
-    ASSERT(!__kmem_kernel_alloc(
+    ASSERT(!kmem_kernel_alloc(
         (void**)&xhci->register_ptr,
         xhci_register_p, xhci->register_size, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_DMA));
 
@@ -891,7 +891,7 @@ int xhci_setup(usb_hcd_t* hcd)
 
 fail_and_dealloc:
     /* Since the XHCI registers SHOULD be in a reserved region, this is OK since we are not needing this anymore */
-    __kmem_dealloc_unmap(nullptr, nullptr, xhci->register_ptr, xhci_register_size);
+    kmem_dealloc_unmap(nullptr, nullptr, xhci->register_ptr, xhci_register_size);
 
     pci_device_disable(device);
     return -1;

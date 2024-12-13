@@ -109,7 +109,7 @@ int init_apic(apic_t** apic, size_t size, uint32_t base)
     ret->next = (apic_t*)(*apic);
 
     /* Map the local apic  */
-    error = __kmem_alloc((void**)&ret->register_base, NULL, NULL, base, SMALL_PAGE_SIZE, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE | KMEM_FLAG_NOCACHE);
+    error = kmem_alloc((void**)&ret->register_base, NULL, NULL, base, SMALL_PAGE_SIZE, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE | KMEM_FLAG_NOCACHE);
 
     if (error) {
         kfree(ret);

@@ -189,7 +189,7 @@ static void __destroy_upi_pipe(upi_pipe_t* pipe)
         upi_destroy_transaction(pipe, &pipe->ft_buffer[i]);
 
     /* Deallocate the ft buffer */
-    __kmem_kernel_dealloc((vaddr_t)pipe->ft_buffer, sizeof(lightos_pipe_ft_t) * pipe->ft_capacity);
+    kmem_kernel_dealloc((vaddr_t)pipe->ft_buffer, sizeof(lightos_pipe_ft_t) * pipe->ft_capacity);
 
     c_listener = pipe->listeners;
 
@@ -249,7 +249,7 @@ upi_pipe_t* create_upi_pipe(proc_t* proc, lightos_pipe_t __user* upipe)
     ret->ft_capacity = UPI_DEFAULT_FT_CAPACITY;
 
     /* Try to allocate a buffer */
-    if (__kmem_kernel_alloc_range((void**)&ret->ft_buffer, sizeof(lightos_pipe_ft_t) * ret->ft_capacity, KMEM_CUSTOMFLAG_CREATE_USER, KMEM_FLAG_WRITABLE) || !ret->ft_buffer)
+    if (kmem_kernel_alloc_range((void**)&ret->ft_buffer, sizeof(lightos_pipe_ft_t) * ret->ft_capacity, KMEM_CUSTOMFLAG_CREATE_USER, KMEM_FLAG_WRITABLE) || !ret->ft_buffer)
         goto destroy_and_exit;
 
     memset(ret->ft_buffer, 0, sizeof(lightos_pipe_ft_t) * ret->ft_capacity);
@@ -281,7 +281,7 @@ destroy_and_exit:
         destroy_zone_allocator(ret->uniform_allocator, false);
 
     if (ret->ft_buffer)
-        __kmem_kernel_dealloc((vaddr_t)ret->ft_buffer, sizeof(lightos_pipe_t) * ret->ft_capacity);
+        kmem_kernel_dealloc((vaddr_t)ret->ft_buffer, sizeof(lightos_pipe_t) * ret->ft_capacity);
 
     zfree_fixed(_upi_pipe_allocator, ret);
     return nullptr;

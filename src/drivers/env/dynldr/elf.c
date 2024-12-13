@@ -27,7 +27,7 @@ kerror_t load_elf_image(elf_image_t* image, proc_t* proc, file_t* file)
     image->kernel_image_size = ALIGN_UP(file->m_total_size, SMALL_PAGE_SIZE);
 
     /* Allocate space for the image */
-    ASSERT(__kmem_kernel_alloc_range(&image->kernel_image, image->kernel_image_size, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE) == 0);
+    ASSERT(kmem_kernel_alloc_range(&image->kernel_image, image->kernel_image_size, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE) == 0);
 
     if (!file_read(file, image->kernel_image, file->m_total_size, 0))
         return -KERR_IO;
@@ -41,7 +41,7 @@ kerror_t load_elf_image(elf_image_t* image, proc_t* proc, file_t* file)
 
     return 0;
 error_and_exit:
-    __kmem_kernel_dealloc((vaddr_t)image->kernel_image, image->kernel_image_size);
+    kmem_kernel_dealloc((vaddr_t)image->kernel_image, image->kernel_image_size);
 
     return -KERR_INVAL;
 }
@@ -51,7 +51,7 @@ error_and_exit:
  */
 void destroy_elf_image(elf_image_t* image)
 {
-    __kmem_kernel_dealloc((vaddr_t)image->kernel_image, image->kernel_image_size);
+    kmem_kernel_dealloc((vaddr_t)image->kernel_image, image->kernel_image_size);
 
     kfree(image->elf_phdrs);
 }
@@ -117,7 +117,7 @@ kerror_t _elf_load_phdrs(elf_image_t* image)
             vaddr_t virtual_phdr_base = (vaddr_t)image->user_base + c_phdr->p_vaddr;
             size_t phdr_size = c_phdr->p_memsz;
 
-            ASSERT(__kmem_alloc_range(
+            ASSERT(kmem_alloc_range(
                        (void**)&v_user_phdr_start,
                        proc->m_root_pd.m_root,
                        proc->m_resource_bundle,

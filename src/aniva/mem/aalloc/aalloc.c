@@ -41,7 +41,7 @@ static inline arena_t* __allocate_arena(size_t sz)
 
     sz = ALIGN_UP(sz, SMALL_PAGE_SIZE);
 
-    if (!__kmem_kernel_alloc_range(&buffer, sz, NULL, KMEM_FLAG_WRITABLE)) {
+    if (!kmem_kernel_alloc_range(&buffer, sz, NULL, KMEM_FLAG_WRITABLE)) {
         kfree(ret);
         return nullptr;
     }
@@ -54,7 +54,7 @@ static inline void __deallocate_arena(arena_t* a)
     ASSERT(a->start && a->size);
 
     /* Deallocate this memory */
-    __kmem_kernel_dealloc((vaddr_t)a->start, a->size);
+    kmem_kernel_dealloc((vaddr_t)a->start, a->size);
 
     /* Free the arena */
     kfree(a);
@@ -116,7 +116,7 @@ int init_a_allocator(a_allocator_t* allocator, u32 flags, u32 max_arena_nr, u32 
     /* If our kind soul provided a buffer for us, we're happy =) */
     if (!buffer || !bsize) {
         /* NOOO now we have to allocate shit ourselves =( */
-        error = __kmem_kernel_alloc_range(&buffer, AALLOC_DEFAULT_ARENA_SZ, NULL, KMEM_FLAG_WRITABLE);
+        error = kmem_kernel_alloc_range(&buffer, AALLOC_DEFAULT_ARENA_SZ, NULL, KMEM_FLAG_WRITABLE);
 
         /* Fuck */
         if (error)
@@ -160,7 +160,7 @@ void destroy_a_allocator(a_allocator_t* allocator)
 {
     /* Start arena was allocated by us, we need to delete it  */
     if ((allocator->flags & AALLOC_FLAG_KMEM_START) != AALLOC_FLAG_KMEM_START)
-        __kmem_kernel_dealloc((vaddr_t)allocator->start_arena.start, allocator->start_arena.size);
+        kmem_kernel_dealloc((vaddr_t)allocator->start_arena.start, allocator->start_arena.size);
 
     /*
      * For now, other arenas will be put on the kernel heap

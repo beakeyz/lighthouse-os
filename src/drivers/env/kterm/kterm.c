@@ -1224,13 +1224,13 @@ int kterm_init(driver_t* driver)
     /*
      * Allocate a range for our characters
      */
-    ASSERT(!__kmem_kernel_alloc_range((void**)&_characters, _chars_xres * _chars_yres * sizeof(struct kterm_terminal_char), NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE));
+    ASSERT(!kmem_kernel_alloc_range((void**)&_characters, _chars_xres * _chars_yres * sizeof(struct kterm_terminal_char), NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE));
 
     /* Clear the entire character buffer */
     memset(_characters, 0, _chars_xres * _chars_yres * sizeof(struct kterm_terminal_char));
 
     /* Allocate the color pallet */
-    ASSERT(!__kmem_kernel_alloc_range((void**)&_clr_pallet, KTERM_MAX_PALLET_ENTRY_COUNT * sizeof(struct kterm_terminal_pallet_entry), NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE));
+    ASSERT(!kmem_kernel_alloc_range((void**)&_clr_pallet, KTERM_MAX_PALLET_ENTRY_COUNT * sizeof(struct kterm_terminal_pallet_entry), NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE));
 
     kterm_fill_pallet();
 

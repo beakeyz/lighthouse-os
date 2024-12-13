@@ -311,7 +311,7 @@ static int ahci_port_write_blk(device_t* device, driver_t* driver, uintptr_t blk
     buffer_size = count * disk_dev->info.logical_sector_size;
 
     /* Preallocate a buffer (TODO: contact a generic disk block cache) */
-    // tmp = Must(__kmem_kernel_alloc_range(buffer_size, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_DMA));
+    // tmp = Must(kmem_kernel_alloc_range(buffer_size, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_DMA));
     phys_tmp = kmem_to_phys(nullptr, (uintptr_t)buffer);
 
     if (phys_tmp == NULL)
@@ -370,7 +370,7 @@ static int ahci_port_read_blk(device_t* device, driver_t* driver, uintptr_t blk,
     buffer_size = count * disk_dev->info.logical_sector_size;
 
     /* Preallocate a buffer (TODO: contact a generic disk block cache) */
-    // tmp = Must(__kmem_kernel_alloc_range(buffer_size, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_DMA));
+    // tmp = Must(kmem_kernel_alloc_range(buffer_size, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_DMA));
     phys_tmp = kmem_to_phys(nullptr, (uintptr_t)buffer);
 
     if (phys_tmp == NULL)
@@ -409,7 +409,7 @@ static int ahci_port_ata_ident(device_t* device, driver_t* driver, uintptr_t blk
     paddr_t dev_ident_phys;
 
     /* Allocate a buffer for us */
-    ASSERT(__kmem_kernel_alloc_range((void**)&dev_identify_buffer, SMALL_PAGE_SIZE, 0, KMEM_FLAG_DMA) == 0);
+    ASSERT(kmem_kernel_alloc_range((void**)&dev_identify_buffer, SMALL_PAGE_SIZE, 0, KMEM_FLAG_DMA) == 0);
 
     /* Grab the physical address */
     dev_ident_phys = kmem_to_phys(nullptr, (vaddr_t)dev_identify_buffer);
@@ -426,11 +426,11 @@ static int ahci_port_ata_ident(device_t* device, driver_t* driver, uintptr_t blk
     memcpy(buffer, dev_identify_buffer, bsize);
 
     /* Deallocate the stuff */
-    __kmem_kernel_dealloc((vaddr_t)dev_identify_buffer, SMALL_PAGE_SIZE);
+    kmem_kernel_dealloc((vaddr_t)dev_identify_buffer, SMALL_PAGE_SIZE);
     return 0;
 
 fail_and_dealloc:
-    __kmem_kernel_dealloc((vaddr_t)dev_identify_buffer, SMALL_PAGE_SIZE);
+    kmem_kernel_dealloc((vaddr_t)dev_identify_buffer, SMALL_PAGE_SIZE);
     return -KERR_DEV;
 }
 
@@ -477,11 +477,11 @@ ahci_port_t* create_ahci_port(struct ahci_device* device, uintptr_t port_offset,
     register_volume_device(ret->m_generic);
 
     // prepare buffers
-    ASSERT(!__kmem_kernel_alloc_range((void**)&ret->m_fis_recieve_page, SMALL_PAGE_SIZE, 0, KMEM_FLAG_DMA));
-    ASSERT(!__kmem_kernel_alloc_range((void**)&ret->m_cmd_list_page, SMALL_PAGE_SIZE, 0, KMEM_FLAG_DMA));
+    ASSERT(!kmem_kernel_alloc_range((void**)&ret->m_fis_recieve_page, SMALL_PAGE_SIZE, 0, KMEM_FLAG_DMA));
+    ASSERT(!kmem_kernel_alloc_range((void**)&ret->m_cmd_list_page, SMALL_PAGE_SIZE, 0, KMEM_FLAG_DMA));
 
-    ASSERT(!__kmem_kernel_alloc_range((void**)&ret->m_dma_buffer, SMALL_PAGE_SIZE, 0, KMEM_FLAG_DMA));
-    ASSERT(!__kmem_kernel_alloc_range((void**)&ret->m_cmd_table_buffer, SMALL_PAGE_SIZE, 0, KMEM_FLAG_DMA));
+    ASSERT(!kmem_kernel_alloc_range((void**)&ret->m_dma_buffer, SMALL_PAGE_SIZE, 0, KMEM_FLAG_DMA));
+    ASSERT(!kmem_kernel_alloc_range((void**)&ret->m_cmd_table_buffer, SMALL_PAGE_SIZE, 0, KMEM_FLAG_DMA));
 
     return ret;
 }
@@ -489,10 +489,10 @@ ahci_port_t* create_ahci_port(struct ahci_device* device, uintptr_t port_offset,
 void destroy_ahci_port(ahci_port_t* port)
 {
 
-    __kmem_kernel_dealloc(port->m_dma_buffer, SMALL_PAGE_SIZE);
-    __kmem_kernel_dealloc(port->m_cmd_list_page, SMALL_PAGE_SIZE);
-    __kmem_kernel_dealloc(port->m_fis_recieve_page, SMALL_PAGE_SIZE);
-    __kmem_kernel_dealloc(port->m_cmd_table_buffer, SMALL_PAGE_SIZE);
+    kmem_kernel_dealloc(port->m_dma_buffer, SMALL_PAGE_SIZE);
+    kmem_kernel_dealloc(port->m_cmd_list_page, SMALL_PAGE_SIZE);
+    kmem_kernel_dealloc(port->m_fis_recieve_page, SMALL_PAGE_SIZE);
+    kmem_kernel_dealloc(port->m_cmd_table_buffer, SMALL_PAGE_SIZE);
 
     /* Destroying the volume device should also unregister it, if it still is */
     destroy_volume_device(port->m_generic);
@@ -570,7 +570,7 @@ ANIVA_STATUS ahci_port_gather_info(ahci_port_t* port)
     ata_identify_block_t* dev_identify_buffer;
 
     /* Allocate a buffer for us */
-    ASSERT(__kmem_kernel_alloc_range((void**)&dev_identify_buffer, SMALL_PAGE_SIZE, 0, KMEM_FLAG_DMA) == 0);
+    ASSERT(kmem_kernel_alloc_range((void**)&dev_identify_buffer, SMALL_PAGE_SIZE, 0, KMEM_FLAG_DMA) == 0);
 
     paddr_t dev_ident_phys = kmem_to_phys(nullptr, (vaddr_t)dev_identify_buffer);
 
@@ -643,13 +643,13 @@ ANIVA_STATUS ahci_port_gather_info(ahci_port_t* port)
         port->m_generic->info.logical_sector_size);
 
     /* Clean the buffer */
-    __kmem_kernel_dealloc((vaddr_t)dev_identify_buffer, SMALL_PAGE_SIZE);
+    kmem_kernel_dealloc((vaddr_t)dev_identify_buffer, SMALL_PAGE_SIZE);
     // kdebug();
     return ANIVA_SUCCESS;
 
 fail_and_dealloc:
     kernel_panic("DEV IDENTIFY WENT WRONG");
-    __kmem_kernel_dealloc((vaddr_t)dev_identify_buffer, SMALL_PAGE_SIZE);
+    kmem_kernel_dealloc((vaddr_t)dev_identify_buffer, SMALL_PAGE_SIZE);
     return ANIVA_FAIL;
 }
 

@@ -90,7 +90,7 @@ static kevent_t* create_kevent(const char* name, enum KEVENT_TYPE type, uint32_t
     event->hooks_size = ALIGN_UP(hook_capacity * sizeof(kevent_hook_t), SMALL_PAGE_SIZE);
     event->hook_capacity = event->hooks_size / sizeof(kevent_hook_t);
 
-    ASSERT(__kmem_kernel_alloc_range((void**)&event->hooks, event->hooks_size, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE) == 0);
+    ASSERT(kmem_kernel_alloc_range((void**)&event->hooks, event->hooks_size, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE) == 0);
 
     memset(event->hooks, NULL, event->hooks_size);
     return event;
@@ -104,7 +104,7 @@ static void destroy_kevent(kevent_t* event)
     kfree((void*)event->name);
     destroy_mutex(event->lock);
 
-    __kmem_kernel_dealloc((vaddr_t)event->hooks, event->hook_capacity * sizeof(kevent_hook_t));
+    kmem_kernel_dealloc((vaddr_t)event->hooks, event->hook_capacity * sizeof(kevent_hook_t));
     zfree_fixed(_kevent_allocator, event);
 }
 

@@ -69,6 +69,7 @@ extern const size_t early_map_size;
 
 static void _init_kmem_page_layout(void);
 static void kmem_init_physical_allocator(void);
+static void kmem_parse_mmap(void);
 
 static mutex_t* _kmem_phys_lock;
 static mutex_t* _kmem_map_lock;
@@ -326,7 +327,7 @@ static void _kmem_merge_ranges(kmem_range_t* reserved)
     KMEM_DATA.m_phys_ranges = new_list;
 }
 
-void kmem_parse_mmap(void)
+static void kmem_parse_mmap(void)
 {
     paddr_t _p_kernel_start;
     paddr_t _p_kernel_end;
@@ -1011,30 +1012,30 @@ int kmem_ensure_mapped(pml_entry_t* table, vaddr_t base, size_t size)
  * We track allocations of drivers by keeping track of which driver we are currently executing, but there is nothing stopping the
  * drivers (yet) from using any kernel function that bypasses this mechanism, so mallicious (or simply malfunctioning) drivers can
  * cause us to lose memory at a big pase. We should (TODO) limit drivers to only use the functions that are deemed safe to use by drivers,
- * AKA we should blacklist any 'unsafe' functions, like __kmem_alloc_ex, which bypasses any resource tracking
+ * AKA we should blacklist any 'unsafe' functions, like kmem_alloc_ex, which bypasses any resource tracking
  */
 
-int __kmem_kernel_dealloc(uintptr_t virt_base, size_t size)
+int kmem_kernel_dealloc(uintptr_t virt_base, size_t size)
 {
-    return __kmem_dealloc(nullptr, nullptr, virt_base, size);
+    return kmem_dealloc(nullptr, nullptr, virt_base, size);
 }
 
-int __kmem_dealloc(pml_entry_t* map, kresource_bundle_t* resources, uintptr_t virt_base, size_t size)
+int kmem_dealloc(pml_entry_t* map, kresource_bundle_t* resources, uintptr_t virt_base, size_t size)
 {
     /* NOTE: process is nullable, so it does not matter if we are not in a process at this point */
-    return __kmem_dealloc_ex(map, resources, virt_base, size, true, false, false);
+    return kmem_dealloc_ex(map, resources, virt_base, size, true, false, false);
 }
 
-int __kmem_dealloc_unmap(pml_entry_t* map, kresource_bundle_t* resources, uintptr_t virt_base, size_t size)
+int kmem_dealloc_unmap(pml_entry_t* map, kresource_bundle_t* resources, uintptr_t virt_base, size_t size)
 {
-    return __kmem_dealloc_ex(map, resources, virt_base, size, true, false, false);
+    return kmem_dealloc_ex(map, resources, virt_base, size, true, false, false);
 }
 
 /*!
  * @brief Expanded deallocation function
  *
  */
-int __kmem_dealloc_ex(pml_entry_t* map, kresource_bundle_t* resources, uintptr_t virt_base, size_t size, bool unmap, bool ignore_unused, bool defer_res_release)
+int kmem_dealloc_ex(pml_entry_t* map, kresource_bundle_t* resources, uintptr_t virt_base, size_t size, bool unmap, bool ignore_unused, bool defer_res_release)
 {
     const size_t pages_needed = GET_PAGECOUNT(virt_base, size);
 
@@ -1068,36 +1069,36 @@ int __kmem_dealloc_ex(pml_entry_t* map, kresource_bundle_t* resources, uintptr_t
  * @brief Allocate a physical address for the kernel
  *
  */
-int __kmem_kernel_alloc(void** result, uintptr_t addr, size_t size, uint32_t custom_flags, uint32_t page_flags)
+int kmem_kernel_alloc(void** result, uintptr_t addr, size_t size, uint32_t custom_flags, uint32_t page_flags)
 {
-    return __kmem_alloc(result, nullptr, nullptr, addr, size, custom_flags, page_flags);
+    return kmem_alloc(result, nullptr, nullptr, addr, size, custom_flags, page_flags);
 }
 
 /*!
  * @brief Allocate a range of memory for the kernel
  *
  */
-int __kmem_kernel_alloc_range(void** result, size_t size, uint32_t custom_flags, uint32_t page_flags)
+int kmem_kernel_alloc_range(void** result, size_t size, uint32_t custom_flags, uint32_t page_flags)
 {
-    return __kmem_alloc_range(result, nullptr, nullptr, KERNEL_MAP_BASE, size, custom_flags, page_flags);
+    return kmem_alloc_range(result, nullptr, nullptr, KERNEL_MAP_BASE, size, custom_flags, page_flags);
 }
 
-int __kmem_dma_alloc(void** result, uintptr_t addr, size_t size, uint32_t custom_flags, uint32_t page_flags)
+int kmem_dma_alloc(void** result, uintptr_t addr, size_t size, uint32_t custom_flags, uint32_t page_flags)
 {
-    return __kmem_alloc_ex(result, nullptr, nullptr, addr, KERNEL_MAP_BASE, size, custom_flags, page_flags | KMEM_FLAG_DMA);
+    return kmem_alloc_ex(result, nullptr, nullptr, addr, KERNEL_MAP_BASE, size, custom_flags, page_flags | KMEM_FLAG_DMA);
 }
 
-int __kmem_dma_alloc_range(void** result, size_t size, uint32_t custom_flags, uint32_t page_flags)
+int kmem_dma_alloc_range(void** result, size_t size, uint32_t custom_flags, uint32_t page_flags)
 {
-    return __kmem_alloc_range(result, nullptr, nullptr, KERNEL_MAP_BASE, size, custom_flags, page_flags | KMEM_FLAG_DMA);
+    return kmem_alloc_range(result, nullptr, nullptr, KERNEL_MAP_BASE, size, custom_flags, page_flags | KMEM_FLAG_DMA);
 }
 
-int __kmem_alloc(void** result, pml_entry_t* map, kresource_bundle_t* resources, paddr_t addr, size_t size, uint32_t custom_flags, uint32_t page_flags)
+int kmem_alloc(void** result, pml_entry_t* map, kresource_bundle_t* resources, paddr_t addr, size_t size, uint32_t custom_flags, uint32_t page_flags)
 {
-    return __kmem_alloc_ex(result, map, resources, addr, KERNEL_MAP_BASE, size, custom_flags, page_flags);
+    return kmem_alloc_ex(result, map, resources, addr, KERNEL_MAP_BASE, size, custom_flags, page_flags);
 }
 
-int __kmem_alloc_ex(void** result, pml_entry_t* map, kresource_bundle_t* resources, paddr_t addr, vaddr_t vbase, size_t size, uint32_t custom_flags, uintptr_t page_flags)
+int kmem_alloc_ex(void** result, pml_entry_t* map, kresource_bundle_t* resources, paddr_t addr, vaddr_t vbase, size_t size, uint32_t custom_flags, uintptr_t page_flags)
 {
     const bool should_identity_map = (custom_flags & KMEM_CUSTOMFLAG_IDENTITY) == KMEM_CUSTOMFLAG_IDENTITY;
     const bool should_remap = (custom_flags & KMEM_CUSTOMFLAG_NO_REMAP) != KMEM_CUSTOMFLAG_NO_REMAP;
@@ -1134,7 +1135,7 @@ int __kmem_alloc_ex(void** result, pml_entry_t* map, kresource_bundle_t* resourc
     return 0;
 }
 
-int __kmem_alloc_range(void** result, pml_entry_t* map, kresource_bundle_t* resources, vaddr_t vbase, size_t size, uint32_t custom_flags, uint32_t page_flags)
+int kmem_alloc_range(void** result, pml_entry_t* map, kresource_bundle_t* resources, vaddr_t vbase, size_t size, uint32_t custom_flags, uint32_t page_flags)
 {
     int error;
     uintptr_t phys_idx;
@@ -1172,7 +1173,7 @@ int __kmem_alloc_range(void** result, pml_entry_t* map, kresource_bundle_t* reso
  * This function will never remap or use identity mapping, so
  * KMEM_CUSTOMFLAG_NO_REMAP and KMEM_CUSTOMFLAG_IDENTITY are ignored here
  */
-int __kmem_map_and_alloc_scattered(void** result, pml_entry_t* map, kresource_bundle_t* resources, vaddr_t vbase, size_t size, uint32_t custom_flags, uint32_t page_flags)
+int kmem_alloc_scattered(void** result, pml_entry_t* map, kresource_bundle_t* resources, vaddr_t vbase, size_t size, uint32_t custom_flags, uint32_t page_flags)
 {
     int error;
     paddr_t p_addr;
@@ -1237,7 +1238,7 @@ int kmem_user_alloc_range(void** result, struct proc* p, size_t size, uint32_t c
         return error;
 
     /* TODO: Must calls in syscalls that fail may kill the process with the internal error flags set */
-    return __kmem_map_and_alloc_scattered(
+    return kmem_alloc_scattered(
         result,
         p->m_root_pd.m_root,
         p->m_resource_bundle,
@@ -1294,7 +1295,7 @@ int kmem_user_alloc(void** result, struct proc* p, paddr_t addr, size_t size, ui
     if (error)
         return error;
 
-    return __kmem_alloc_ex(
+    return kmem_alloc_ex(
         result,
         p->m_root_pd.m_root,
         p->m_resource_bundle,
@@ -1407,7 +1408,7 @@ int kmem_create_page_dir(page_dir_t* ret, uint32_t custom_flags, size_t initial_
      */
     pml_entry_t* table_root;
 
-    error = (__kmem_kernel_alloc_range((void**)&table_root, SMALL_PAGE_SIZE, KMEM_CUSTOMFLAG_CREATE_USER, KMEM_FLAG_WRITABLE));
+    error = (kmem_kernel_alloc_range((void**)&table_root, SMALL_PAGE_SIZE, KMEM_CUSTOMFLAG_CREATE_USER, KMEM_FLAG_WRITABLE));
 
     if (error)
         return error;
@@ -1419,7 +1420,7 @@ int kmem_create_page_dir(page_dir_t* ret, uint32_t custom_flags, size_t initial_
     error = (kmem_copy_kernel_mapping(table_root));
 
     if (error) {
-        __kmem_kernel_dealloc((vaddr_t)table_root, SMALL_PAGE_SIZE);
+        kmem_kernel_dealloc((vaddr_t)table_root, SMALL_PAGE_SIZE);
         return error;
     }
 

@@ -92,7 +92,7 @@ fat_sector_cache_t* create_fat_sector_cache(uintptr_t block_size, uint32_t cache
 
     c_entry = cache->entries;
 
-    if (__kmem_kernel_alloc_range((void**)&cache->block_buffers, block_size * cache_count, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE))
+    if (kmem_kernel_alloc_range((void**)&cache->block_buffers, block_size * cache_count, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE))
         goto dealloc_and_exit;
 
     /*
@@ -120,7 +120,7 @@ dealloc_and_exit:
             zfree_fixed(&__fat_sec_entry_alloc, c_entry[i]);
 
     if (cache->block_buffers)
-        __kmem_kernel_dealloc((vaddr_t)cache->block_buffers, block_size * cache_count);
+        kmem_kernel_dealloc((vaddr_t)cache->block_buffers, block_size * cache_count);
 
     kfree(cache);
     return nullptr;
@@ -135,7 +135,7 @@ void destroy_fat_sector_cache(fat_sector_cache_t* cache)
         zfree_fixed(&__fat_sec_entry_alloc, cache->entries[i]);
     }
 
-    __kmem_kernel_dealloc((vaddr_t)cache->block_buffers, cache->blocksize * cache->cache_count);
+    kmem_kernel_dealloc((vaddr_t)cache->block_buffers, cache->blocksize * cache->cache_count);
     kfree(cache);
 }
 

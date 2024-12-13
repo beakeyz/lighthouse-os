@@ -12,6 +12,23 @@
 
 struct proc;
 
+enum KMEM_MEMORY_TYPE {
+    MEMTYPE_USABLE = 1,
+    MEMTYPE_RESERVED,
+    MEMTYPE_KERNEL_RESERVED,
+    MEMTYPE_KERNEL,
+    MEMTYPE_ACPI_RECLAIM,
+    MEMTYPE_ACPI_NVS,
+    MEMTYPE_BAD_MEM,
+    MEMTYPE_UNKNOWN,
+};
+
+typedef struct {
+    enum KMEM_MEMORY_TYPE type;
+    paddr_t start;
+    size_t length;
+} kmem_range_t;
+
 /*
  * Recieve information about the current state of a certain kmem_manager
  * instance on a CPU
@@ -136,41 +153,10 @@ static inline uintptr_t kmem_set_page_base(pml_entry_t* entry, uintptr_t page_ba
     return entry->raw_bits;
 }
 
-enum KMEM_MEMORY_TYPE {
-    MEMTYPE_USABLE = 1,
-    MEMTYPE_RESERVED,
-    MEMTYPE_KERNEL_RESERVED,
-    MEMTYPE_KERNEL,
-    MEMTYPE_ACPI_RECLAIM,
-    MEMTYPE_ACPI_NVS,
-    MEMTYPE_BAD_MEM,
-    MEMTYPE_UNKNOWN,
-};
-
-typedef struct {
-    enum KMEM_MEMORY_TYPE type;
-    paddr_t start;
-    size_t length;
-} kmem_range_t;
-
 /*
  * initialize kernel pagetables and physical allocator
  */
 void init_kmem_manager(uintptr_t* mb_addr);
-
-void protect_kernel();
-void protect_heap();
-
-/*
- * extract data from the mmap that gets provided by the
- * bootloader
- */
-void prep_mmap(struct multiboot_tag_mmap* mmap);
-
-/*
- * parse the entire mmap
- */
-void kmem_parse_mmap();
 
 void kmem_load_page_dir(uintptr_t dir, bool __disable_interrupts);
 
@@ -251,24 +237,24 @@ int kmem_ensure_mapped(pml_entry_t* table, vaddr_t base, size_t size);
  * These functions are all about mapping and allocating
  * memory using the global physical memory bitmap
  */
-int __kmem_kernel_alloc(void** p_result, uintptr_t addr, size_t size, uint32_t custom_flags, uint32_t page_flags);
-int __kmem_kernel_alloc_range(void** p_result, size_t size, uint32_t custom_flags, uint32_t page_flags);
+int kmem_kernel_alloc(void** p_result, uintptr_t addr, size_t size, uint32_t custom_flags, uint32_t page_flags);
+int kmem_kernel_alloc_range(void** p_result, size_t size, uint32_t custom_flags, uint32_t page_flags);
 
-int __kmem_dma_alloc(void** p_result, uintptr_t addr, size_t size, uint32_t custom_flag, uint32_t page_flags);
-int __kmem_dma_alloc_range(void** p_result, size_t size, uint32_t custom_flag, uint32_t page_flags);
+int kmem_dma_alloc(void** p_result, uintptr_t addr, size_t size, uint32_t custom_flag, uint32_t page_flags);
+int kmem_dma_alloc_range(void** p_result, size_t size, uint32_t custom_flag, uint32_t page_flags);
 
-int __kmem_alloc(void** p_result, pml_entry_t* map, kresource_bundle_t* resources, paddr_t addr, size_t size, uint32_t custom_flags, uint32_t page_flags);
-int __kmem_alloc_ex(void** p_result, pml_entry_t* map, kresource_bundle_t* resources, paddr_t addr, vaddr_t vbase, size_t size, uint32_t custom_flags, uintptr_t page_flags);
+int kmem_alloc(void** p_result, pml_entry_t* map, kresource_bundle_t* resources, paddr_t addr, size_t size, uint32_t custom_flags, uint32_t page_flags);
+int kmem_alloc_ex(void** p_result, pml_entry_t* map, kresource_bundle_t* resources, paddr_t addr, vaddr_t vbase, size_t size, uint32_t custom_flags, uintptr_t page_flags);
 
-int __kmem_alloc_range(void** p_result, pml_entry_t* map, kresource_bundle_t* resources, vaddr_t vbase, size_t size, uint32_t custom_flags, uint32_t page_flags);
+int kmem_alloc_range(void** p_result, pml_entry_t* map, kresource_bundle_t* resources, vaddr_t vbase, size_t size, uint32_t custom_flags, uint32_t page_flags);
 
-int __kmem_dealloc(pml_entry_t* map, kresource_bundle_t* resources, uintptr_t virt_base, size_t size);
-int __kmem_dealloc_unmap(pml_entry_t* map, kresource_bundle_t* resources, uintptr_t virt_base, size_t size);
-int __kmem_dealloc_ex(pml_entry_t* map, kresource_bundle_t* resources, uintptr_t virt_base, size_t size, bool unmap, bool ignore_unused, bool defer_res_release);
+int kmem_dealloc(pml_entry_t* map, kresource_bundle_t* resources, uintptr_t virt_base, size_t size);
+int kmem_dealloc_unmap(pml_entry_t* map, kresource_bundle_t* resources, uintptr_t virt_base, size_t size);
+int kmem_dealloc_ex(pml_entry_t* map, kresource_bundle_t* resources, uintptr_t virt_base, size_t size, bool unmap, bool ignore_unused, bool defer_res_release);
 
-int __kmem_kernel_dealloc(uintptr_t virt_base, size_t size);
+int kmem_kernel_dealloc(uintptr_t virt_base, size_t size);
 
-int __kmem_map_and_alloc_scattered(void** p_result, pml_entry_t* map, kresource_bundle_t* resources, vaddr_t vbase, size_t size, uint32_t custom_flags, uint32_t page_flags);
+int kmem_alloc_scattered(void** p_result, pml_entry_t* map, kresource_bundle_t* resources, vaddr_t vbase, size_t size, uint32_t custom_flags, uint32_t page_flags);
 
 int kmem_user_alloc_range(void** p_result, struct proc* p, size_t size, uint32_t custom_flags, uint32_t page_flags);
 int kmem_user_alloc(void** p_result, struct proc* p, paddr_t addr, size_t size, uint32_t custom_flags, uint32_t page_flags);

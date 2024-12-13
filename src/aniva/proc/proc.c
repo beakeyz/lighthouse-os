@@ -407,7 +407,7 @@ void __destroy_proc(proc_t* proc)
 
     KLOG_DBG("Doing shared resources\n");
 
-    /* loop over all the resources of this process and release them by using __kmem_dealloc */
+    /* loop over all the resources of this process and release them by using kmem_dealloc */
     __proc_clear_shared_resources(proc);
 
     KLOG_DBG("Doing page dir\n");

@@ -118,7 +118,7 @@ static int nv_pci_device_init(nv_device_t* nvdev)
     nv_bar0 = get_bar_address(bar0);
 
     nvdev->pri_size = ALIGN_UP(nv_bar0_size, SMALL_PAGE_SIZE);
-    ASSERT(!__kmem_kernel_alloc((void**)&nvdev->pri, nv_bar0, nvdev->pri_size, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_DMA));
+    ASSERT(!kmem_kernel_alloc((void**)&nvdev->pri, nv_bar0, nvdev->pri_size, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_DMA));
 
     /* Did we actually map? */
     if (!nvdev->pri)

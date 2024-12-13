@@ -391,7 +391,7 @@ oss_node_t* mount_ramfs(fs_type_t* type, const char* mountpoint, volume_t* devic
          *
          * NOTE: This is a long-term allocation. This needs to persist, even after the volume is unmounted or some shit
          */
-        error = __kmem_kernel_alloc_range(&TAR_BLOCK_START(node), decompressed_size, KMEM_CUSTOMFLAG_GET_MAKE, KMEM_FLAG_WRITABLE);
+        error = kmem_kernel_alloc_range(&TAR_BLOCK_START(node), decompressed_size, KMEM_CUSTOMFLAG_GET_MAKE, KMEM_FLAG_WRITABLE);
 
         if (error)
             goto dealloc_and_exit;
@@ -407,7 +407,7 @@ oss_node_t* mount_ramfs(fs_type_t* type, const char* mountpoint, volume_t* devic
         ASSERT_MSG(TAR_BLOCK_START(node) != nullptr, "decompressing resulted in NULL");
 
         /* Free the pages of the compressed ramdisk */
-        __kmem_kernel_dealloc(device->info.min_offset, GET_PAGECOUNT(device->info.min_offset, TAR_SUPERBLOCK(node)->m_free_blocks));
+        kmem_kernel_dealloc(device->info.min_offset, GET_PAGECOUNT(device->info.min_offset, TAR_SUPERBLOCK(node)->m_free_blocks));
 
         device->info.min_offset = (uintptr_t)TAR_BLOCK_START(node);
         device->info.max_offset = (uintptr_t)TAR_BLOCK_START(node) + decompressed_size;
@@ -422,7 +422,7 @@ dealloc_and_exit:
 
     /* Fuck mann */
     if (TAR_BLOCK_START(node))
-        __kmem_kernel_dealloc((vaddr_t)TAR_BLOCK_START(node), decompressed_size);
+        kmem_kernel_dealloc((vaddr_t)TAR_BLOCK_START(node), decompressed_size);
 
     destroy_fs_oss_node(node);
     return nullptr;

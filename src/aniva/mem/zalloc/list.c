@@ -203,7 +203,7 @@ zalloc_list_t* create_zalloc_list(uint32_t pagecount)
 
     ASSERT_MSG(pagecount < 4, "Tried to create a zalloc list that's too large (max 4 pages)");
 
-    ASSERT(!__kmem_kernel_alloc_range((void**)&list, pagecount << PAGE_SHIFT, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE));
+    ASSERT(!kmem_kernel_alloc_range((void**)&list, pagecount << PAGE_SHIFT, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE));
     ASSERT_MSG(list, "Failed to allocate zalloc list");
 
     /* Clear it */
@@ -242,5 +242,5 @@ void destroy_zalloc_list(zalloc_list_t* list)
         walker = next;
     } while (walker);
 
-    __kmem_kernel_dealloc((vaddr_t)list, list->this_pagecount << PAGE_SHIFT);
+    kmem_kernel_dealloc((vaddr_t)list, list->this_pagecount << PAGE_SHIFT);
 }

@@ -231,7 +231,7 @@ proc_t* elf_exec_64(file_t* file, bool kernel)
             vaddr_t virtual_phdr_base = phdr.p_vaddr;
             size_t phdr_size = phdr.p_memsz;
 
-            ASSERT_MSG(!__kmem_alloc_range(
+            ASSERT_MSG(!kmem_alloc_range(
                            (void**)&v_user_phdr_start,
                            proc->m_root_pd.m_root,
                            proc->m_resource_bundle,

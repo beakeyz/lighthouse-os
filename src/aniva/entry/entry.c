@@ -67,7 +67,7 @@ kerror_t __init try_fetch_initramdisk(void)
     const size_t cramdisk_size = module_end - module_start;
 
     /* Map user pages */
-    ASSERT(!__kmem_kernel_alloc((void**)&ramdisk_addr, module_start, cramdisk_size, KMEM_CUSTOMFLAG_GET_MAKE, KMEM_FLAG_WRITABLE));
+    ASSERT(!kmem_kernel_alloc((void**)&ramdisk_addr, module_start, cramdisk_size, KMEM_CUSTOMFLAG_GET_MAKE, KMEM_FLAG_WRITABLE));
 
     /* Create ramdisk object */
     volume_device_t* ramdisk = create_generic_ramdev_at(ramdisk_addr, cramdisk_size);
@@ -389,7 +389,7 @@ void kthread_entry(void)
 
     void** buffers;
 
-    //__kmem_kernel_alloc_range((void**)&buffers, sizeof(void*) * 10000, NULL, KMEM_FLAG_WRITABLE);
+    //kmem_kernel_alloc_range((void**)&buffers, sizeof(void*) * 10000, NULL, KMEM_FLAG_WRITABLE);
     buffers = kzalloc(sizeof(void*) * 10000);
 
     for (int i = 0; i < 10000; i++)

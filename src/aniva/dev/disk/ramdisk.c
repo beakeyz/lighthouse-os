@@ -103,7 +103,7 @@ volume_device_t* create_generic_ramdev(size_t size)
     volume_device_t* ret;
 
     /* Try to allocate the ramdisk range */
-    if (__kmem_kernel_alloc_range(&range, size, NULL, KMEM_FLAG_WRITABLE))
+    if (kmem_kernel_alloc_range(&range, size, NULL, KMEM_FLAG_WRITABLE))
         return nullptr;
 
     /* Try to create a ramdisk at this location */
@@ -111,7 +111,7 @@ volume_device_t* create_generic_ramdev(size_t size)
 
     /* Ramdisk creation failed, delete this region */
     if (!ret)
-        __kmem_kernel_dealloc((u64)range, size);
+        kmem_kernel_dealloc((u64)range, size);
 
     return ret;
 }

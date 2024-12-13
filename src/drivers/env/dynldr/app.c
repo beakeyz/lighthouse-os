@@ -90,7 +90,7 @@ void* proc_map_into_kernel(proc_t* proc, vaddr_t uaddr, size_t size)
     if (!paddr)
         return nullptr;
 
-    ASSERT(!__kmem_kernel_alloc(
+    ASSERT(!kmem_kernel_alloc(
         &addr,
         /* Physical address */
         paddr,

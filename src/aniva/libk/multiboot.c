@@ -68,7 +68,7 @@ int finalize_multiboot()
     /* Reserve multiboot memory */
     kmem_set_phys_range_used(mb_start_idx, mb_pagecount);
 
-    // g_system_info.virt_multiboot_addr = Must(__kmem_alloc_ex(nullptr, nullptr, aligned_mb_start, HIGH_MAP_BASE, g_system_info.total_multiboot_size, NULL, KMEM_FLAG_KERNEL));
+    // g_system_info.virt_multiboot_addr = Must(kmem_alloc_ex(nullptr, nullptr, aligned_mb_start, HIGH_MAP_BASE, g_system_info.total_multiboot_size, NULL, KMEM_FLAG_KERNEL));
 
     struct multiboot_tag_module* mod = g_system_info.ramdisk;
 

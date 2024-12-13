@@ -658,7 +658,7 @@ static void __clear_mem_resource(kresource_t* resource, kresource_bundle_t* bund
     // printf("(%s) Start: 0x%llx, Size: 0x%llx, dir: %p\n", resource->m_name, start, resource->m_size, bundle->page_dir);
 
     if ((resource->m_flags & KRES_FLAG_MEM_KEEP_PHYS) != KRES_FLAG_MEM_KEEP_PHYS)
-        __kmem_dealloc_ex(bundle->page_dir ? bundle->page_dir->m_root : NULL, bundle, start, size, true, true, true);
+        kmem_dealloc_ex(bundle->page_dir ? bundle->page_dir->m_root : NULL, bundle, start, size, true, true, true);
 }
 
 /*!
@@ -667,7 +667,7 @@ static void __clear_mem_resource(kresource_t* resource, kresource_bundle_t* bund
  * Every type of resource needs its own type of cleanup, which is why we loop over every
  * used resource to release it. We should however (TODO again) try to support resources
  * managing their teardown themselves, since we can simply give them a fuction pointer to
- * a function that knows how to destroy and cleanup that type of resource (like kmalloc, vs __kmem_kernel_alloc)
+ * a function that knows how to destroy and cleanup that type of resource (like kmalloc, vs kmem_kernel_alloc)
  */
 static void __bundle_clear_resources(kresource_bundle_t* bundle)
 {

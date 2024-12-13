@@ -80,7 +80,7 @@ static ssize_t efifb_map(device_t* dev, fb_handle_t fb, uint32_t x, uint32_t y, 
 
     if (size)
         /* Map the framebuffer to the exact base described by the caller */
-        ASSERT(__kmem_alloc_ex(nullptr, nullptr, nullptr, info->addr + x * BYTES_PER_PIXEL(info->bpp) + y * info->pitch, base, size, KMEM_CUSTOMFLAG_NO_REMAP, KMEM_FLAG_WC | KMEM_FLAG_WRITABLE) == 0);
+        ASSERT(kmem_alloc_ex(nullptr, nullptr, nullptr, info->addr + x * BYTES_PER_PIXEL(info->bpp) + y * info->pitch, base, size, KMEM_CUSTOMFLAG_NO_REMAP, KMEM_FLAG_WC | KMEM_FLAG_WRITABLE) == 0);
     else
         kernel_panic("TODO: handle size = 0 (efifb_map)");
 
@@ -228,7 +228,7 @@ static inline void _init_main_info(struct multiboot_tag_framebuffer* fb)
     _main_info->size = _main_info->pitch * _main_info->height;
 
     /* Allocate and map the kernel address */
-    ASSERT(__kmem_kernel_alloc((void**)&_main_info->kernel_addr, _main_info->addr, _main_info->size, NULL, KMEM_FLAG_WRITABLE | KMEM_FLAG_NOCACHE) == 0);
+    ASSERT(kmem_kernel_alloc((void**)&_main_info->kernel_addr, _main_info->addr, _main_info->size, NULL, KMEM_FLAG_WRITABLE | KMEM_FLAG_NOCACHE) == 0);
 
     _main_info->colors.red.length_bits = fb->framebuffer_red_mask_size;
     _main_info->colors.green.length_bits = fb->framebuffer_green_mask_size;

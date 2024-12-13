@@ -230,7 +230,7 @@ zone_store_t* create_zone_store(size_t initial_capacity)
 
     initial_capacity += delta_entries;
 
-    error = __kmem_kernel_alloc_range((void**)&store, bytes, 0, KMEM_FLAG_WRITABLE);
+    error = kmem_kernel_alloc_range((void**)&store, bytes, 0, KMEM_FLAG_WRITABLE);
 
     if (error)
         return nullptr;
@@ -258,7 +258,7 @@ void destroy_zone_store(zone_allocator_t* allocator, zone_store_t* store)
         destroy_zone(allocator, zone);
     }
 
-    __kmem_kernel_dealloc((uintptr_t)store, store->m_capacity * sizeof(uintptr_t) + (sizeof(zone_store_t) - 8));
+    kmem_kernel_dealloc((uintptr_t)store, store->m_capacity * sizeof(uintptr_t) + (sizeof(zone_store_t) - 8));
 }
 
 void destroy_zone_stores(zone_allocator_t* allocator)
@@ -382,7 +382,7 @@ void destroy_zone(zone_allocator_t* allocator, zone_t* zone)
     zone_size += zone->m_total_available_size;
 
     /* TODO: resolve pml root */
-    __kmem_dealloc(nullptr, nullptr, (vaddr_t)zone, zone_size);
+    kmem_dealloc(nullptr, nullptr, (vaddr_t)zone, zone_size);
 }
 
 /*
@@ -436,7 +436,7 @@ zone_t* create_zone(zone_allocator_t* allocator, const size_t entry_size, size_t
     if ((allocator->m_flags & ZALLOC_FLAG_DMA) == ZALLOC_FLAG_DMA)
         kmem_flags |= KMEM_FLAG_DMA;
 
-    error = __kmem_kernel_alloc_range((void**)&zone, aligned_size, 0, kmem_flags);
+    error = kmem_kernel_alloc_range((void**)&zone, aligned_size, 0, kmem_flags);
 
     if (error)
         return nullptr;

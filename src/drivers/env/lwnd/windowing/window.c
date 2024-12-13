@@ -46,7 +46,7 @@ void destroy_window(lwnd_window_t* window)
     if (window->this_fb) {
 
         if (window->this_fb->kernel_addr)
-            __kmem_kernel_dealloc(window->this_fb->kernel_addr, window->this_fb->size);
+            kmem_kernel_dealloc(window->this_fb->kernel_addr, window->this_fb->size);
 
         kfree(window->this_fb);
     }
@@ -248,7 +248,7 @@ int lwnd_window_request_fb(lwnd_window_t* wnd, lwnd_screen_t* screen)
     info->handle = 0;
 
     /* First, allocate a contiguous range in the kernel */
-    error = __kmem_kernel_alloc_range((void**)&info->kernel_addr, info->size, NULL, KMEM_FLAG_WRITABLE | KMEM_FLAG_KERNEL);
+    error = kmem_kernel_alloc_range((void**)&info->kernel_addr, info->size, NULL, KMEM_FLAG_WRITABLE | KMEM_FLAG_KERNEL);
 
     if (error)
         goto error_and_exit;
@@ -277,7 +277,7 @@ int lwnd_window_request_fb(lwnd_window_t* wnd, lwnd_screen_t* screen)
     return 0;
 
 dealloc_and_exit:
-    __kmem_kernel_dealloc(info->kernel_addr, info->size);
+    kmem_kernel_dealloc(info->kernel_addr, info->size);
 error_and_exit:
     kfree(info);
     return error;

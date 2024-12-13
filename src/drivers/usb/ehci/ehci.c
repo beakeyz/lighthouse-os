@@ -580,7 +580,7 @@ static int ehci_init_mem(ehci_hcd_t* ehci)
     ehci->sitd_pool = create_zone_allocator(4096, sizeof(ehci_sitd_t), ZALLOC_FLAG_DMA);
 
     /* Allocate the periodic shedule table */
-    ASSERT(!__kmem_kernel_alloc_range(
+    ASSERT(!kmem_kernel_alloc_range(
         (void**)&ehci->periodic_table,
         ehci->periodic_size * sizeof(uint32_t),
         NULL, KMEM_FLAG_DMA));
@@ -633,7 +633,7 @@ static int ehci_setup(usb_hcd_t* hcd)
     ehci->register_size = pci_get_bar_size(hcd->pci_device, 0);
 
     /* Allocate the capability registers */
-    ASSERT(!__kmem_kernel_alloc((void**)&ehci->capregs, get_bar_address(bar0), ehci->register_size, NULL, KMEM_FLAG_DMA));
+    ASSERT(!kmem_kernel_alloc((void**)&ehci->capregs, get_bar_address(bar0), ehci->register_size, NULL, KMEM_FLAG_DMA));
 
     KLOG_DBG("Setup EHCI registerspace (addr=0x%p, size=0x%llx)\n", ehci->capregs, ehci->register_size);
 

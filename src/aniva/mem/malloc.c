@@ -206,7 +206,7 @@ static heap_node_buffer_t* create_heap_node_buffer(memory_allocator_t* allocator
 
     total_buffer_size = ALIGN_UP(*size + sizeof(heap_node_buffer_t), SMALL_PAGE_SIZE);
 
-    error = __kmem_alloc_range(
+    error = kmem_alloc_range(
         (void**)&ret,
         allocator->m_parent_dir.m_root,
         nullptr,
@@ -274,7 +274,7 @@ static void destroy_heap_node_buffer(memory_allocator_t* allocator, heap_node_bu
         ASSERT_MSG(current_buffer, "Failed to destroy heap_node_buffer! Did the allocator contain the buffer?");
     }
 
-    __kmem_dealloc(allocator->m_parent_dir.m_root, nullptr, (uintptr_t)buffer, buffer->m_buffer_size);
+    kmem_dealloc(allocator->m_parent_dir.m_root, nullptr, (uintptr_t)buffer, buffer->m_buffer_size);
 }
 
 static inline bool heap_buffer_contains(heap_node_buffer_t* buffer, uintptr_t addr)

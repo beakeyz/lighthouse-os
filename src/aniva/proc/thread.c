@@ -62,7 +62,7 @@ thread_t* create_thread(FuncPtr entry, uintptr_t data, const char* name, proc_t*
     memcpy(&thread->m_fpu_state, &standard_fpu_state, sizeof(FpuState));
 
     /* Allocate kernel memory for the stack */
-    ASSERT(__kmem_alloc_range(
+    ASSERT(kmem_alloc_range(
                (void**)&thread->m_kernel_stack_bottom,
                proc->m_root_pd.m_root,
                proc->m_resource_bundle,
@@ -92,7 +92,7 @@ thread_t* create_thread(FuncPtr entry, uintptr_t data, const char* name, proc_t*
     if (!kthread) {
         thread->m_user_stack_bottom = HIGH_STACK_BASE - (thread->m_tid * DEFAULT_STACK_SIZE);
 
-        ASSERT(__kmem_alloc_range(
+        ASSERT(kmem_alloc_range(
                    (void**)&thread->m_user_stack_bottom,
                    proc->m_root_pd.m_root,
                    proc->m_resource_bundle,
@@ -178,10 +178,10 @@ ANIVA_STATUS destroy_thread(thread_t* thread)
     /* Get rid of the mutex list */
     destroy_list(mutex_list);
 
-    __kmem_dealloc(parent_proc->m_root_pd.m_root, parent_proc->m_resource_bundle, thread->m_kernel_stack_bottom, DEFAULT_STACK_SIZE);
+    kmem_dealloc(parent_proc->m_root_pd.m_root, parent_proc->m_resource_bundle, thread->m_kernel_stack_bottom, DEFAULT_STACK_SIZE);
 
     if (thread->m_user_stack_bottom)
-        __kmem_dealloc(parent_proc->m_root_pd.m_root, parent_proc->m_resource_bundle, thread->m_user_stack_bottom, DEFAULT_STACK_SIZE);
+        kmem_dealloc(parent_proc->m_root_pd.m_root, parent_proc->m_resource_bundle, thread->m_user_stack_bottom, DEFAULT_STACK_SIZE);
 
     if (thread->m_lock)
         destroy_mutex(thread->m_lock);

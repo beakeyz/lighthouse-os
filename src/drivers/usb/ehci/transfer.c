@@ -81,7 +81,7 @@ static inline void _try_allocate_qtd_buffer(ehci_hcd_t* ehci, ehci_qtd_t* qtd)
     if (!qtd->len)
         return;
 
-    ASSERT(!__kmem_kernel_alloc_range((void**)&qtd_buffer, qtd->len, NULL, KMEM_FLAG_DMA));
+    ASSERT(!kmem_kernel_alloc_range((void**)&qtd_buffer, qtd->len, NULL, KMEM_FLAG_DMA));
 
     qtd->buffer = qtd_buffer;
 
@@ -128,7 +128,7 @@ static ehci_qtd_t* _create_ehci_qtd_raw(ehci_hcd_t* ehci, size_t bsize, uint8_t 
 
 static void _destroy_ehci_qtd(ehci_hcd_t* ehci, ehci_qtd_t* qtd)
 {
-    __kmem_kernel_dealloc((vaddr_t)qtd->buffer, qtd->len);
+    kmem_kernel_dealloc((vaddr_t)qtd->buffer, qtd->len);
     zfree_fixed(ehci->qtd_pool, qtd);
 }
 

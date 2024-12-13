@@ -75,7 +75,7 @@ void* AcpiOsMapMemory(ACPI_PHYSICAL_ADDRESS PhysicalAddress, ACPI_SIZE Length)
     void* ret;
 
     // printf("Trying to map OS memory addr=%llx len=%llx\n", PhysicalAddress, Length);
-    if (__kmem_kernel_alloc(
+    if (kmem_kernel_alloc(
             &ret,
             PhysicalAddress,
             Length,
@@ -93,7 +93,7 @@ void AcpiOsUnmapMemory(void* where, ACPI_SIZE length)
      * NOTE: We might need to deallocate over overlapping chunks, which means we might need
      * to deallocate a physical frame marked as unused
      */
-    __kmem_dealloc_ex(nullptr, nullptr, (vaddr_t)where, length, false, true, false);
+    kmem_dealloc_ex(nullptr, nullptr, (vaddr_t)where, length, false, true, false);
 }
 
 ACPI_STATUS AcpiOsGetPhysicalAddress(void* LogicalAddress, ACPI_PHYSICAL_ADDRESS* PhysicalAddress)

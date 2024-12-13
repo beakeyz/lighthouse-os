@@ -122,7 +122,7 @@ void init_early_tty()
     char_xres = fb->common.framebuffer_width / etty_font->width;
     char_yres = fb->common.framebuffer_height / etty_font->height;
 
-    ASSERT(!__kmem_kernel_alloc((void**)&vid_buffer, fb->common.framebuffer_addr, fb->common.framebuffer_pitch * fb->common.framebuffer_height, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE));
+    ASSERT(!kmem_kernel_alloc((void**)&vid_buffer, fb->common.framebuffer_addr, fb->common.framebuffer_pitch * fb->common.framebuffer_height, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE));
 
     KLOG_DBG("Framebuffer: 0x%llx\n", vid_buffer);
 
@@ -130,7 +130,7 @@ void init_early_tty()
      * Allocate a range for our characters
      */
     _char_list_size = char_xres * char_yres * sizeof(struct simple_char);
-    ASSERT(!__kmem_kernel_alloc_range((void**)&_char_list, _char_list_size, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE));
+    ASSERT(!kmem_kernel_alloc_range((void**)&_char_list, _char_list_size, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE));
 
     memset(_char_list, 0, _char_list_size);
 
@@ -159,7 +159,7 @@ void destroy_early_tty()
     g_system_info.sys_flags &= ~SYSFLAGS_HAS_EARLY_TTY;
 
     /* Deallocate the char list */
-    __kmem_kernel_dealloc((vaddr_t)_char_list, _char_list_size);
+    kmem_kernel_dealloc((vaddr_t)_char_list, _char_list_size);
 }
 
 static void etty_scroll(uint32_t lines)
