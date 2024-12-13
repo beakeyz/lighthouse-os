@@ -6,7 +6,7 @@
 #include "fs/file.h"
 #include "libk/flow/error.h"
 #include "mem/heap.h"
-#include "mem/kmem_manager.h"
+#include "mem/kmem.h"
 #include "sync/mutex.h"
 #include <mem/zalloc/zalloc.h>
 

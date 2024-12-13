@@ -16,7 +16,7 @@
 #include "libk/stddef.h"
 #include "logging/log.h"
 #include "mem/heap.h"
-#include "mem/kmem_manager.h"
+#include "mem/kmem.h"
 #include "mem/pg.h"
 #include "mem/zalloc/zalloc.h"
 #include "proc/thread.h"

@@ -1,5 +1,5 @@
 #include "list.h"
-#include "mem/kmem_manager.h"
+#include "mem/kmem.h"
 #include "mem/zalloc/zalloc.h"
 
 static const enum ZONE_ENTRY_SIZE __default_entry_sizes[DEFAULT_ZONE_ENTRY_SIZE_COUNT] = {

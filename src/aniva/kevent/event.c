@@ -5,7 +5,7 @@
 #include "libk/data/hashmap.h"
 #include "libk/flow/error.h"
 #include "libk/stddef.h"
-#include "mem/kmem_manager.h"
+#include "mem/kmem.h"
 #include "mem/zalloc/zalloc.h"
 #include "proc/thread.h"
 #include "sched/scheduler.h"

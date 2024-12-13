@@ -15,7 +15,7 @@
 #include "sync/mutex.h"
 #include <crypto/k_crc32.h>
 #include <mem/heap.h>
-#include <mem/kmem_manager.h>
+#include <mem/kmem.h>
 #include <oss/obj.h>
 
 static uint32_t _ahci_dev_count;

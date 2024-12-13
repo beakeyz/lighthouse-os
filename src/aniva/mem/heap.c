@@ -1,6 +1,6 @@
 #include "heap.h"
 #include "malloc.h"
-#include "mem/kmem_manager.h"
+#include "mem/kmem.h"
 #include <entry/entry.h>
 #include <sched/scheduler.h>
 

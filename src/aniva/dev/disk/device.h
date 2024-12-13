@@ -1,7 +1,7 @@
 #ifndef __ANIVA_DISK_VOLUME_DEVICE_H__
 #define __ANIVA_DISK_VOLUME_DEVICE_H__
 
-#include "mem/kmem_manager.h"
+#include "mem/kmem.h"
 #include <dev/device.h>
 #include <lightos/volume/shared.h>
 

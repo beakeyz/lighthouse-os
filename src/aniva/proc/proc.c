@@ -14,7 +14,7 @@
 #include "lightos/syscall.h"
 #include "lightos/sysvar/shared.h"
 #include "logging/log.h"
-#include "mem/kmem_manager.h"
+#include "mem/kmem.h"
 #include "oss/node.h"
 #include "oss/obj.h"
 #include "oss/path.h"
@@ -223,7 +223,7 @@ int proc_clone(proc_t* p, FuncPtr clone_entry, const char* clone_name, proc_t** 
     return 0;
 }
 
-/* This should probably be done by kmem_manager lmao */
+/* This should probably be done by kmem lmao */
 #define IS_KERNEL_FUNC(func) true
 
 proc_t* create_kernel_proc(FuncPtr entry, uintptr_t args)

@@ -9,7 +9,7 @@
 #include "libk/flow/error.h"
 #include "libk/stddef.h"
 #include "logging/log.h"
-#include "mem/kmem_manager.h"
+#include "mem/kmem.h"
 #include "mem/zalloc/zalloc.h"
 #include "sync/mutex.h"
 #include "system/acpi/acpi.h"

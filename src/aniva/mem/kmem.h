@@ -1,7 +1,6 @@
-#ifndef __KMEM_MANAGER__
-#define __KMEM_MANAGER__
+#ifndef __kmem__
+#define __kmem__
 
-#include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"
 #include "mem/page_dir.h"
 #include "mem/pg.h"
@@ -30,7 +29,7 @@ typedef struct {
 } kmem_range_t;
 
 /*
- * Recieve information about the current state of a certain kmem_manager
+ * Recieve information about the current state of a certain kmem
  * instance on a CPU
  */
 typedef struct kmem_info {
@@ -153,10 +152,12 @@ static inline uintptr_t kmem_set_page_base(pml_entry_t* entry, uintptr_t page_ba
     return entry->raw_bits;
 }
 
+size_t kmem_get_early_map_size();
+
 /*
  * initialize kernel pagetables and physical allocator
  */
-void init_kmem_manager(uintptr_t* mb_addr);
+error_t init_kmem(uintptr_t* mb_addr);
 
 void kmem_load_page_dir(uintptr_t dir, bool __disable_interrupts);
 
@@ -181,27 +182,19 @@ vaddr_t kmem_ensure_high_mapping(uintptr_t addr);
 uintptr_t kmem_to_phys(pml_entry_t* root, uintptr_t addr);
 uintptr_t kmem_to_phys_aligned(pml_entry_t* root, uintptr_t addr);
 
-void kmem_set_phys_page_used(uintptr_t idx);
-void kmem_set_phys_page_free(uintptr_t idx);
+void kmem_phys_set_page_used(uintptr_t idx);
+void kmem_phys_set_page_free(uintptr_t idx);
 
-void kmem_set_phys_range_used(uintptr_t start_idx, size_t page_count);
-void kmem_set_phys_range_free(uintptr_t start_idx, size_t page_count);
+void kmem_phys_set_range_used(uintptr_t start_idx, size_t page_count);
+void kmem_phys_set_range_free(uintptr_t start_idx, size_t page_count);
 
-bool kmem_is_phys_page_used(uintptr_t idx);
+bool kmem_phys_is_page_used(uintptr_t idx);
 
 /*
- * flush tlb for a virtual address
+ * flush tlb completely
  */
-void kmem_invalidate_tlb_cache_entry(uintptr_t vaddr);
-void kmem_invalidate_tlb_cache_range(uintptr_t vaddr, size_t size);
 void kmem_refresh_tlb();
 
-/*
- * completely flush the tlb cache
- */
-void kmem_flush_tlb();
-
-int kmem_request_physical_page(paddr_t* p_idx);
 int kmem_prepare_new_physical_page(paddr_t* p_addr);
 int kmem_return_physical_page(paddr_t page_base);
 pml_entry_t* kmem_get_krnl_dir();
@@ -272,9 +265,6 @@ int kmem_map_to_kernel(vaddr_t* p_kaddr, vaddr_t uaddr, size_t size, vaddr_t map
 
 int kmem_to_current_pagemap(vaddr_t vaddr, pml_entry_t* external_map);
 
-/* access to kmem_manager data struct */
-list_t const* kmem_get_phys_ranges_list();
-
 /*
  * Prepares a new pagemap that has virtual memory mapped from 0 -> initial_size
  * This can act as clean userspace directory creation, though a lot is still missing
@@ -287,6 +277,6 @@ int kmem_copy_page_dir(page_dir_t* result, page_dir_t* src_dir);
  */
 int kmem_destroy_page_dir(pml_entry_t* dir);
 
-// TODO: write kmem_manager tests
+// TODO: write kmem tests
 
-#endif // !__KMEM_MANAGER__
+#endif // !__kmem__

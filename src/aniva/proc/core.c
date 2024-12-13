@@ -4,7 +4,7 @@
 #include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"
 #include "libk/stddef.h"
-#include "mem/kmem_manager.h"
+#include "mem/kmem.h"
 #include "mem/zalloc/zalloc.h"
 #include "oss/core.h"
 #include "oss/node.h"

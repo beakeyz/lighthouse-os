@@ -9,7 +9,7 @@
 #include "libk/string.h"
 #include "logging/log.h"
 #include "mem/heap.h"
-#include "mem/kmem_manager.h"
+#include "mem/kmem.h"
 #include "oss/obj.h"
 #include "system/profile/profile.h"
 #include "system/sysvar/var.h"

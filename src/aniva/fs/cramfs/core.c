@@ -7,7 +7,7 @@
 #include "fs/file.h"
 #include "libk/flow/error.h"
 #include "libk/stddef.h"
-#include "mem/kmem_manager.h"
+#include "mem/kmem.h"
 #include "oss/core.h"
 #include "oss/node.h"
 #include <fs/core.h>

@@ -8,7 +8,7 @@
 #include "libk/flow/error.h"
 #include "libk/multiboot.h"
 #include "logging/log.h"
-#include "mem/kmem_manager.h"
+#include "mem/kmem.h"
 #include "sys/types.h"
 #include <dev/driver.h>
 
@@ -140,7 +140,7 @@ int efifb_remove(video_device_t* device)
     kernel_panic("TODO: actual efifb_remove");
 
     /* Mark the physical range used */
-    kmem_set_phys_range_free(fb_start_idx, fb_page_count);
+    kmem_phys_set_range_free(fb_start_idx, fb_page_count);
     return 0;
 }
 

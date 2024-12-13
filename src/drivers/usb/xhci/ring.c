@@ -1,6 +1,6 @@
 #include "libk/flow/error.h"
 #include "libk/io.h"
-#include "mem/kmem_manager.h"
+#include "mem/kmem.h"
 #include "mem/zalloc/zalloc.h"
 #include "xhci.h"
 

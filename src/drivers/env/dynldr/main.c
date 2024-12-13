@@ -6,7 +6,7 @@
 #include "libk/flow/error.h"
 #include "lightos/driver/loader.h"
 #include "logging/log.h"
-#include "mem/kmem_manager.h"
+#include "mem/kmem.h"
 #include "priv.h"
 #include "proc/core.h"
 #include "proc/thread.h"

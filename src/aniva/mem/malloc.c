@@ -1,6 +1,6 @@
 #include "malloc.h"
 #include "logging/log.h"
-#include "mem/kmem_manager.h"
+#include "mem/kmem.h"
 #include <dev/debug/serial.h>
 #include <libk/flow/error.h>
 #include <libk/stddef.h>

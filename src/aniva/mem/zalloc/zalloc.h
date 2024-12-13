@@ -46,7 +46,7 @@ typedef enum ZONE_ENTRY_SIZE {
  * a contigous memory region to work with. At the top of this
  * region is a header, which contains information about this zone, like size, bitmap, blocksize, ect.
  *
- * When an allocation can not be satisfied in one of the zone, we ask kmem_manager for a number
+ * When an allocation can not be satisfied in one of the zone, we ask kmem for a number
  * of pages which we can populate with a new zone. Depending on the size of the allocation, we
  * will choose a blocksize for this zone that matches this allocation. large allocation get larger
  * blocksizes, and smaller ones get smaller blocksizes.

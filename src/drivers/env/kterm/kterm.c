@@ -22,7 +22,7 @@
 #include "libk/string.h"
 #include "logging/log.h"
 #include "mem/heap.h"
-#include "mem/kmem_manager.h"
+#include "mem/kmem.h"
 #include "oss/core.h"
 #include "oss/node.h"
 #include "proc/core.h"
@@ -30,7 +30,7 @@
 #include "proc/thread.h"
 #include "sched/scheduler.h"
 #include <lightos/event/key.h>
-#include <mem/kmem_manager.h>
+#include <mem/kmem.h>
 #include <system/processor/processor.h>
 
 #include "exec.h"

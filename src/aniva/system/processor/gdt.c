@@ -1,6 +1,6 @@
 #include <libk/stddef.h>
 #include <libk/string.h>
-#include <mem/kmem_manager.h>
+#include <mem/kmem.h>
 
 void construct_tss_gdt()
 {

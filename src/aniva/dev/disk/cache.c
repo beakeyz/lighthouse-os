@@ -1,6 +1,6 @@
 #include "cache.h"
 #include "libk/flow/error.h"
-#include "mem/kmem_manager.h"
+#include "mem/kmem.h"
 
 static inline int disk_cache_get_entry(disk_blk_cache_t* cache, disk_blk_cache_entry_t** entry, uint32_t idx)
 {

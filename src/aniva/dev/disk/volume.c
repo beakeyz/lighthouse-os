@@ -8,7 +8,7 @@
 #include "libk/flow/error.h"
 #include "logging/log.h"
 #include "mem/heap.h"
-#include "mem/kmem_manager.h"
+#include "mem/kmem.h"
 #include "sched/scheduler.h"
 #include "sync/mutex.h"
 #include "lightos/volume/shared.h"

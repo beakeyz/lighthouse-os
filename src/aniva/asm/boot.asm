@@ -217,7 +217,7 @@ gdt_start:
   dq (1 << 44) | (1 << 47) | (1 << 41)
 gdt_end:
 
-; Our effective memory size until kmem_manager takes over
+; Our effective memory size until kmem takes over
 early_map_size:
   dq (0x40000 * 0x1000)
 
@@ -244,7 +244,7 @@ boot_pd0_p:
 
 ; hihi small stack =)
 [section .stack]
-; TODO: can we use kmem_manager to enlarge the kernel stack?
+; TODO: can we use kmem to enlarge the kernel stack?
 kstack_bottom:
   times 32768 db 0
 kstack_top:

@@ -1,7 +1,7 @@
 #include "ksyms.h"
 #include "dev/core.h"
 #include "dev/driver.h"
-#include "mem/kmem_manager.h"
+#include "mem/kmem.h"
 #include <libk/string.h>
 
 /*

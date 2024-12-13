@@ -3,7 +3,7 @@
 #include "fs/file.h"
 #include "lightos/sysvar/shared.h"
 #include "mem/heap.h"
-#include "mem/kmem_manager.h"
+#include "mem/kmem.h"
 #include "oss/node.h"
 #include "sync/mutex.h"
 #include "system/sysvar/map.h"

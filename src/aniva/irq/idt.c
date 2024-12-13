@@ -4,7 +4,7 @@
 #include <libk/stddef.h>
 #include <libk/string.h>
 #include <mem/heap.h>
-#include <mem/kmem_manager.h>
+#include <mem/kmem.h>
 
 idt_entry_t idt_entries[MAX_IDT_ENTRIES] __attribute__((aligned(0x1000))) = { NULL };
 static idt_ptr_t idtr;

@@ -3,7 +3,7 @@
 #include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"
 #include "mem/heap.h"
-#include "mem/kmem_manager.h"
+#include "mem/kmem.h"
 #include "mem/zalloc/zalloc.h"
 #include "priv.h"
 #include "proc/proc.h"

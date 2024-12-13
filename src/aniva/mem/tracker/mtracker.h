@@ -1,8 +1,9 @@
 #ifndef __ANIVA_MEM_MTRACKER_H__
 #define __ANIVA_MEM_MTRACKER_H__
 
-#include "mem/kmem_manager.h"
+#include "mem/kmem.h"
 #include "mem/zalloc/zalloc.h"
+#include "sync/mutex.h"
 #include <lightos/types.h>
 
 /* Single 'tracker' object is simply a page_allocation linked list, sorted by page_idx */
@@ -43,7 +44,7 @@ static inline void* page_range_to_ptr(page_range_t* range)
      * Calculates the (either virtual or physical) address from the page index,
      * which may be a virtual page index, or a physical page index.
      */
-    return (void*)(range->page_idx << PAGE_SHIFT);
+    return (void*)((u64)range->page_idx << PAGE_SHIFT);
 }
 
 /*!
@@ -67,6 +68,8 @@ typedef struct page_tracker {
      * Having a reference 0
      */
     page_tracker_id_t id;
+    /* Main lock that protects this boi =) */
+    mutex_t* lock;
     /* Quick cache for getting allocation structs from */
     zone_allocator_t* allocation_cache;
 } page_tracker_t;

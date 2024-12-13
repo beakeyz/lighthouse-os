@@ -1,7 +1,7 @@
 #include "hashmap.h"
 #include "libk/flow/error.h"
 #include "mem/heap.h"
-#include "mem/kmem_manager.h"
+#include "mem/kmem.h"
 #include "mem/zalloc/zalloc.h"
 #include <crypto/k_crc32.h>
 

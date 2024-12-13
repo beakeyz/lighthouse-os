@@ -2,7 +2,7 @@
 #include "libk/flow/error.h"
 #include "mem/heap.h"
 #include <lightos/error.h>
-#include <mem/kmem_manager.h>
+#include <mem/kmem.h>
 #include <stdlib.h>
 
 /*!

@@ -3,7 +3,7 @@
 #include "libk/flow/error.h"
 #include "libk/gfx/font.h"
 #include "logging/log.h"
-#include "mem/kmem_manager.h"
+#include "mem/kmem.h"
 #include "sync/mutex.h"
 
 /*

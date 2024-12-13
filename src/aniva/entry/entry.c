@@ -35,7 +35,7 @@
 #include "time/core.h"
 #include <dev/debug/serial.h>
 #include <mem/heap.h>
-#include <mem/kmem_manager.h>
+#include <mem/kmem.h>
 #include <sched/scheduler.h>
 #include <stdio.h>
 
@@ -157,16 +157,16 @@ static kerror_t _start_system_management(void)
     /*
      * bootstrap the kernel heap
      * We're pretty nicely under way to be able to move this call
-     * under init_kmem_manager, since we almost don't need the heap
+     * under init_kmem, since we almost don't need the heap
      * in that system anymore. When that happens, we are able to completely
-     * initialize the kheap off of kmem_manager, since we can just
+     * initialize the kheap off of kmem, since we can just
      * ask it for bulk memory that we can then create a memory_allocator
      * from
      */
     init_kheap();
 
     // we need memory
-    init_kmem_manager((void*)g_system_info.virt_multiboot_addr);
+    init_kmem((void*)g_system_info.virt_multiboot_addr);
 
     // Fully initialize logging right after the memory setup
     init_logging();

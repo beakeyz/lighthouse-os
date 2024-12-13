@@ -6,7 +6,7 @@
 #include "mem/heap.h"
 #include "pci.h"
 #include <libk/string.h>
-#include <mem/kmem_manager.h>
+#include <mem/kmem.h>
 #include <oss/node.h>
 
 static dgroup_t* _pci_group;

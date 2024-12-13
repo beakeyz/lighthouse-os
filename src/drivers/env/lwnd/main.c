@@ -12,7 +12,7 @@
 #include "libk/flow/error.h"
 #include "lightos/event/key.h"
 #include "logging/log.h"
-#include "mem/kmem_manager.h"
+#include "mem/kmem.h"
 #include "proc/proc.h"
 #include "sched/scheduler.h"
 #include "system/profile/profile.h"

@@ -12,7 +12,7 @@
 #include "libk/io.h"
 #include "libk/stddef.h"
 #include "logging/log.h"
-#include "mem/kmem_manager.h"
+#include "mem/kmem.h"
 #include "sched/scheduler.h"
 #include "lightos/volume/shared.h"
 #include <mem/heap.h>
@@ -529,7 +529,7 @@ ANIVA_STATUS initialize_port(ahci_port_t* port)
 
     for (uint32_t i = 0; i < 32; i++) {
       headers[i].phys_region_desc_table_lenght = 8;
-      headers[i].command_table_base_addr = (uintptr_t)kmem_kernel_alloc(Release(kmem_request_physical_page()), SMALL_PAGE_SIZE, KMEM_CUSTOMFLAG_IDENTITY);
+      headers[i].command_table_base_addr = (uintptr_t)kmem_kernel_alloc(Release(kmem_phys_get_page()), SMALL_PAGE_SIZE, KMEM_CUSTOMFLAG_IDENTITY);
       headers[i].command_table_base_addr_upper = 0;
     }
     */

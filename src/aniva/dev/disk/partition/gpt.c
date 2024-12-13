@@ -3,7 +3,7 @@
 #include "libk/data/linkedlist.h"
 #include "logging/log.h"
 #include "mem/heap.h"
-#include "mem/kmem_manager.h"
+#include "mem/kmem.h"
 #include <libk/string.h>
 
 static char* gpt_partition_create_path(gpt_partition_t* partition)

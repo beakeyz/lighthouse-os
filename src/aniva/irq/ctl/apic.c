@@ -9,7 +9,7 @@
 #include "libk/stddef.h"
 #include "logging/log.h"
 #include "mem/heap.h"
-#include "mem/kmem_manager.h"
+#include "mem/kmem.h"
 #include "system/acpi/acpi.h"
 #include "system/acpi/acpica/actbl2.h"
 #include "system/acpi/parser.h"

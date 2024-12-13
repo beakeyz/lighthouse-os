@@ -14,7 +14,7 @@
 #include "libk/string.h"
 #include "logging/log.h"
 #include "mem/heap.h"
-#include "mem/kmem_manager.h"
+#include "mem/kmem.h"
 #include "oss/node.h"
 #include "oss/obj.h"
 #include "proc/core.h"

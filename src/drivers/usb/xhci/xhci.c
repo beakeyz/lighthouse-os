@@ -12,7 +12,7 @@
 #include "libk/io.h"
 #include "logging/log.h"
 #include "mem/heap.h"
-#include "mem/kmem_manager.h"
+#include "mem/kmem.h"
 #include "mem/zalloc/zalloc.h"
 #include <dev/pci/definitions.h>
 #include <dev/pci/pci.h>

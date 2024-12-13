@@ -9,7 +9,7 @@
 #include "sync/mutex.h"
 #include "system/sysvar/var.h"
 #include <dev/driver.h>
-#include <mem/kmem_manager.h>
+#include <mem/kmem.h>
 #include <proc/env.h>
 #include <proc/proc.h>
 

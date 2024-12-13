@@ -1,12 +1,12 @@
-#include "kmem_manager.h"
+#include "kmem.h"
 #include "entry/entry.h"
-#include "libk/data/bitmap.h"
-#include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"
 #include "libk/multiboot.h"
 #include "logging/log.h"
 #include "mem/page_dir.h"
 #include "mem/pg.h"
+#include "mem/tracker/mtracker.h"
+#include "phys.h"
 #include "proc/core.h"
 #include "proc/proc.h"
 #include "sync/mutex.h"
@@ -37,16 +37,12 @@
  * to keep track of their state.
  */
 static struct {
-    uint32_t m_mmap_entry_num;
     uint32_t m_kmem_flags;
 
-    multiboot_memory_map_t* m_mmap_entries;
+    // bitmap_t* m_phys_bitmap;
 
-    bitmap_t* m_phys_bitmap;
-    uintptr_t m_highest_phys_page_base;
-    size_t m_phys_pages_count;
-    size_t m_total_avail_memory_bytes;
-    size_t m_total_unavail_memory_bytes;
+    /* Tracker 0: The physical page tracker =D */
+    page_tracker_t m_physical_tracker;
 
     /*
      * This is the base that we use for high mappings
@@ -59,46 +55,37 @@ static struct {
      */
     vaddr_t m_high_page_base;
 
-    list_t* m_phys_ranges;
-
     pml_entry_t* m_kernel_base_pd;
 } KMEM_DATA;
 
 /* Variable from boot.asm */
 extern const size_t early_map_size;
 
+size_t kmem_get_early_map_size()
+{
+    return early_map_size;
+}
+
 static void _init_kmem_page_layout(void);
-static void kmem_init_physical_allocator(void);
-static void kmem_parse_mmap(void);
 
 static mutex_t* _kmem_phys_lock;
 static mutex_t* _kmem_map_lock;
-
-// first prep the mmap
-void prep_mmap(struct multiboot_tag_mmap* mmap)
-{
-    KMEM_DATA.m_mmap_entry_num = (mmap->size - sizeof(struct multiboot_tag_mmap)) / mmap->entry_size;
-    KMEM_DATA.m_mmap_entries = (struct multiboot_mmap_entry*)mmap->entries;
-}
 
 /*
  * TODO: Implement a lock around the physical allocator
  * FIXME: this could be heapless
  */
-void init_kmem_manager(uintptr_t* mb_addr)
+error_t init_kmem(uintptr_t* mb_addr)
 {
-    KMEM_DATA.m_phys_ranges = init_list();
-    KMEM_DATA.m_kmem_flags = 0;
+    memset(&KMEM_DATA, 0, sizeof(KMEM_DATA));
 
     /* Create our mutex */
     _kmem_phys_lock = create_mutex(NULL);
     _kmem_map_lock = create_mutex(NULL);
 
-    // nested fun
-    prep_mmap(get_mb2_tag((void*)mb_addr, 6));
-    kmem_parse_mmap();
-
-    kmem_init_physical_allocator();
+    /* Initialize the kernel physical memory unit */
+    if (init_kmem_phys(mb_addr))
+        return -ENULL;
 
     // Perform multiboot finalization
     finalize_multiboot();
@@ -106,22 +93,22 @@ void init_kmem_manager(uintptr_t* mb_addr)
     _init_kmem_page_layout();
 
     KMEM_DATA.m_kmem_flags |= KMEM_STATUS_FLAG_DONE_INIT;
+
+    return 0;
 }
 
 void debug_kmem(void)
 {
     uint32_t idx = 0;
 
-    FOREACH(i, KMEM_DATA.m_phys_ranges)
-    {
-        kmem_range_t* range = i->data;
+    for (kmem_range_t* range = kmem_phys_get_range(idx); range; range = kmem_phys_get_range(idx)) {
 
         printf("Memory range (%d) starting at 0x%llx with 0x%llx bytes and type=%d\n", idx, range->start, range->length, range->type);
 
         idx++;
     }
 
-    printf("Got phys bitmap: 0x%llx (%lld bytes)\n", (uint64_t)KMEM_DATA.m_phys_bitmap & ~(HIGH_MAP_BASE), KMEM_DATA.m_phys_bitmap->m_size);
+    // printf("Got phys bitmap: 0x%llx (%lld bytes)\n", (uint64_t)KMEM_DATA.m_phys_bitmap & ~(HIGH_MAP_BASE), KMEM_DATA.m_phys_bitmap->m_size);
 }
 
 int kmem_get_info(kmem_info_t* info_buffer, uint32_t cpu_id)
@@ -135,373 +122,16 @@ int kmem_get_info(kmem_info_t* info_buffer, uint32_t cpu_id)
 
     info_buffer->cpu_id = cpu_id;
     info_buffer->flags = KMEM_DATA.m_kmem_flags;
-    info_buffer->total_pages = KMEM_DATA.m_total_avail_memory_bytes >> PAGE_SHIFT;
+    info_buffer->total_pages = kmem_phys_get_total_bytecount() >> PAGE_SHIFT;
 
     for (uint64_t i = 0; i < info_buffer->total_pages; i++) {
-        if (bitmap_isset(KMEM_DATA.m_phys_bitmap, i))
-            total_used_pages++;
+        // if (bitmap_isset(KMEM_DATA.m_phys_bitmap, i))
+        // total_used_pages++;
     }
 
     info_buffer->used_pages = total_used_pages;
 
     return 0;
-}
-
-static kmem_range_t* _create_kmem_range(multiboot_memory_map_t* mb_mmap_entry)
-{
-    paddr_t range_end;
-    kmem_range_t* range;
-
-    range = kmalloc(sizeof(kmem_range_t));
-
-    /* Unlikely */
-    if (!range)
-        return nullptr;
-
-    range->start = mb_mmap_entry->addr;
-    range->length = mb_mmap_entry->len;
-
-    switch (mb_mmap_entry->type) {
-    case (MULTIBOOT_MEMORY_AVAILABLE): {
-        range->type = MEMTYPE_USABLE;
-        break;
-    }
-    case (MULTIBOOT_MEMORY_ACPI_RECLAIMABLE): {
-        range->type = MEMTYPE_ACPI_RECLAIM;
-        break;
-    }
-    case (MULTIBOOT_MEMORY_NVS): {
-        range->type = MEMTYPE_ACPI_NVS;
-        break;
-    }
-    case (MULTIBOOT_MEMORY_RESERVED): {
-        range->type = MEMTYPE_RESERVED;
-        break;
-    }
-    case (MULTIBOOT_MEMORY_BADRAM): {
-        range->type = MEMTYPE_BAD_MEM;
-        break;
-    }
-    default: {
-        range->type = MEMTYPE_UNKNOWN;
-        break;
-    }
-    }
-
-    list_append(KMEM_DATA.m_phys_ranges, range);
-
-    /* DEBUG */
-    KLOG_DBG("mmap range (type=%d) addr=0x%llx len=0x%llx\n", range->type, range->start, range->length);
-
-    range_end = ALIGN_DOWN(range->start + range->length, SMALL_PAGE_SIZE);
-
-    if (range_end > KMEM_DATA.m_highest_phys_page_base)
-        KMEM_DATA.m_highest_phys_page_base = range_end;
-
-    if (range->type != MEMTYPE_USABLE)
-        goto exit_and_return;
-
-    range->start = ALIGN_DOWN(range->start, SMALL_PAGE_SIZE);
-    range->length = ALIGN_UP(range->length, SMALL_PAGE_SIZE);
-
-    KMEM_DATA.m_total_avail_memory_bytes += range->length;
-
-exit_and_return:
-    return range;
-}
-
-static kmem_range_t* _create_kmem_range_raw(enum KMEM_MEMORY_TYPE type, paddr_t start, size_t length)
-{
-    kmem_range_t* range;
-
-    range = kmalloc(sizeof(*range));
-
-    if (!range)
-        return nullptr;
-
-    range->type = type;
-    range->start = start;
-    range->length = length;
-
-    return range;
-}
-
-static bool _kmem_ranges_overlap(kmem_range_t* range1, kmem_range_t* range2)
-{
-    if (!range1 || !range2)
-        return false;
-
-    return (
-        /* @range2 ends inside @range1 */
-        ((range2->start + range2->length) > range1->start && (range2->start + range2->length) <= (range1->start + range1->length)) ||
-        /* @range2 starts inside @range2 */
-        (range2->start >= range1->start && range2->start < (range1->start + range1->length) && (range2->start + range2->length) >= (range1->start + range1->length)));
-}
-
-static inline void _kmem_create_and_add_range(list_t* list, enum KMEM_MEMORY_TYPE type, paddr_t start, size_t length)
-{
-    kmem_range_t* range = _create_kmem_range_raw(
-        type,
-        start,
-        length);
-
-    list_append(list, range);
-}
-
-static void _kmem_merge_ranges(kmem_range_t* reserved)
-{
-    list_t* new_list;
-    kmem_range_t* c_range;
-    paddr_t new_start;
-    size_t new_length;
-    enum KMEM_MEMORY_TYPE new_type;
-
-    new_list = init_list();
-
-    FOREACH(i, KMEM_DATA.m_phys_ranges)
-    {
-        c_range = i->data;
-
-        /*
-         * Now we only have to figure out what part of the current range we need to add to the new list
-         */
-
-        new_type = c_range->type;
-        new_start = c_range->start;
-        new_length = c_range->length;
-
-        if (!_kmem_ranges_overlap(c_range, reserved)) {
-            _kmem_create_and_add_range(
-                new_list,
-                new_type,
-                new_start,
-                new_length);
-            continue;
-        }
-
-        /* We have a conflicting reserved region, fuck */
-
-        /* Reserved range starts inside this range */
-        if (reserved->start > new_start) {
-            new_length = (reserved->start - new_start);
-
-            _kmem_create_and_add_range(
-                new_list,
-                new_type,
-                new_start,
-                new_length);
-        }
-
-        new_start = reserved->start;
-        new_length = (reserved->start + reserved->length) < (c_range->start + c_range->length) ? reserved->length : (c_range->start + c_range->length) - reserved->start;
-        new_type = reserved->type;
-
-        if (new_length)
-            _kmem_create_and_add_range(
-                new_list,
-                new_type,
-                new_start,
-                new_length);
-
-        new_start = reserved->start + reserved->length;
-        new_length = (reserved->start + reserved->length) < (c_range->start + c_range->length) ? (c_range->start + c_range->length) - new_start : 0;
-        new_type = c_range->type;
-
-        if (!new_length)
-            continue;
-
-        _kmem_create_and_add_range(
-            new_list,
-            new_type,
-            new_start,
-            new_length);
-    }
-
-    FOREACH(i, KMEM_DATA.m_phys_ranges)
-    {
-        kfree(i->data);
-    }
-
-    destroy_list(KMEM_DATA.m_phys_ranges);
-
-    KMEM_DATA.m_phys_ranges = new_list;
-}
-
-static void kmem_parse_mmap(void)
-{
-    paddr_t _p_kernel_start;
-    paddr_t _p_kernel_end;
-    kmem_range_t* range;
-
-    _p_kernel_start = (uintptr_t)&_kernel_start & ~HIGH_MAP_BASE;
-    _p_kernel_end = ((uintptr_t)&_kernel_end & ~HIGH_MAP_BASE) + g_system_info.post_kernel_reserved_size;
-
-    /*
-     * These are the static memory regions that we need to reserve in order for the system to boot
-     */
-    kmem_range_t reserved_ranges[] = {
-        { MEMTYPE_KERNEL_RESERVED, 0, 1 * Mib },
-        { MEMTYPE_KERNEL, _p_kernel_start, _p_kernel_end },
-    };
-
-    KMEM_DATA.m_phys_pages_count = 0;
-    KMEM_DATA.m_highest_phys_page_base = 0;
-
-    for (uintptr_t i = 0; i < KMEM_DATA.m_mmap_entry_num; i++) {
-        multiboot_memory_map_t* map = &KMEM_DATA.m_mmap_entries[i];
-
-        range = _create_kmem_range(map);
-
-        ASSERT_MSG(range, "Failed to create kmem range!");
-
-        /* At this point skip non-usable ranges */
-        if (range->type != MEMTYPE_USABLE)
-            continue;
-    }
-
-    for (uint32_t i = 0; i < arrlen(reserved_ranges); i++)
-        _kmem_merge_ranges(&reserved_ranges[i]);
-
-    KMEM_DATA.m_phys_pages_count = GET_PAGECOUNT(0, KMEM_DATA.m_total_avail_memory_bytes);
-
-    KLOG_DBG("Total contiguous pages: %lld\n", KMEM_DATA.m_phys_pages_count);
-}
-
-/*!
- * @brief: Finds a free physical range that fits @size bytes
- *
- * When a usable range is found, we truncate the range in the physical range list and return a
- * dummy range. This range won't be included in the total physical range list, but that won't be
- * needed, as we will only look at ranges marked as usable. This means we can get away with only
- * resizing the range we steal bytes from
- */
-static int _allocate_free_physical_range(kmem_range_t* range, size_t size)
-{
-    size_t mapped_size;
-    kmem_range_t* c_range;
-    kmem_range_t* selected_range;
-
-    mapped_size = NULL;
-    selected_range = NULL;
-
-    /* Make sure we're allocating on page boundries */
-    size = ALIGN_UP(size, SMALL_PAGE_SIZE);
-
-    KLOG_DBG("Looking for %lld bytes (early_map_size=%lld)\n", size, early_map_size);
-
-    FOREACH(i, KMEM_DATA.m_phys_ranges)
-    {
-        c_range = i->data;
-
-        /* Only look for usable ranges */
-        if (c_range->type != MEMTYPE_USABLE)
-            continue;
-
-        /* Can't use any ranges that aren't mapped */
-        if (c_range->start >= early_map_size)
-            continue;
-
-        if (c_range->length < size)
-            continue;
-
-        /* Assume we're mapped */
-        mapped_size = c_range->length;
-
-        /* If the range is only partially mapped, we need to figure out if we can fit into the mapped part */
-        if ((c_range->start + c_range->length) > early_map_size)
-            mapped_size = early_map_size - c_range->start;
-
-        /* Get the stuff we need */
-        selected_range = c_range;
-
-        /* Check if we fit */
-        if (size < mapped_size)
-            break;
-
-        /* Fuck, reset and go next */
-        selected_range = NULL;
-    }
-
-    if (!selected_range)
-        return -1;
-
-    /* Create a new dummy range */
-    range->start = selected_range->start;
-    range->length = size;
-    range->type = MEMTYPE_KERNEL_RESERVED;
-
-    selected_range->start += size;
-    selected_range->length -= size;
-
-    return 0;
-}
-
-/*
- * Initialize the physical page allocator that keeps track
- * of which physical pages are used and which are free
- */
-static void kmem_init_physical_allocator(void)
-{
-    kmem_range_t bm_range;
-    bitmap_t* physical_bitmap;
-    vaddr_t bitmap_start_addr;
-    size_t physical_bitmap_size;
-    size_t physical_pages;
-    size_t physical_pages_bytes;
-
-    physical_pages = kmem_get_page_idx(KMEM_DATA.m_highest_phys_page_base) + 1;
-    physical_pages_bytes = (ALIGN_UP(physical_pages, 8) >> 3);
-    physical_bitmap_size = physical_pages_bytes + sizeof(bitmap_t);
-
-    /* Find a bitmap. This is crucial */
-    ASSERT_MSG(_allocate_free_physical_range(&bm_range, physical_bitmap_size) == NULL, "Failed to find a physical range for our physmem bitmap!");
-
-    /* Compute where our bitmap MUST go */
-    bitmap_start_addr = kmem_ensure_high_mapping(bm_range.start);
-
-    /*
-     * new FIXME: we allocate a bitmap for the entire memory page space on the heap,
-     * which means that on systems with a lot of RAM, we need a biiig heap to contain
-     * that. That's an issue, because we need to reserve that space right now in the form of
-     * a static memory space that gets embedded into the kernel binary, because in order
-     * for us to have a dynamic heap like this, we'll need a working physical allocator,
-     * but for that we also need a dynamic heap...
-     * The solution would be to map enough memory in the boot stub to try to find a suitable
-     * location for the bitmap to fit manualy and then initialize the heap after that.
-     */
-    physical_bitmap = (bitmap_t*)(bitmap_start_addr);
-
-    physical_bitmap->m_size = physical_pages_bytes;
-    physical_bitmap->m_entries = physical_pages;
-    physical_bitmap->m_default = 0xff;
-
-    KLOG_DBG("Trying to initialize our bitmap at 0x%llx with %lld entries\n", bitmap_start_addr, physical_bitmap->m_entries);
-
-    memset(physical_bitmap->m_map, physical_bitmap->m_default, physical_pages_bytes);
-
-    KMEM_DATA.m_phys_bitmap = physical_bitmap;
-
-    paddr_t base;
-    size_t size;
-
-    // Mark the contiguous 'free' ranges as free in our bitmap
-    FOREACH(i, KMEM_DATA.m_phys_ranges)
-    {
-        const kmem_range_t* range = i->data;
-
-        if (range->type != MEMTYPE_USABLE)
-            continue;
-
-        base = range->start;
-        size = range->length;
-
-        KLOG_DBG("Marking free range: start=0x%llx, size=0x%llx\n", base, size);
-
-        /* Base and size should already be page-aligned */
-        kmem_set_phys_range_free(
-            kmem_get_page_idx(base),
-            GET_PAGECOUNT(base, size));
-    }
 }
 
 /*
@@ -561,44 +191,8 @@ uintptr_t kmem_to_phys(pml_entry_t* root, vaddr_t addr)
     return kmem_get_page_base(page->raw_bits) + delta;
 }
 
-// flip a bit to 1 as to mark a pageframe as used in our bitmap
-void kmem_set_phys_page_used(uintptr_t idx)
-{
-    bitmap_mark(KMEM_DATA.m_phys_bitmap, idx);
-}
-
-// flip a bit to 0 as to mark a pageframe as free in our bitmap
-void kmem_set_phys_page_free(uintptr_t idx)
-{
-    bitmap_unmark(KMEM_DATA.m_phys_bitmap, idx);
-}
-
-void kmem_set_phys_range_used(uintptr_t start_idx, size_t page_count)
-{
-    bitmap_mark_range(KMEM_DATA.m_phys_bitmap, start_idx, page_count);
-}
-
-void kmem_set_phys_range_free(uintptr_t start_idx, size_t page_count)
-{
-    bitmap_unmark_range(KMEM_DATA.m_phys_bitmap, start_idx, page_count);
-}
-
-bool kmem_is_phys_page_used(uintptr_t idx)
-{
-    return bitmap_isset(KMEM_DATA.m_phys_bitmap, idx);
-}
-
 /*
- * Try to find a free physical page, using the bitmap that was
- * setup by the physical page allocator
- */
-int kmem_request_physical_page(paddr_t* p_idx)
-{
-    return bitmap_find_free(KMEM_DATA.m_phys_bitmap, p_idx);
-}
-
-/*
- * Try to find a free physical page, just as kmem_request_physical_page,
+ * Try to find a free physical page, just as kmem_phys_get_page,
  * but this also marks it as used and makes sure it is filled with zeros
  *
  * FIXME: we might grab a page that is located at kernel_end + 1 Gib which won't be
@@ -613,7 +207,7 @@ int kmem_prepare_new_physical_page(paddr_t* p_addr)
     mutex_lock(_kmem_phys_lock);
 
     // find
-    error = kmem_request_physical_page(&p_page_idx);
+    error = kmem_phys_get_page(&p_page_idx);
 
     /* Fuck */
     if (error) {
@@ -621,7 +215,7 @@ int kmem_prepare_new_physical_page(paddr_t* p_addr)
         return error;
     }
 
-    kmem_set_phys_page_used(p_page_idx);
+    kmem_phys_set_page_used(p_page_idx);
 
     address = kmem_get_page_addr(p_page_idx);
 
@@ -652,7 +246,7 @@ int kmem_return_physical_page(paddr_t page_base)
 
     uint32_t index = kmem_get_page_idx(page_base);
 
-    kmem_set_phys_page_free(index);
+    kmem_phys_set_page_free(index);
 
     memset((void*)vbase, 0, SMALL_PAGE_SIZE);
 
@@ -845,7 +439,7 @@ bool kmem_map_range(pml_entry_t* table, uintptr_t virt_base, uintptr_t phys_base
         }                                                       \
         parent[idx].raw_bits = NULL;                            \
         phys = kmem_to_phys_aligned(table, (vaddr_t)entry);     \
-        kmem_set_phys_page_free(kmem_get_page_idx(phys));       \
+        kmem_phys_set_page_free(kmem_get_page_idx(phys));       \
     } while (0)
 
 static bool __kmem_do_recursive_unmap(pml_entry_t* table, uintptr_t virt)
@@ -1047,12 +641,12 @@ int kmem_dealloc_ex(pml_entry_t* map, kresource_bundle_t* resources, uintptr_t v
         // get the index of that physical page
         const uintptr_t page_idx = kmem_get_page_idx(paddr);
         // check if this page is actually used
-        const bool was_used = kmem_is_phys_page_used(page_idx);
+        const bool was_used = kmem_phys_is_page_used(page_idx);
 
         if (!was_used && !ignore_unused)
             return 1;
 
-        kmem_set_phys_page_free(page_idx);
+        kmem_phys_set_page_free(page_idx);
 
         if (unmap && !kmem_unmap_page(map, vaddr))
             return 1;
@@ -1115,7 +709,7 @@ int kmem_alloc_ex(void** result, pml_entry_t* map, kresource_bundle_t* resources
      * Mark our pages as used BEFORE we map the range, since map_page
      * sometimes yoinks pages for itself
      */
-    kmem_set_phys_range_used(kmem_get_page_idx(phys_base), pages_needed);
+    kmem_phys_set_range_used(kmem_get_page_idx(phys_base), pages_needed);
 
     /* Don't mark, since we have already done that */
     if (!kmem_map_range(map, virt_base, phys_base, pages_needed, KMEM_CUSTOMFLAG_GET_MAKE | custom_flags, page_flags))
@@ -1143,7 +737,7 @@ int kmem_alloc_range(void** result, pml_entry_t* map, kresource_bundle_t* resour
     const bool should_identity_map = (custom_flags & KMEM_CUSTOMFLAG_IDENTITY) == KMEM_CUSTOMFLAG_IDENTITY;
     const bool should_remap = (custom_flags & KMEM_CUSTOMFLAG_NO_REMAP) != KMEM_CUSTOMFLAG_NO_REMAP;
 
-    error = bitmap_find_free_range(KMEM_DATA.m_phys_bitmap, pages_needed, &phys_idx);
+    error = kmem_phys_get_free_range(pages_needed, &phys_idx);
 
     if (error)
         return error;
@@ -1157,7 +751,7 @@ int kmem_alloc_range(void** result, pml_entry_t* map, kresource_bundle_t* resour
      * Mark our pages as used BEFORE we map the range, since map_page
      * sometimes yoinks pages for itself
      */
-    kmem_set_phys_range_used(phys_idx, pages_needed);
+    kmem_phys_set_range_used(phys_idx, pages_needed);
 
     if (!kmem_map_range(map, virt_base, phys_base, pages_needed, KMEM_CUSTOMFLAG_GET_MAKE | custom_flags, page_flags))
         return -1;
@@ -1265,7 +859,7 @@ int kmem_user_dealloc(struct proc* p, vaddr_t vaddr, size_t size)
         c_phys_idx = kmem_get_page_idx(c_phys_base);
 
         /* Free that page */
-        kmem_set_phys_page_free(c_phys_idx);
+        kmem_phys_set_page_free(c_phys_idx);
 
         /* Unmap from the process */
         kmem_unmap_page(p->m_root_pd.m_root, vaddr);
@@ -1353,7 +947,7 @@ static void __kmem_free_old_pagemaps()
             p_base,
             page_count);
 
-        kmem_set_phys_range_free(
+        kmem_phys_set_range_free(
             kmem_get_page_idx(p_base),
             page_count);
     }
@@ -1645,31 +1239,31 @@ int kmem_destroy_page_dir(pml_entry_t* dir)
                     /* Now we've reached the pagetable entry. If it's present we can mark it free */
                     paddr_t p_pt_entry = kmem_get_page_base(pd_entry[l].raw_bits);
                     uintptr_t idx = kmem_get_page_idx(p_pt_entry);
-                    kmem_set_phys_page_free(idx);
+                    kmem_phys_set_page_free(idx);
                 } // pt loop
 
                 /* Clear the pagetable */
                 memset(pd_entry, 0, SMALL_PAGE_SIZE);
 
                 uintptr_t idx = kmem_get_page_idx(pd_entry_phys);
-                kmem_set_phys_page_free(idx);
+                kmem_phys_set_page_free(idx);
 
             } // pd loop
 
             uintptr_t idx = kmem_get_page_idx(pdp_entry_phys);
-            kmem_set_phys_page_free(idx);
+            kmem_phys_set_page_free(idx);
 
         } // pdp loop
 
         uintptr_t idx = kmem_get_page_idx(pml4_entry_phys);
-        kmem_set_phys_page_free(idx);
+        kmem_phys_set_page_free(idx);
 
     } // pml4 loop
 
     paddr_t dir_phys = kmem_to_phys_aligned(nullptr, (uintptr_t)dir);
     uintptr_t idx = kmem_get_page_idx(dir_phys);
 
-    kmem_set_phys_page_free(idx);
+    kmem_phys_set_page_free(idx);
 
     return (0);
 }
@@ -1778,9 +1372,4 @@ int kmem_map_to_kernel(vaddr_t* p_kaddr, vaddr_t uaddr, size_t size, vaddr_t map
     /* Make sure the return the correctly aligned address */
     *p_kaddr = (v_kernel_address + v_align_delta);
     return 0;
-}
-
-list_t const* kmem_get_phys_ranges_list(void)
-{
-    return KMEM_DATA.m_phys_ranges;
 }

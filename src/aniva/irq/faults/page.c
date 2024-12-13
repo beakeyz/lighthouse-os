@@ -1,7 +1,7 @@
 #include "irq/faults/faults.h"
 #include "libk/flow/error.h"
 #include "logging/log.h"
-#include "mem/kmem_manager.h"
+#include "mem/kmem.h"
 #include "mem/pg.h"
 #include "proc/thread.h"
 #include "sched/scheduler.h"

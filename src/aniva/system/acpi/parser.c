@@ -4,13 +4,15 @@
 #include "libk/flow/error.h"
 #include "libk/multiboot.h"
 #include "logging/log.h"
-#include "mem/kmem_manager.h"
+#include "mem/kmem.h"
+#include "sys/types.h"
 #include "system/acpi/acpica/acexcep.h"
 #include "system/acpi/acpica/acpixf.h"
 #include "system/acpi/acpica/actypes.h"
 #include "tables.h"
 #include <libk/stddef.h>
 #include <libk/string.h>
+#include <mem/phys.h>
 
 static acpi_parser_rsdp_discovery_method_t create_rsdp_method_state(enum acpi_rsdp_method method)
 {
@@ -193,12 +195,10 @@ void* find_rsdp(acpi_parser_t* parser)
         }
     }
 
-    const list_t* phys_ranges = kmem_get_phys_ranges_list();
+    u32 index = 0;
 
-    FOREACH(i, phys_ranges)
-    {
-
-        kmem_range_t* range = i->data;
+    for (kmem_range_t* range = kmem_phys_get_range(index); range != nullptr; range = kmem_phys_get_range(index)) {
+        index++;
 
         if (range->type != MEMTYPE_ACPI_NVS && range->type != MEMTYPE_ACPI_RECLAIM)
             continue;

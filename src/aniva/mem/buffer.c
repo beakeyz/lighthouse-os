@@ -4,7 +4,7 @@
 #include "logging/log.h"
 #include "mem/zalloc/zalloc.h"
 #include <libk/data/hashmap.h>
-#include <mem/kmem_manager.h>
+#include <mem/kmem.h>
 
 buffer_handle_t __cur_handle_nr;
 hashmap_t* __handle_hashmap;

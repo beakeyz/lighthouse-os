@@ -5,7 +5,7 @@
 #include "libk/stddef.h"
 #include "lightos/handle_def.h"
 #include "lightos/proc/ipc/pipe/shared.h"
-#include "mem/kmem_manager.h"
+#include "mem/kmem.h"
 #include "mem/zalloc/zalloc.h"
 #include "oss/core.h"
 #include "oss/node.h"

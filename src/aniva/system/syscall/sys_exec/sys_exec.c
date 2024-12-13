@@ -2,7 +2,7 @@
 #include "kterm/shared.h"
 #include <lightos/types.h>
 #include "lightos/syscall.h"
-#include "mem/kmem_manager.h"
+#include "mem/kmem.h"
 #include "proc/proc.h"
 #include "sched/scheduler.h"
 #include <libk/string.h>

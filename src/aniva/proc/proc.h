@@ -4,7 +4,7 @@
 #include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"
 #include "lightos/sysvar/shared.h"
-#include "mem/kmem_manager.h"
+#include "mem/kmem.h"
 #include "mem/page_dir.h"
 #include "proc/core.h"
 #include "proc/handle.h"

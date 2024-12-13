@@ -7,7 +7,7 @@
 #include "drivers/video/nvidia/device/subdev/therm/core.h"
 #include "libk/flow/error.h"
 #include "mem/heap.h"
-#include "mem/kmem_manager.h"
+#include "mem/kmem.h"
 
 /*
  * Entrypoints for a card of the NV94 chipset

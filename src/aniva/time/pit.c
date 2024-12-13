@@ -3,7 +3,7 @@
 #include "libk/flow/error.h"
 #include "libk/io.h"
 #include "logging/log.h"
-#include "mem/kmem_manager.h"
+#include "mem/kmem.h"
 #include "time/core.h"
 #include <system/asm_specifics.h>
 

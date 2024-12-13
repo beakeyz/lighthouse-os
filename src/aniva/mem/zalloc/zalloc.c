@@ -4,7 +4,7 @@
 #include "mem/zalloc/list.h"
 #include "sys/types.h"
 #include <mem/heap.h>
-#include <mem/kmem_manager.h>
+#include <mem/kmem.h>
 
 /* Only the sized list needs to know what its end is */
 

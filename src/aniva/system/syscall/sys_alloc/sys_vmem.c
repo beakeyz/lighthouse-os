@@ -3,7 +3,7 @@
 #include "lightos/syscall.h"
 #include "proc/proc.h"
 #include "sched/scheduler.h"
-#include <mem/kmem_manager.h>
+#include <mem/kmem.h>
 
 static inline void _apply_memory_flags(uint32_t userflags, uint32_t* customflags, uint32_t* kmem_flags)
 {

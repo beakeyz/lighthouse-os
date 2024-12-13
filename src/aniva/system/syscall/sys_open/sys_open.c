@@ -4,7 +4,7 @@
 #include <lightos/types.h>
 #include "lightos/handle_def.h"
 #include "lightos/syscall.h"
-#include "mem/kmem_manager.h"
+#include "mem/kmem.h"
 #include "proc/handle.h"
 #include "proc/hdrv/driver.h"
 #include "proc/proc.h"
