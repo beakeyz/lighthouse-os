@@ -2,6 +2,7 @@
 #include "lightos/handle.h"
 #include "lightos/handle_def.h"
 #include "lightos/sysvar/var.h"
+#include <lightos/lightos.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -155,7 +156,7 @@ int __parse_cmdline()
     return 0;
 }
 
-int __init_lightos_cmdline()
+LEXPORT int __init_lightos_cmdline()
 {
     if (__get_raw_cmdline())
         return 0;

@@ -49,10 +49,15 @@ BOOL sysvar_read(HANDLE handle, void* buffer, u64 buffer_size)
     return handle_read(handle, buffer, buffer_size);
 }
 
-BOOL sysvar_read_bool(HANDLE h_var, BOOL* pvalue)
+extern BOOL sysvar_read_byte(HANDLE h_var, u8* pvalue)
 {
     enum SYSVAR_TYPE type;
 
+    /* Verify the handle */
+    if (handle_verify(h_var))
+        return FALSE;
+
+    /* Get the type */
     if (!sysvar_get_type(h_var, &type))
         return FALSE;
 

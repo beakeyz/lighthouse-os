@@ -47,5 +47,6 @@ typedef struct dynldr_getfuncname_msg {
 // typedef int (*DYNAPP_ENTRY_t)(int argc, char** argv, char* envp);
 typedef int (*DYNAPP_ENTRY_t)();
 typedef int (*DYNLIB_ENTRY_t)();
+typedef int (*DYNLIB_EXIT_t)();
 
 #endif // !__ANIVA_DRV_APP_LOADER_API__

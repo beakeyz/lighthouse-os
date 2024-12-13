@@ -2,7 +2,7 @@
 #include "libgfx/shared.h"
 #include "lightos/driver/drv.h"
 #include "lightos/handle_def.h"
-#include "lightos/lib/lightos.h"
+#include <lightos/lightos.h>
 #include "lightos/sysvar/var.h"
 #include <errno.h>
 #include <stdio.h>

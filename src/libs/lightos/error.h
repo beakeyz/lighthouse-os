@@ -1,11 +1,6 @@
 #ifndef __LIGHTOS_ERROR_H__
 #define __LIGHTOS_ERROR_H__
 
-#include <stdint.h>
-
-/* Our beautiful error type */
-typedef i32 error_t;
-
 /*
  * Posix shit (Yuck)
  */
@@ -140,6 +135,9 @@ typedef i32 error_t;
 #define ENOCMD 170
 #define EKERR 171 /* Kernel error */
 #define EBADPARAMS 172
+#define EBADASSERT 173 /* Assertion failed */
+#define EISENABLED 174
+#define EISDISABLED 175
 
 #define ERESTARTSYS 512
 

@@ -1,7 +1,6 @@
 #include "env.h"
 #include "libk/flow/error.h"
 #include "lightos/sysvar/shared.h"
-#include "logging/log.h"
 #include "mem/heap.h"
 #include "oss/node.h"
 #include "proc/proc.h"

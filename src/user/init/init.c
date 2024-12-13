@@ -3,7 +3,7 @@
 #include "lightos/fs/shared.h"
 #include "lightos/handle_def.h"
 #include "lightos/sysvar/var.h"
-#include <errno.h>
+#include <assert.h>
 #include <lightos/driver/drv.h>
 #include <lightos/fs/dir.h>
 #include <lightos/handle.h>
@@ -12,7 +12,7 @@
 #include <lightos/proc/process.h>
 #include <sys/types.h>
 
-BOOL no_pipes = false;
+static BOOL no_pipes = false;
 
 /*!
  * @brief: Checks if there are any funnie hid device
@@ -107,9 +107,10 @@ int main()
     /* Open the config sysvar */
     sysvar = open_sysvar("NO_PIPES", HNDL_FLAG_R);
 
+    assert(handle_verify(sysvar) == 0);
+
     /* Add the config value */
-    if (!sysvar_read_bool(sysvar, &no_pipes))
-        return -EINVAL;
+    (void)sysvar_read_byte(sysvar, &no_pipes);
 
     /* Close the sysvarhandle */
     close_handle(sysvar);

@@ -2,7 +2,7 @@
 #include "dev/device.h"
 #include "fs/file.h"
 #include "libk/flow/error.h"
-#include "lightos/error.h"
+#include <lightos/types.h>
 #include "lightos/handle_def.h"
 #include "lightos/syscall.h"
 #include "mem/kmem_manager.h"

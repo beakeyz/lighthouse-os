@@ -53,6 +53,9 @@ typedef void (*FuncPtr)();
  */
 #define DYNAMIC_CAST(type, value) (*(type*)&(value))
 
+/* Shortcut for getting the length of a static array */
+#define arrlen(arr) (sizeof((arr)) / sizeof((arr)[0]))
+
 /*
  * Definitions for accurate byte-sizes
  */

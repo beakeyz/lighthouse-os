@@ -23,8 +23,6 @@ typedef struct lightos_cmdline {
     uint32_t argc;
 } lightos_cmdline_t, CMDLINE;
 
-extern int __init_lightos_cmdline();
-
 extern int cmdline_get_len(size_t* bsize);
 extern int cmdline_get_raw(char* buffer, size_t bsize);
 extern int cmdline_get(CMDLINE* b_cmdline);

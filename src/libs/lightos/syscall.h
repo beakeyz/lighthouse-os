@@ -15,7 +15,7 @@
  */
 
 #include "lightos/dev/shared.h"
-#include "lightos/error.h"
+#include <lightos/types.h>
 #include "lightos/fs/shared.h"
 #include "lightos/handle_def.h"
 #include "lightos/sysvar/shared.h"

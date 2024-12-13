@@ -1,8 +1,8 @@
 #include <mem/memory.h>
 
 #include "lightos/handle_def.h"
-#include "lightos/lib/lightos.h"
 #include <lightos/error.h>
+#include <lightos/lightos.h>
 #include <stdlib.h>
 #include <sys/types.h>
 
@@ -20,6 +20,9 @@ extern void __attribute__((noreturn)) halt(void);
 extern void __init_memalloc(void);
 extern void __init_stdio(void);
 
+/*!
+ * @brief: Get everything up and running for a standard C application under LightOS
+ */
 void __init_libc(void)
 {
     /* 1) Init userspace libraries */
@@ -27,8 +30,6 @@ void __init_libc(void)
     __init_memalloc();
     /* 1.2 -> init posix standard data streams (stdin, stdout, stderr) */
     __init_stdio();
-    /* 1.3 -> lightos userlib initialization */
-    __init_lightos();
 }
 
 /*!
@@ -52,15 +53,4 @@ void lightapp_startup(MainEntry main)
 
     /* 4) Yield */
     halt();
-}
-
-/*!
- * @brief: Dynamic entrypoint for the c runtime library
- */
-LIGHTENTRY int libentry()
-{
-    /* Initialize libc things */
-    __init_libc();
-
-    return 0;
 }

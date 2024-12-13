@@ -5,7 +5,7 @@
 #include "lightui/widgets/button.h"
 #include "lightui/window.h"
 #include <errno.h>
-#include <lightos/lib/lightos.h>
+#include <lightos/lightos.h>
 #include <stdlib.h>
 #include <string.h>
 

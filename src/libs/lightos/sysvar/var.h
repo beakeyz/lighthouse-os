@@ -41,7 +41,7 @@ extern BOOL sysvar_get_type(HANDLE var_handle, enum SYSVAR_TYPE* type);
  */
 extern BOOL sysvar_read(HANDLE var_handle, void* buffer, size_t buffer_size);
 
-extern BOOL sysvar_read_bool(HANDLE h_var, BOOL* pvalue);
+extern BOOL sysvar_read_byte(HANDLE h_var, u8* pvalue);
 /*
  * Write to a system variable
  */

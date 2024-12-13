@@ -1,7 +1,7 @@
 #include "dev/core.h"
 #include "libk/flow/error.h"
 #include "lightos/driver/loader.h"
-#include "lightos/error.h"
+#include <lightos/types.h>
 #include "lightos/handle_def.h"
 #include "lightos/syscall.h"
 #include "mem/kmem_manager.h"

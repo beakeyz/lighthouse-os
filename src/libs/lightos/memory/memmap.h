@@ -8,7 +8,7 @@
  * other than ram and maps it into workram
  */
 
-#include "lightos/error.h"
+#include <lightos/types.h>
 #include "lightos/handle_def.h"
 
 /*

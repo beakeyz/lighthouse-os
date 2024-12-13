@@ -1,6 +1,6 @@
 #include "dev/core.h"
 #include "kterm/shared.h"
-#include "lightos/error.h"
+#include <lightos/types.h>
 #include "lightos/syscall.h"
 #include "mem/kmem_manager.h"
 #include "proc/proc.h"

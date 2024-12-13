@@ -1,6 +1,6 @@
 #include "kterm/shared.h"
 #include "lightos/driver/drv.h"
-#include "lightos/lib/lightos.h"
+#include <lightos/lightos.h>
 #include "string.h"
 #include <errno.h>
 #include <stdio.h>

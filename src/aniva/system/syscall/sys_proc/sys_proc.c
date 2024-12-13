@@ -4,6 +4,7 @@
 #include "lightos/handle_def.h"
 #include "lightos/proc/shared.h"
 #include "lightos/syscall.h"
+#include "lightos/types.h"
 #include "mem/kmem_manager.h"
 #include "oss/path.h"
 #include "proc/handle.h"

@@ -2,7 +2,7 @@
 #define __LIGHTOS_LIGHTUI_WINDOW__
 
 #include "libgfx/shared.h"
-#include "lightos/lib/lightos.h"
+#include <lightos/lightos.h>
 #include <stdint.h>
 
 struct lightui_widget;

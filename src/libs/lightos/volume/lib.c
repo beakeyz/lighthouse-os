@@ -6,7 +6,7 @@
 #include "volumeio.h"
 #include <errno.h>
 #include <lightos/dev/device.h>
-#include <lightos/lib/lightos.h>
+#include <lightos/lightos.h>
 #include <stdlib.h>
 
 VOLUME_HNDL open_volume(const char* path, uint32_t flags, enum HNDL_MODE mode)

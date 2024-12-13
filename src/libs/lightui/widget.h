@@ -1,7 +1,7 @@
 #ifndef __LIGHTOS_LIGHTUI_WIDGET__
 #define __LIGHTOS_LIGHTUI_WIDGET__
 
-#include "lightos/lib/lightos.h"
+#include <lightos/lightos.h>
 #include "lightui/window.h"
 #include <stdint.h>
 

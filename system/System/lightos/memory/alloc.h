@@ -13,7 +13,7 @@
  *  - Ask the allocator to allocate in another process (for that we use handles and 'allocator sharing')
  */
 
-#include "lightos/error.h"
+#include <lightos/types.h>
 #include "sys/types.h"
 
 #define ALIGN_UP(addr, size) \

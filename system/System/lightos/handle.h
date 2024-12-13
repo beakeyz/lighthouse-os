@@ -10,12 +10,11 @@
  *
  * negative handles mean invalid handles of different types
  */
-#include "lightos/error.h"
 #include "stdint.h"
 
 /* This file contains definitions to be used for both userspace and kernelspace */
 #include "handle_def.h"
-#include "sys/types.h"
+#include "lightos/types.h"
 
 /*!
  * @brief: Check if a certain handle is actually valid for use

@@ -200,6 +200,9 @@ kerror_t load_dynamic_lib(const char* path, struct loaded_app* target_app, dynam
     if (lib->image.elf_lightentry_hdr)
         lib->entry = (DYNLIB_ENTRY_t)lib->image.elf_lightentry_hdr->sh_addr;
 
+    if (lib->image.elf_lightexit_hdr)
+        lib->exit = (DYNLIB_EXIT_t)lib->image.elf_lightexit_hdr->sh_addr;
+
     if (blib)
         *blib = lib;
 

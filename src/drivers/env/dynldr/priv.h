@@ -71,6 +71,7 @@ typedef struct dynamic_library {
     thread_t* lib_wait_thread;
     thread_t* lib_init_thread;
     DYNLIB_ENTRY_t entry;
+    DYNLIB_EXIT_t exit;
 } dynamic_library_t;
 
 extern kerror_t load_dynamic_lib(const char* path, struct loaded_app* target_app, dynamic_library_t** blib);
