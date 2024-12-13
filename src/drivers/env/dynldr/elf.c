@@ -219,10 +219,8 @@ kerror_t _elf_do_headers(elf_image_t* image)
         case SHT_PROGBITS:
             if (strncmp(LIGHTENTRY_SECTION_NAME, image->elf_shstrtab + shdr->sh_name, sizeof(LIGHTENTRY_SECTION_NAME) - 1) == 0) {
                 image->elf_lightentry_hdr = shdr;
-                KLOG("Found entry function for lib image %s: 0x%p\n", image->proc->m_name, image->elf_lightentry_hdr);
             } else if (strncmp(LIGHTEXIT_SECTION_NAME, image->elf_shstrtab + shdr->sh_name, sizeof(LIGHTEXIT_SECTION_NAME) - 1) == 0) {
                 image->elf_lightexit_hdr = shdr;
-                KLOG("Found exit function for lib image %s: 0x%p\n", image->proc->m_name, image->elf_lightexit_hdr);
             }
 
             break;

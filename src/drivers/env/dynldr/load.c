@@ -3,7 +3,6 @@
 #include "libk/data/hashmap.h"
 #include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"
-#include "libk/stddef.h"
 #include "mem/heap.h"
 #include "mem/zalloc/zalloc.h"
 #include "priv.h"

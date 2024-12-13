@@ -2,9 +2,9 @@
 #include "dev/device.h"
 #include "dev/driver.h"
 #include "dev/loader.h"
-#include "lightos/dev/shared.h"
 #include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"
+#include "lightos/dev/shared.h"
 #include "oss/obj.h"
 #include "sync/mutex.h"
 #include <libk/string.h>
@@ -281,6 +281,7 @@ void destroy_driver(driver_t* driver)
     kfree((void*)driver->m_url);
     if (driver->m_image_path)
         kfree((void*)driver->m_image_path);
+
     free_ddriver(driver);
 }
 

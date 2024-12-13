@@ -1,8 +1,6 @@
-#include "lightos/syscall.h"
 #include <lightos/error.h>
 #include <lightos/lightos.h>
 #include <lightos/proc/cmdline.h>
-#include <stdio.h>
 
 static u32 __lightos_status_flags;
 

@@ -394,7 +394,6 @@ static inline void __proc_kill_threads(proc_t* proc)
  */
 void __destroy_proc(proc_t* proc)
 {
-    KLOG_DBG("Killing: %s\n", proc->m_name);
     /* Yeet threads */
     __proc_kill_threads(proc);
 

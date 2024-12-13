@@ -21,7 +21,6 @@
 #include "libk/multiboot.h"
 #include "libk/stddef.h"
 #include "logging/log.h"
-#include "mem/aalloc/aalloc.h"
 #include "mem/buffer.h"
 #include "mem/zalloc/zalloc.h"
 #include "oss/core.h"

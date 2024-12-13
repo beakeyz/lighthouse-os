@@ -13,6 +13,7 @@ static USED void sys_handler(registers_t* regs);
 
 static const sys_fn_t __syscall_map[] = {
     [SYSID_EXIT] = (sys_fn_t)sys_exit,
+    [SYSID_GET_EXITVEC] = (sys_fn_t)sys_get_exitvec,
     [SYSID_CLOSE] = (sys_fn_t)sys_close,
     [SYSID_READ] = (sys_fn_t)sys_read,
     [SYSID_WRITE] = (sys_fn_t)sys_write,
