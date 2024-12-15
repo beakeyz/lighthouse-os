@@ -16,6 +16,7 @@ typedef struct spinlock {
 } spinlock_t;
 
 spinlock_t* create_spinlock(u32 flags);
+int init_spinlock(spinlock_t* lock, u32 flags);
 void destroy_spinlock(spinlock_t* lock);
 
 void spinlock_lock(spinlock_t* lock);

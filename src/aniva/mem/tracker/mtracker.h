@@ -3,7 +3,7 @@
 
 #include "mem/kmem.h"
 #include "mem/zalloc/zalloc.h"
-#include "sync/mutex.h"
+#include "sync/spinlock.h"
 #include <lightos/types.h>
 
 /* Single 'tracker' object is simply a page_allocation linked list, sorted by page_idx */
@@ -69,10 +69,12 @@ typedef struct page_tracker {
      */
     page_tracker_id_t id;
     /* Main lock that protects this boi =) */
-    mutex_t* lock;
+    spinlock_t lock;
     /* Quick cache for getting allocation structs from */
     zone_allocator_t* allocation_cache;
 } page_tracker_t;
+
+error_t init_page_tracker(page_tracker_t* tracker);
 
 /*
  * 'High' level functions we want to be able to use throughout the kernel

@@ -68,7 +68,6 @@ size_t kmem_get_early_map_size()
 
 static void _init_kmem_page_layout(void);
 
-static mutex_t* _kmem_phys_lock;
 static mutex_t* _kmem_map_lock;
 
 /*
@@ -80,7 +79,6 @@ error_t init_kmem(uintptr_t* mb_addr)
     memset(&KMEM_DATA, 0, sizeof(KMEM_DATA));
 
     /* Create our mutex */
-    _kmem_phys_lock = create_mutex(NULL);
     _kmem_map_lock = create_mutex(NULL);
 
     /* Initialize the kernel physical memory unit */
@@ -204,18 +202,11 @@ int kmem_prepare_new_physical_page(paddr_t* p_addr)
     paddr_t address;
     paddr_t p_page_idx;
 
-    mutex_lock(_kmem_phys_lock);
+    // Find the thing
+    error = kmem_phys_alloc_page(&p_page_idx);
 
-    // find
-    error = kmem_phys_get_page(&p_page_idx);
-
-    /* Fuck */
-    if (error) {
-        mutex_unlock(_kmem_phys_lock);
+    if (error)
         return error;
-    }
-
-    kmem_phys_set_page_used(p_page_idx);
 
     address = kmem_get_page_addr(p_page_idx);
 
@@ -227,28 +218,8 @@ int kmem_prepare_new_physical_page(paddr_t* p_addr)
     // mean that you can't just get a nice clean page...
     memset((void*)kmem_from_phys(address, KMEM_DATA.m_high_page_base), 0x00, SMALL_PAGE_SIZE);
 
-    mutex_unlock(_kmem_phys_lock);
-
     if (p_addr)
         *p_addr = address;
-    return 0;
-}
-
-/*
- * Return a physical page to the physical page allocator
- */
-int kmem_return_physical_page(paddr_t page_base)
-{
-    if (ALIGN_UP(page_base, SMALL_PAGE_SIZE) != page_base)
-        return -1;
-
-    vaddr_t vbase = kmem_ensure_high_mapping(page_base);
-
-    uint32_t index = kmem_get_page_idx(page_base);
-
-    kmem_phys_set_page_free(index);
-
-    memset((void*)vbase, 0, SMALL_PAGE_SIZE);
 
     return 0;
 }
@@ -349,14 +320,6 @@ kerror_t kmem_get_page(pml_entry_t** bentry, pml_entry_t* root, uintptr_t addr, 
     return KERR_NONE;
 }
 
-/*
- * NOTE: table needs to be a physical pointer
- */
-pml_entry_t* kmem_get_page_with_quickmap(pml_entry_t* table, vaddr_t virt, uint32_t kmem_flags, uint32_t page_flags)
-{
-    kernel_panic("kmem_get_page_with_quickmap: not implemented");
-}
-
 void kmem_invalidate_tlb_cache_entry(uintptr_t vaddr)
 {
     asm volatile("invlpg (%0)" : : "r"(vaddr));
@@ -439,7 +402,7 @@ bool kmem_map_range(pml_entry_t* table, uintptr_t virt_base, uintptr_t phys_base
         }                                                       \
         parent[idx].raw_bits = NULL;                            \
         phys = kmem_to_phys_aligned(table, (vaddr_t)entry);     \
-        kmem_phys_set_page_free(kmem_get_page_idx(phys));       \
+        kmem_phys_dealloc_page(kmem_get_page_idx(phys));        \
     } while (0)
 
 static bool __kmem_do_recursive_unmap(pml_entry_t* table, uintptr_t virt)
@@ -646,7 +609,7 @@ int kmem_dealloc_ex(pml_entry_t* map, kresource_bundle_t* resources, uintptr_t v
         if (!was_used && !ignore_unused)
             return 1;
 
-        kmem_phys_set_page_free(page_idx);
+        kmem_phys_dealloc_page(page_idx);
 
         if (unmap && !kmem_unmap_page(map, vaddr))
             return 1;
@@ -709,7 +672,7 @@ int kmem_alloc_ex(void** result, pml_entry_t* map, kresource_bundle_t* resources
      * Mark our pages as used BEFORE we map the range, since map_page
      * sometimes yoinks pages for itself
      */
-    kmem_phys_set_range_used(kmem_get_page_idx(phys_base), pages_needed);
+    kmem_phys_reserve_range(kmem_get_page_idx(phys_base), pages_needed);
 
     /* Don't mark, since we have already done that */
     if (!kmem_map_range(map, virt_base, phys_base, pages_needed, KMEM_CUSTOMFLAG_GET_MAKE | custom_flags, page_flags))
@@ -737,21 +700,18 @@ int kmem_alloc_range(void** result, pml_entry_t* map, kresource_bundle_t* resour
     const bool should_identity_map = (custom_flags & KMEM_CUSTOMFLAG_IDENTITY) == KMEM_CUSTOMFLAG_IDENTITY;
     const bool should_remap = (custom_flags & KMEM_CUSTOMFLAG_NO_REMAP) != KMEM_CUSTOMFLAG_NO_REMAP;
 
-    error = kmem_phys_get_free_range(pages_needed, &phys_idx);
-
-    if (error)
-        return error;
-
-    const paddr_t addr = kmem_get_page_addr(phys_idx);
-
-    const paddr_t phys_base = addr;
-    const vaddr_t virt_base = should_identity_map ? phys_base : (should_remap ? kmem_from_phys(phys_base, vbase) : vbase);
-
     /*
      * Mark our pages as used BEFORE we map the range, since map_page
      * sometimes yoinks pages for itself
      */
-    kmem_phys_set_range_used(phys_idx, pages_needed);
+    error = kmem_phys_alloc_range(pages_needed, &phys_idx);
+
+    if (error)
+        return error;
+
+    /* Calculate the page addresses of this index */
+    const paddr_t phys_base = kmem_get_page_addr(phys_idx);
+    const vaddr_t virt_base = should_identity_map ? phys_base : (should_remap ? kmem_from_phys(phys_base, vbase) : vbase);
 
     if (!kmem_map_range(map, virt_base, phys_base, pages_needed, KMEM_CUSTOMFLAG_GET_MAKE | custom_flags, page_flags))
         return -1;
@@ -859,7 +819,7 @@ int kmem_user_dealloc(struct proc* p, vaddr_t vaddr, size_t size)
         c_phys_idx = kmem_get_page_idx(c_phys_base);
 
         /* Free that page */
-        kmem_phys_set_page_free(c_phys_idx);
+        kmem_phys_dealloc_page(c_phys_idx);
 
         /* Unmap from the process */
         kmem_unmap_page(p->m_root_pd.m_root, vaddr);
@@ -947,7 +907,7 @@ static void __kmem_free_old_pagemaps()
             p_base,
             page_count);
 
-        kmem_phys_set_range_free(
+        kmem_phys_dealloc_range(
             kmem_get_page_idx(p_base),
             page_count);
     }
@@ -1239,31 +1199,31 @@ int kmem_destroy_page_dir(pml_entry_t* dir)
                     /* Now we've reached the pagetable entry. If it's present we can mark it free */
                     paddr_t p_pt_entry = kmem_get_page_base(pd_entry[l].raw_bits);
                     uintptr_t idx = kmem_get_page_idx(p_pt_entry);
-                    kmem_phys_set_page_free(idx);
+                    kmem_phys_dealloc_page(idx);
                 } // pt loop
 
                 /* Clear the pagetable */
                 memset(pd_entry, 0, SMALL_PAGE_SIZE);
 
                 uintptr_t idx = kmem_get_page_idx(pd_entry_phys);
-                kmem_phys_set_page_free(idx);
+                kmem_phys_dealloc_page(idx);
 
             } // pd loop
 
             uintptr_t idx = kmem_get_page_idx(pdp_entry_phys);
-            kmem_phys_set_page_free(idx);
+            kmem_phys_dealloc_page(idx);
 
         } // pdp loop
 
         uintptr_t idx = kmem_get_page_idx(pml4_entry_phys);
-        kmem_phys_set_page_free(idx);
+        kmem_phys_dealloc_page(idx);
 
     } // pml4 loop
 
     paddr_t dir_phys = kmem_to_phys_aligned(nullptr, (uintptr_t)dir);
     uintptr_t idx = kmem_get_page_idx(dir_phys);
 
-    kmem_phys_set_page_free(idx);
+    kmem_phys_dealloc_page(idx);
 
     return (0);
 }

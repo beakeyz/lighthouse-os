@@ -1,3 +1,4 @@
+#include "phys.h"
 #include "entry/entry.h"
 #include "libk/data/bitmap.h"
 #include "libk/data/linkedlist.h"
@@ -5,6 +6,7 @@
 #include "lightos/types.h"
 #include "mem/kmem.h"
 #include "mem/tracker/mtracker.h"
+#include "sync/spinlock.h"
 
 static struct {
     uint32_t m_mmap_entry_num;
@@ -22,6 +24,9 @@ static struct {
 
     /* Tracker 0: The physical page tracker =D */
     page_tracker_t m_physical_tracker;
+
+    /* Lock around the physical allocation */
+    spinlock_t m_allocator_lock;
 
     /* List of physical ranges retrieved by parsing the memory map */
     list_t* m_phys_ranges;
@@ -388,7 +393,7 @@ static int __init_physical_tracker()
         KLOG_DBG("Marking free range: start=0x%llx, size=0x%llx\n", base, size);
 
         /* Base and size should already be page-aligned */
-        kmem_phys_set_range_free(
+        kmem_phys_dealloc_range(
             kmem_get_page_idx(base),
             GET_PAGECOUNT(base, size));
     }
@@ -410,46 +415,107 @@ u32 kmem_phys_get_nr_ranges()
     return g_phys_data.m_phys_ranges->m_length;
 }
 
-// flip a bit to 1 as to mark a pageframe as used in our bitmap
-void kmem_phys_set_page_used(uintptr_t idx)
-{
-    bitmap_mark(g_phys_data.m_phys_bitmap, idx);
-}
-
-// flip a bit to 0 as to mark a pageframe as free in our bitmap
-void kmem_phys_set_page_free(uintptr_t idx)
-{
-    bitmap_unmark(g_phys_data.m_phys_bitmap, idx);
-}
-
-void kmem_phys_set_range_used(uintptr_t start_idx, size_t page_count)
-{
-    bitmap_mark_range(g_phys_data.m_phys_bitmap, start_idx, page_count);
-}
-
-void kmem_phys_set_range_free(uintptr_t start_idx, size_t page_count)
-{
-    bitmap_unmark_range(g_phys_data.m_phys_bitmap, start_idx, page_count);
-}
-
 bool kmem_phys_is_page_used(uintptr_t idx)
 {
     return bitmap_isset(g_phys_data.m_phys_bitmap, idx);
 }
 
-/*
- * Try to find a free physical page, using the bitmap that was
- * setup by the physical page allocator
+/*!
+ * @brief: Allocates a single physical page
  */
-int kmem_phys_get_page(paddr_t* p_idx)
+error_t kmem_phys_alloc_page(u64* p_page_idx)
 {
-    return bitmap_find_free(g_phys_data.m_phys_bitmap, p_idx);
-    // return 0;
+    return kmem_phys_alloc_range(1, p_page_idx);
 }
 
-int kmem_phys_get_free_range(u32 nr_pages, u64* p_page_idx)
+/*!
+ * @brief: Deallocates a single page
+ */
+error_t kmem_phys_dealloc_page(u64 page_idx)
 {
-    return bitmap_find_free_range(g_phys_data.m_phys_bitmap, nr_pages, p_page_idx);
+    if (!g_phys_data.m_phys_bitmap)
+        return -ENULL;
+
+    spinlock_lock(&g_phys_data.m_allocator_lock);
+
+    /* Mark the entry used */
+    bitmap_unmark(g_phys_data.m_phys_bitmap, page_idx);
+
+    spinlock_unlock(&g_phys_data.m_allocator_lock);
+
+    return 0;
+}
+
+/*!
+ * @brief: Reserves a specific page range
+ *
+ * Used by drivers to prevent certain parts of mmio memory to be allocated
+ * for generic use
+ */
+error_t kmem_phys_reserve_range(u64 page_idx, u32 nr_pages)
+{
+    if (!g_phys_data.m_phys_bitmap)
+        return -ENULL;
+
+    if (!nr_pages)
+        return -EINVAL;
+
+    spinlock_lock(&g_phys_data.m_allocator_lock);
+
+    /* Mark the entry used */
+    bitmap_mark_range(g_phys_data.m_phys_bitmap, page_idx, nr_pages);
+
+    spinlock_unlock(&g_phys_data.m_allocator_lock);
+
+    return 0;
+}
+
+/*!
+ * @brief: Allocates a contiguous range of physical memory
+ */
+error_t kmem_phys_alloc_range(u32 nr_pages, u64* p_page_idx)
+{
+    error_t error;
+    u64 result = NULL;
+
+    if (!p_page_idx || !nr_pages)
+        return -EINVAL;
+
+    spinlock_lock(&g_phys_data.m_allocator_lock);
+
+    /* Find a free range */
+    error = bitmap_find_free_range(g_phys_data.m_phys_bitmap, nr_pages, &result);
+
+    if (error)
+        goto unlock_and_exit;
+
+    /* Mark the range used */
+    bitmap_mark_range(g_phys_data.m_phys_bitmap, result, nr_pages);
+
+unlock_and_exit:
+    spinlock_unlock(&g_phys_data.m_allocator_lock);
+
+    *p_page_idx = result;
+
+    return error;
+}
+
+/*!
+ * @brief: Deallocates a contiguous range of physical memory
+ */
+error_t kmem_phys_dealloc_range(u64 page_idx, u32 nr_pages)
+{
+    if (!nr_pages)
+        return -EINVAL;
+
+    spinlock_lock(&g_phys_data.m_allocator_lock);
+
+    /* Mark the range used */
+    bitmap_unmark_range(g_phys_data.m_phys_bitmap, page_idx, nr_pages);
+
+    spinlock_unlock(&g_phys_data.m_allocator_lock);
+
+    return 0;
 }
 
 int init_kmem_phys(u64* mb_addr)
@@ -459,6 +525,9 @@ int init_kmem_phys(u64* mb_addr)
 
     /* Initialize the physical ranges list */
     g_phys_data.m_phys_ranges = init_list();
+
+    /* Initialize the allocator spinlock */
+    init_spinlock(&g_phys_data.m_allocator_lock, NULL);
 
     /* Prepare the memory map (just calculate values lol) */
     if (prep_mmap(get_mb2_tag((void*)mb_addr, 6)))

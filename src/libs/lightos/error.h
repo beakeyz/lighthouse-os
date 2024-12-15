@@ -139,6 +139,7 @@
 #define EISENABLED 174
 #define EISDISABLED 175
 #define ENULL 176
+#define ERESERVED 177
 
 #define ERESTARTSYS 512
 

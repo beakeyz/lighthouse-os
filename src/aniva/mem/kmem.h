@@ -182,28 +182,15 @@ vaddr_t kmem_ensure_high_mapping(uintptr_t addr);
 uintptr_t kmem_to_phys(pml_entry_t* root, uintptr_t addr);
 uintptr_t kmem_to_phys_aligned(pml_entry_t* root, uintptr_t addr);
 
-void kmem_phys_set_page_used(uintptr_t idx);
-void kmem_phys_set_page_free(uintptr_t idx);
-
-void kmem_phys_set_range_used(uintptr_t start_idx, size_t page_count);
-void kmem_phys_set_range_free(uintptr_t start_idx, size_t page_count);
-
-bool kmem_phys_is_page_used(uintptr_t idx);
-
 /*
  * flush tlb completely
  */
 void kmem_refresh_tlb();
 
 int kmem_prepare_new_physical_page(paddr_t* p_addr);
-int kmem_return_physical_page(paddr_t page_base);
 pml_entry_t* kmem_get_krnl_dir();
 
 kerror_t kmem_get_page(pml_entry_t** bentry, pml_entry_t* root, uintptr_t addr, uint32_t kmem_flags, uint32_t page_flags);
-pml_entry_t* kmem_get_page_with_quickmap(pml_entry_t* table, vaddr_t virt, uint32_t kmem_flags, uint32_t page_flags);
-
-/* TODO: implement */
-pml_entry_t* kmem_clone_page(pml_entry_t* page);
 
 void kmem_set_page_flags(pml_entry_t* page, uint32_t flags);
 

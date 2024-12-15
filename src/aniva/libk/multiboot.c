@@ -2,6 +2,7 @@
 #include "entry/entry.h"
 #include "logging/log.h"
 #include "mem/kmem.h"
+#include "mem/phys.h"
 #include <libk/stddef.h>
 
 #define MB_MOD_PROBE_LOOPLIM 32
@@ -66,7 +67,7 @@ int finalize_multiboot()
     KLOG_DBG("Setting multiboot range used at idx %lld with a size of %llx\n", mb_start_idx, mb_pagecount);
 
     /* Reserve multiboot memory */
-    kmem_phys_set_range_used(mb_start_idx, mb_pagecount);
+    kmem_phys_reserve_range(mb_start_idx, mb_pagecount);
 
     // g_system_info.virt_multiboot_addr = Must(kmem_alloc_ex(nullptr, nullptr, aligned_mb_start, HIGH_MAP_BASE, g_system_info.total_multiboot_size, NULL, KMEM_FLAG_KERNEL));
 
@@ -79,7 +80,7 @@ int finalize_multiboot()
 
         const size_t module_size_pages = module_end_idx - module_start_idx;
 
-        kmem_phys_set_range_used(module_start_idx, module_size_pages);
+        kmem_phys_reserve_range(module_start_idx, module_size_pages);
     }
 
     struct multiboot_tag_framebuffer* fbuffer = g_system_info.firmware_fb;
@@ -92,7 +93,7 @@ int finalize_multiboot()
 
         KLOG_DBG("Marking framebuffer as used! (start_page: 0x%llx, page_count: 0x%llx)\n", phys_fb_start_idx, phys_fb_page_count);
 
-        kmem_phys_set_range_used(phys_fb_start_idx, phys_fb_page_count);
+        kmem_phys_reserve_range(phys_fb_start_idx, phys_fb_page_count);
     }
 
     return (0);

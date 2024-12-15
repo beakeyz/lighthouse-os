@@ -1,7 +1,6 @@
 #include "spinlock.h"
 #include "irq/interrupts.h"
 #include "libk/flow/error.h"
-#include "libk/stddef.h"
 #include "sync/atomic_ptr.h"
 #include "system/processor/processor.h"
 #include <libk/string.h>
@@ -17,12 +16,21 @@ spinlock_t* create_spinlock(u32 flags)
     if (!lock)
         return nullptr;
 
-    memset(lock, 0, sizeof(*lock));
-
-    /* Make sure we know we're on the heap */
-    lock->m_flags = flags;
+    /* Initialize this basters */
+    (void)init_spinlock(lock, flags);
 
     return lock;
+}
+
+int init_spinlock(spinlock_t* lock, u32 flags)
+{
+    if (!lock)
+        return -EINVAL;
+
+    memset(lock, 0, sizeof(*lock));
+
+    lock->m_flags = flags;
+    return 0;
 }
 
 void destroy_spinlock(spinlock_t* lock)
@@ -100,7 +108,7 @@ void spinlock_lock(spinlock_t* lock)
     if (!c_cpu->m_locked_level)
         return;
 
-    //ASSERT_MSG(c_cpu->m_irq_depth == 0, "Can't lock a spinlock inside an IRQ!");
+    // ASSERT_MSG(c_cpu->m_irq_depth == 0, "Can't lock a spinlock inside an IRQ!");
     /* Rarely fails */
     ASSERT_MSG(aquire_spinlock(lock) == 0, "Failed to aquire the spinlock!");
 

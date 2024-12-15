@@ -3,12 +3,13 @@
 #include "dev/driver.h"
 #include "dev/video/device.h"
 #include "dev/video/framebuffer.h"
-#include "lightos/dev/shared.h"
 #include "entry/entry.h"
 #include "libk/flow/error.h"
 #include "libk/multiboot.h"
+#include "lightos/dev/shared.h"
 #include "logging/log.h"
 #include "mem/kmem.h"
+#include "mem/phys.h"
 #include "sys/types.h"
 #include <dev/driver.h>
 
@@ -140,7 +141,7 @@ int efifb_remove(video_device_t* device)
     kernel_panic("TODO: actual efifb_remove");
 
     /* Mark the physical range used */
-    kmem_phys_set_range_free(fb_start_idx, fb_page_count);
+    kmem_phys_dealloc_range(fb_start_idx, fb_page_count);
     return 0;
 }
 

@@ -23,12 +23,13 @@ u32 kmem_phys_get_nr_ranges();
  * TODO: Remove and replace with higher level and more robust functions
  * that also keep track of references and are locked correctly and crap
  */
-void kmem_phys_set_page_used(uintptr_t idx);
-void kmem_phys_set_page_free(uintptr_t idx);
-void kmem_phys_set_range_used(uintptr_t start_idx, size_t page_count);
-void kmem_phys_set_range_free(uintptr_t start_idx, size_t page_count);
 bool kmem_phys_is_page_used(uintptr_t idx);
-int kmem_phys_get_page(paddr_t* p_idx);
-int kmem_phys_get_free_range(u32 nr_pages, u64* p_page_idx);
+
+error_t kmem_phys_alloc_page(u64* p_page_idx);
+error_t kmem_phys_dealloc_page(u64 page_idx);
+
+error_t kmem_phys_reserve_range(u64 page_idx, u32 nr_pages);
+error_t kmem_phys_alloc_range(u32 nr_pages, u64* p_page_idx);
+error_t kmem_phys_dealloc_range(u64 page_idx, u32 nr_pages);
 
 #endif // !__ANIVA_MEM_PHYSICAL_H__
