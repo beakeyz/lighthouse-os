@@ -58,6 +58,11 @@ SECTIONS {
     *(.ksyms*)
     _end_ksyms = .;
 
+    /* Kernel tests we might have to complete before booting userspace */
+    _aniva_tests_start = .;
+    *(.aniva_tests)
+    _aniva_tests_end = .;
+
     *(.rodata*)
 
   } :data
@@ -65,10 +70,6 @@ SECTIONS {
   .data ALIGN(4K) : AT(ADDR(.data) - _kernel_virt_base_offset)
   {
     *(.data)
-
-    _aniva_tests_start = .;
-    *(.aniva_tests)
-    _aniva_tests_end = .;
   } :data
 
   .bss ALIGN(4K) : AT(ADDR(.bss) - _kernel_virt_base_offset) 

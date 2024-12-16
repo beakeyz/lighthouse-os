@@ -30,7 +30,7 @@ void enable_interrupts();
 /*
  * NOTE: Can't be static
  */
-inline bool interrupts_are_enabled()
+static inline bool interrupts_are_enabled()
 {
     return ((get_eflags() & 0x200) != 0);
 }

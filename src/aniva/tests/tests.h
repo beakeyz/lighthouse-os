@@ -14,12 +14,14 @@ enum ANIVA_TEST_TYPE {
     ANIVA_TEST_TYPE_DEV,
     ANIVA_TEST_TYPE_DRV,
     ANIVA_TEST_TYPE_IO,
+    ANIVA_TEST_TYPE_MEM,
 };
 
 /*
  * Structure that represents a single aniva test
  */
 typedef struct aniva_test {
+    const char* title;
     /* The function we need to test */
     FuncPtr test_func;
     /* The function used to test this function */
@@ -58,13 +60,15 @@ static inline bool aniva_should_do_tests()
     return (ANIVA_COMPILE_TESTS == 1);
 }
 
-#define ANIVA_REGISTER_TEST(__test_func, __tester, __type)                                \
-    static const USED SECTION(".aniva_tests") aniva_test_t __aniva_test_##__test_func = { \
-        .test_func = (FuncPtr)(__test_func),                                              \
-        .tester = (__tester),                                                             \
-        .type = (__type),                                                                 \
-        .result = 0,                                                                      \
-    }
+#define ANIVA_REGISTER_TEST(__title, __test_func, __tester, __type) \
+    static const USED aniva_test_t __anvtst_##__test_func = {       \
+        .title = (__title),                                         \
+        .test_func = (FuncPtr)(__test_func),                        \
+        .tester = (__tester),                                       \
+        .type = (__type),                                           \
+        .result = 0,                                                \
+    };                                                              \
+    static const USED SECTION(".aniva_tests") aniva_test_t* __p_anvtst_##__test_func = &__anvtst_##__test_func
 #else
 static inline bool aniva_should_do_tests()
 {

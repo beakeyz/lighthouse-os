@@ -3,11 +3,11 @@
 #include "logging/log.h"
 #include <libk/string.h>
 
-extern aniva_test_t _aniva_tests_start[];
-extern aniva_test_t _aniva_tests_end[];
+extern aniva_test_t* _aniva_tests_start[];
+extern aniva_test_t* _aniva_tests_end[];
 
 static u32 __aniva_test_nr;
-static aniva_test_t* __aniva_test_vec;
+static aniva_test_t** __aniva_test_vec;
 
 /*!
  * @brief: initialize the aniva tests environment
@@ -26,8 +26,8 @@ void init_aniva_tests()
         return;
 
     /* Calculate the number of tests we have */
-    __aniva_test_nr = ((u64)&_aniva_tests_end[0] - (u64)&_aniva_tests_start[0]) / sizeof(aniva_test_t);
-    __aniva_test_vec = &_aniva_tests_start[0];
+    __aniva_test_nr = ((u64)&_aniva_tests_end[0] - (u64)&_aniva_tests_start[0]) / sizeof(aniva_test_t*);
+    __aniva_test_vec = _aniva_tests_start;
 }
 
 /*!
@@ -66,9 +66,9 @@ error_t do_aniva_tests(aniva_tests_result_t* results)
 
     /* Do the tests */
     for (u32 i = 0; i < __aniva_test_nr; i++) {
-        c_test = &__aniva_test_vec[i];
+        c_test = __aniva_test_vec[i];
 
-        KLOG_INFO("[%d/%d] ... ", (i + 1), __aniva_test_nr);
+        KLOG_INFO("[%d/%d] %s ... ", (i + 1), __aniva_test_nr, c_test->title ? c_test->title : "Unknown");
 
         /* If there was no test function specified,  */
         if (!c_test->tester || !c_test->test_func)

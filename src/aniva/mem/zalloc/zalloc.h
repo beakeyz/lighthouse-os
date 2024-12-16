@@ -142,6 +142,7 @@ void destroy_zone_allocator(zone_allocator_t* allocator, bool clear_zones);
 void zone_allocator_clear(zone_allocator_t* allocator);
 
 zone_store_t* create_zone_store(size_t initial_capacity);
+zone_store_t* init_zone_store(void* buffer, size_t bsize);
 void destroy_zone_store(zone_allocator_t* allocator, zone_store_t* store);
 void destroy_zone_stores(zone_allocator_t* allocator);
 int allocator_add_zone(zone_allocator_t* allocator, zone_t* zone);
