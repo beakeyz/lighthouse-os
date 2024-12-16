@@ -47,6 +47,10 @@ export LOADER_SRC=$(SRC)/lightloader
 # 3) info
 # 4) none
 export KERNEL_DEBUG_LEVEL=verbose
+# yes = The kernel image will contain a list of tests that need to be done
+#    	before userspace is launched
+# no = The kernel will boot without doing tests
+export KERNEL_COMPILE_TESTS=yes
 
 # NOTE: we've removed -Wall, since it does not play nice with ACPICA
 export KERNEL_CFLAGS := \
@@ -67,6 +71,12 @@ ifeq ($(KERNEL_DEBUG_LEVEL), info)
 endif
 ifeq ($(KERNEL_DEBUG_LEVEL), NONE)
 	KERNEL_CFLAGS += -DDBG_NONE=1
+endif
+
+ifeq ($(KERNEL_COMPILE_TESTS), yes)
+	KERNEL_CFLAGS += -DANIVA_COMPILE_TESTS=1
+else
+	KERNEL_CFLAGS += -DANIVA_COMPILE_TESTS=0
 endif
 
 export USER_INCLUDE_CFLAGS := \

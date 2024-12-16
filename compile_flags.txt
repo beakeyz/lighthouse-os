@@ -9,6 +9,7 @@
 -I./src/modules/
 
 -DDBG_VERBOSE=1
+-DANIVA_COMPILE_TESTS=1
 
 -nostdlib
 -ffreestanding 

@@ -15,8 +15,8 @@
 #include "irq/interrupts.h"
 #include "kevent/event.h"
 #include "libk/bin/elf.h"
-#include "libk/cmdline/parser.h"
 #include "libk/flow/error.h"
+#include "libk/kopts/parser.h"
 #include "libk/lib.h"
 #include "libk/multiboot.h"
 #include "libk/stddef.h"
@@ -32,6 +32,7 @@
 #include "system/processor/processor.h"
 #include "system/profile/profile.h"
 #include "system/resource.h"
+#include "tests/tests.h"
 #include "time/core.h"
 #include <dev/debug/serial.h>
 #include <mem/heap.h>
@@ -201,6 +202,9 @@ static kerror_t _start_subsystems(void)
     // Initialize libk
     init_libk();
 
+    /* Just kinda get them ready */
+    init_aniva_tests();
+
     // Initialize buffer
     init_aniva_buffers();
 
@@ -339,6 +343,8 @@ NOINLINE void __init _start(struct multiboot_tag* mb_addr, uint32_t mb_magic)
  */
 void kthread_entry(void)
 {
+    error_t error;
+    aniva_tests_result_t ktest_results;
     /* Make sure the scheduler won't ruin our day */
     // pause_scheduler();
 
@@ -383,74 +389,24 @@ void kthread_entry(void)
     init_profiles_late();
 
     /*
-    system_time_t bStartTime;
-    system_time_t bEndTime;
-    time_get_system_time(&bStartTime);
-
-    void** buffers;
-
-    //kmem_kernel_alloc_range((void**)&buffers, sizeof(void*) * 10000, NULL, KMEM_FLAG_WRITABLE);
-    buffers = kzalloc(sizeof(void*) * 10000);
-
-    for (int i = 0; i < 10000; i++)
-        buffers[i] = kzalloc(1024);
-
-    for (int i = 0; i < 10000; i++)
-        kzfree(buffers[i], 1024);
-
-    kzfree(buffers, sizeof(void*) * 10000);
-
-    time_get_system_time(&bEndTime);
-
-    KLOG_INFO("kmalloc test (Start time: %ds, %dms, %dus) (End time: %ds, %dms, %dus)\n",
-        bStartTime.s_since_boot, bStartTime.ms_since_last_s, bStartTime.us_since_last_ms,
-        bEndTime.s_since_boot, bEndTime.ms_since_last_s, bEndTime.us_since_last_ms, );
-
-    a_allocator_t alloc;
-    void* buffer = kmalloc(1 * Mib);
-
-    init_basic_aalloc(&alloc, buffer, Mib);
-
-    time_get_system_time(&bStartTime);
-
-    buffers = aalloc_allocate(&alloc, (sizeof(void*) * 10000));
-
-    for (int i = 0; i < 10000; i++)
-        buffers[i] = aalloc_allocate(&alloc, 1024);
-
-    time_get_system_time(&bEndTime);
-
-    KLOG_INFO("aalloc test (Start time: %ds, %dms, %dus) (End time: %ds, %dms, %dus)\n",
-        bStartTime.s_since_boot, bStartTime.ms_since_last_s, bStartTime.us_since_last_ms,
-        bEndTime.s_since_boot, bEndTime.ms_since_last_s, bEndTime.us_since_last_ms, );
-
-    size_t used, free;
-
-    aalloc_get_info(&alloc, &used, &free);
-
-    KLOG_INFO("alloc info: used_sz=0x%llx, free_sz=0x%llx\n", used, free);
-
-    kernel_panic("TEST");
-    */
-
-    /*
-     * Setup is done: we can start scheduling stuff
-     * At this point, the kernel should have created a bunch of userspace processes that are ready to run on the next schedules. Most of the
-     * 'userspace stuff' will consist of user tracking, configuration and utility processes. Any windowing will be done by the kernel this driver
-     * is an external driver that we will load from the ramfs, since it's not a driver that is an absolute non-trivial piece. When we fail to load
+     * At this point, everything is ready to launch userspace. The only thing we might
+     * have to do now, is perform kernel tests
      */
-    // resume_scheduler();
+    error = do_aniva_tests(&ktest_results);
+
+    /* TODO: Act on this boi */
+    (void)error;
 
     /* Allocate a quick buffer for our init process */
     driver_t* drv;
     char init_buffer[256] = { 0 };
 
     /* Format the buffer */
-    sfmt(init_buffer, "Root/Users/Admin/Core/init %s", opt_parser_get_bool("use_kterm") ? "--use-kterm" : " ");
+    sfmt(init_buffer, "Root/Users/Admin/Core/init %s", kopts_get_bool("use_kterm") ? "--use-kterm" : " ");
 
     /* Construct the sysvar vector */
     sysvar_vector_t vec = {
-        SYSVAR_VEC_BYTE("USE_KTERM", opt_parser_get_bool("use_kterm")),
+        SYSVAR_VEC_BYTE("USE_KTERM", kopts_get_bool("use_kterm")),
         SYSVAR_VEC_BYTE("NO_PIPES", false),
         SYSVAR_VEC_END,
     };
@@ -466,7 +422,7 @@ void kthread_entry(void)
 
     drv = nullptr;
 
-    if (!opt_parser_get_bool("use_kterm"))
+    if (!kopts_get_bool("use_kterm"))
         drv = load_external_driver("Root/System/lwnd.drv");
 
     if (!drv)

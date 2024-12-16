@@ -180,11 +180,11 @@ static kerror_t _start_parse()
  *
  * @returns: A boolean with the value of the opt, if it exists. Otherwise false
  */
-bool opt_parser_get_bool(const char* boolkey)
+bool kopts_get_bool(const char* boolkey)
 {
     bool ret;
 
-    if (!KERR_OK(opt_parser_get_bool_ex(boolkey, &ret)))
+    if (!KERR_OK(kopts_get_bool_ex(boolkey, &ret)))
         return false;
 
     return ret;
@@ -196,7 +196,7 @@ bool opt_parser_get_bool(const char* boolkey)
  * @returns: A kerror code if something went wrong, otherwise the boolean value gets put
  * into the @bval buffer object
  */
-kerror_t opt_parser_get_bool_ex(const char* boolkey, bool* bval)
+kerror_t kopts_get_bool_ex(const char* boolkey, bool* bval)
 {
     kopt_t* opt;
 
@@ -212,14 +212,14 @@ kerror_t opt_parser_get_bool_ex(const char* boolkey, bool* bval)
     return KERR_NONE;
 }
 
-kerror_t opt_parser_get_str(const char* strkey, const char** bstr)
+kerror_t kopts_get_str(const char* strkey, const char** bstr)
 {
-    kernel_panic("TODO: opt_parser_get_str");
+    kernel_panic("TODO: kopts_get_str");
 }
 
-kerror_t opt_parser_get_num(const char* numkey, uint64_t* bval)
+kerror_t kopts_get_num(const char* numkey, uint64_t* bval)
 {
-    kernel_panic("TODO: opt_parser_get_num");
+    kernel_panic("TODO: kopts_get_num");
 }
 
 /*!
@@ -227,7 +227,7 @@ kerror_t opt_parser_get_num(const char* numkey, uint64_t* bval)
  *
  * Grab the commandline from the multiboot header and try to parse it
  */
-void init_cmdline_parser()
+void init_kopts_parser()
 {
     kerror_t error;
 

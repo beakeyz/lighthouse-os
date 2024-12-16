@@ -9,7 +9,7 @@
 #include "dev/usb/port.h"
 #include "dev/usb/spec.h"
 #include "dev/usb/xfer.h"
-#include "libk/cmdline/parser.h"
+#include "libk/kopts/parser.h"
 #include "libk/data/linkedlist.h"
 #include "libk/flow/doorbell.h"
 #include "libk/flow/error.h"
@@ -1066,7 +1066,7 @@ void deallocate_usb_xfer(usb_xfer_t* req)
 void load_usb_hcds()
 {
     /* Bootloader may choose to disable USB functionality */
-    if (opt_parser_get_bool(KOPT_NO_USB))
+    if (kopts_get_bool(KOPT_NO_USB))
         return;
 
     /*

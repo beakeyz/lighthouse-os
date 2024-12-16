@@ -545,3 +545,13 @@ int init_kmem_phys(u64* mb_addr)
 
     return 0;
 }
+
+/*!
+ * @brief: Initialize the physical allocator further, after the
+ *         page structures have been loaded.
+ *
+ */
+int init_kmem_phys_late()
+{
+    return 0;
+}

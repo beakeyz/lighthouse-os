@@ -3,7 +3,7 @@
 #include "irq/ctl/ioapic.h"
 #include "irq/ctl/irqchip.h"
 #include "irq/interrupts.h"
-#include "libk/cmdline/parser.h"
+#include "libk/kopts/parser.h"
 #include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"
 #include "libk/stddef.h"
@@ -316,7 +316,7 @@ int init_apics()
     if (!processor_has(&cpu->m_info, X86_FEATURE_APIC))
         return -1;
 
-    if (opt_parser_get_bool("force_pic"))
+    if (kopts_get_bool("force_pic"))
         return 1;
 
     /* Initialize the irq overrides list */

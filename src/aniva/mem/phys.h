@@ -13,6 +13,7 @@
 #include <lightos/types.h>
 
 int init_kmem_phys(u64* mb_addr);
+int init_kmem_phys_late();
 
 size_t kmem_phys_get_total_bytecount();
 kmem_range_t* kmem_phys_get_range(u32 idx);

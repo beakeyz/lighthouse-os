@@ -136,7 +136,8 @@ zone_allocator_t* create_zone_allocator(size_t initial_size, size_t hard_max_ent
 zone_allocator_t* create_zone_allocator_at(vaddr_t start_addr, size_t initial_size, uintptr_t flags);
 zone_allocator_t* create_zone_allocator_ex(pml_entry_t* map, vaddr_t start_addr, size_t initial_size, size_t hard_max_entry_size, uintptr_t flags);
 int init_zone_allocator(zone_allocator_t* allocator, size_t initial_size, size_t hard_max_entry_size, uintptr_t flags);
-int init_zone_allocator_ex(zone_allocator_t* allocator, pml_entry_t* map, vaddr_t start_addr, size_t initial_size, size_t hard_max_entry_size, uintptr_t flags);
+int init_zone_allocator_ex(zone_allocator_t* ret, void* start_buffer, size_t initial_size, size_t hard_max_entry_size, uintptr_t flags);
+int init_zone_allocator_from_buffer(zone_allocator_t* allocator, pml_entry_t* map, void* buffer, size_t initial_size, size_t hard_max_entry_size, uintptr_t flags);
 void destroy_zone_allocator(zone_allocator_t* allocator, bool clear_zones);
 void zone_allocator_clear(zone_allocator_t* allocator);
 
@@ -154,6 +155,7 @@ int zone_store_remove(zone_store_t* store, zone_t* zone);
  * the amount of pages allocated
  */
 zone_t* create_zone(zone_allocator_t* allocator, const size_t entry_size, size_t max_entries);
+zone_t* init_zone(zone_allocator_t* allocator, void* buffer, size_t bsize, const size_t entry_size);
 void destroy_zone(zone_allocator_t* allocator, zone_t* zone);
 
 #endif //__ANIVA_ZALLOC__

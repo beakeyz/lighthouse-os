@@ -1,17 +1,22 @@
 #include "file.h"
 #include "gfx.h"
 #include "heap.h"
-#include "stddef.h"
 #include "ui/button.h"
 #include "ui/input_box.h"
 #include <font.h>
-#include <stdint.h>
-#include <stdio.h>
+#include <stddef.h>
 #include <ui/screens/options.h>
 
 struct light_option l_options[] = {
     { "Use kterm",
         "use_kterm",
+        LOPTION_TYPE_BOOL,
+        true,
+        {
+            0,
+        } },
+    { "Perform kernel tests",
+        "do_aniva_tests",
         LOPTION_TYPE_BOOL,
         true,
         {

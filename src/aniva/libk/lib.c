@@ -1,5 +1,5 @@
 #include "lib.h"
-#include "libk/cmdline/parser.h"
+#include "libk/kopts/parser.h"
 #include "libk/data/hashmap.h"
 
 /*!
@@ -16,5 +16,5 @@ void init_libk()
     init_hashmap();
 
     /* Initialize the kernel cmdline parser */
-    init_cmdline_parser();
+    init_kopts_parser();
 }

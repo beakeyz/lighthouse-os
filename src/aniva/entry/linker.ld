@@ -50,7 +50,7 @@ SECTIONS {
 
     /* Internal khandle drivers get put here */
     _khdrv_start = .;
-    *(.khdrv)
+    *(.khdrv*)
     _khdrv_end = .;
 
     /* The symbols of the kernel will be placed here in a large symboltable */
@@ -65,6 +65,10 @@ SECTIONS {
   .data ALIGN(4K) : AT(ADDR(.data) - _kernel_virt_base_offset)
   {
     *(.data)
+
+    _aniva_tests_start = .;
+    *(.aniva_tests)
+    _aniva_tests_end = .;
   } :data
 
   .bss ALIGN(4K) : AT(ADDR(.bss) - _kernel_virt_base_offset) 

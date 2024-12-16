@@ -140,6 +140,8 @@
 #define EISDISABLED 175
 #define ENULL 176
 #define ERESERVED 177
+#define EBADSIZE 178
+#define ETESTFAIL 179
 
 #define ERESTARTSYS 512
 

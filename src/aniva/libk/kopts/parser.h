@@ -32,11 +32,11 @@ typedef struct kopt {
     };
 } kopt_t;
 
-void init_cmdline_parser();
+void init_kopts_parser();
 
-bool opt_parser_get_bool(const char* boolkey);
-kerror_t opt_parser_get_bool_ex(const char* boolkey, bool* bval);
-kerror_t opt_parser_get_str(const char* strkey, const char** bstr);
-kerror_t opt_parser_get_num(const char* numkey, uint64_t* bval);
+bool kopts_get_bool(const char* boolkey);
+kerror_t kopts_get_bool_ex(const char* boolkey, bool* bval);
+kerror_t kopts_get_str(const char* strkey, const char** bstr);
+kerror_t kopts_get_num(const char* numkey, uint64_t* bval);
 
 #endif // !__ANIVA_CMDLINE_PARSER__

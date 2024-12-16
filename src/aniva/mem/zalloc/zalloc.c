@@ -1,10 +1,13 @@
 #include "zalloc.h"
 #include "libk/data/bitmap.h"
 #include "libk/flow/error.h"
+#include "logging/log.h"
 #include "mem/zalloc/list.h"
 #include "sys/types.h"
 #include <mem/heap.h>
 #include <mem/kmem.h>
+
+#include <tests/tests.h>
 
 /* Only the sized list needs to know what its end is */
 
@@ -22,12 +25,14 @@ void init_zalloc()
 
 #define DEFAULT_ZONE_STORE_CAPACITY ((SMALL_PAGE_SIZE - sizeof(zone_store_t)) >> 3)
 
-int init_zone_allocator(zone_allocator_t* allocator, size_t initial_size, size_t hard_max_entry_size, uintptr_t flags)
-{
-    return init_zone_allocator_ex(allocator, nullptr, NULL, initial_size, hard_max_entry_size, flags);
-}
+/*
+ * This is the minimal size a buffer must have in order to support a complete
+ * zone allocator.
+ */
+#define __MIN_INITIAL_SIZE \
+    sizeof(zone_store_t) + (DEFAULT_ZONE_STORE_CAPACITY * sizeof(zone_t*)) + sizeof(zone_t)
 
-int init_zone_allocator_ex(zone_allocator_t* ret, pml_entry_t* map, vaddr_t start_addr, size_t initial_size, size_t hard_max_entry_size, uintptr_t flags)
+int init_zone_allocator(zone_allocator_t* ret, size_t initial_size, size_t hard_max_entry_size, uintptr_t flags)
 {
     int error = -1;
     size_t entries_for_this_zone;
@@ -86,6 +91,10 @@ fail_and_dealloc:
     return error;
 }
 
+// int init_zone_allocator_ex(zone_allocator_t* ret, size_t initial_size, size_t hard_max_entry_size, uintptr_t flags)
+//{
+// }
+
 zone_allocator_t* create_zone_allocator(size_t initial_size, size_t hard_max_entry_size, uintptr_t flags)
 {
     return create_zone_allocator_ex(nullptr, 0, initial_size, hard_max_entry_size, flags);
@@ -106,10 +115,72 @@ zone_allocator_t* create_zone_allocator_ex(pml_entry_t* map, vaddr_t start_addr,
 
     memset(ret, 0, sizeof(*ret));
 
-    if (init_zone_allocator_ex(ret, map, start_addr, initial_size, hard_max_entry_size, flags))
+    if (init_zone_allocator(ret, initial_size, hard_max_entry_size, flags))
         return nullptr;
 
     return ret;
+}
+
+int init_zone_allocator_ex(zone_allocator_t* ret, void* start_buffer, size_t initial_size, size_t hard_max_entry_size, uintptr_t flags)
+{
+    int error = -1;
+    size_t entries_for_this_zone;
+    zone_t* new_zone;
+    zone_store_t* new_zone_store;
+
+    if (!ret || !initial_size || !hard_max_entry_size)
+        return -KERR_INVAL;
+
+    if (initial_size < __MIN_INITIAL_SIZE)
+        return -EBADSIZE;
+
+    new_zone = nullptr;
+    new_zone_store = nullptr;
+
+    // Initialize the initial zones
+    ret->m_total_size = 0;
+    ret->m_grow_size = initial_size;
+
+    new_zone_store = create_zone_store(DEFAULT_ZONE_STORE_CAPACITY);
+
+    if (!new_zone_store)
+        goto fail_and_dealloc;
+
+    // Create a store that can hold the maximum amount of zones for 1 page
+    ret->m_store = new_zone_store;
+    ret->m_store_count = 1;
+    ret->m_flags = flags;
+
+    ret->m_entry_size = hard_max_entry_size;
+
+    /* FIXME: integer devision */
+    /* Calculate how big this zone needs to be */
+    entries_for_this_zone = (initial_size / hard_max_entry_size);
+
+    new_zone = create_zone(ret, hard_max_entry_size, entries_for_this_zone);
+
+    if (!new_zone)
+        goto fail_and_dealloc;
+
+    error = zone_store_add(ret->m_store, new_zone);
+
+    if (error)
+        goto fail_and_dealloc;
+
+    ret->m_total_size += new_zone->m_total_available_size;
+
+    return 0;
+
+fail_and_dealloc:
+
+    if (new_zone)
+        destroy_zone(ret, new_zone);
+
+    if (new_zone_store)
+        destroy_zone_store(ret, new_zone_store);
+
+    kfree(ret);
+    return error;
 }
 
 void destroy_zone_allocator(zone_allocator_t* allocator, bool clear_zones)
@@ -383,6 +454,87 @@ void destroy_zone(zone_allocator_t* allocator, zone_t* zone)
 
     /* TODO: resolve pml root */
     kmem_dealloc(nullptr, nullptr, (vaddr_t)zone, zone_size);
+}
+
+static inline size_t __calculate_optimal_nr_bitmap_entries(size_t bsize, const size_t entry_size, size_t max_itter)
+{
+    size_t nr_entries = 0;
+    size_t prev_nr_entries = 0;
+    size_t bitmap_sz = 0;
+
+    do {
+        /* Store the previous */
+        prev_nr_entries = nr_entries;
+        /* Calculate the current count */
+        nr_entries = ALIGN_DOWN((bsize - bitmap_sz) / entry_size, 8);
+
+        /* Calculate the bitmap size */
+        bitmap_sz = BITS_TO_BYTES(nr_entries);
+
+        /*
+         * Continue the itteration until we can't get more persise, or
+         * until we've reached the maximum number of itterations
+         */
+    } while (prev_nr_entries != nr_entries && (max_itter--));
+
+    return nr_entries;
+}
+
+static error_t __test_calc_optimal_nr_bitmap_entries(aniva_test_t* test)
+{
+    const size_t test_sz = 0x4000;
+    const size_t entry_sz = 32;
+    const size_t max_iter = 32;
+
+    const size_t expected_result = 504;
+    const size_t result = __calculate_optimal_nr_bitmap_entries(test_sz, entry_sz, max_iter);
+
+    if (result != expected_result) {
+        KLOG("Got: %lld, Expected: %lld ", result, expected_result);
+        return -EINVAL;
+    }
+
+    return 0;
+}
+
+/* TODO: Handle tests */
+ANIVA_REGISTER_TEST(__calculate_optimal_nr_bitmap_entries, __test_calc_optimal_nr_bitmap_entries, ANIVA_TEST_TYPE_ALGO);
+
+/*!
+ * @brief: Tries to initialize a zone inside a pre-allocated buffer
+ */
+zone_t* init_zone(zone_allocator_t* allocator, void* buffer, size_t bsize, const size_t entry_size)
+{
+    zone_t* zone;
+
+    /* No buffer, no zone =( */
+    if (!buffer)
+        return nullptr;
+
+    /* Asser this shit */
+    ASSERT_MSG(entry_size != 0 && bsize != 0, "create_zone: expected non-null parameters!");
+
+    /* The zone struct will live at the start of the supplied buffer */
+    zone = buffer;
+
+    /* Calculate how many entries our bitmap will have */
+    const size_t nr_bitmap_entries = ALIGN_DOWN((bsize - sizeof(zone_t)) / entry_size, 8);
+    /* The (initial) amount of bytes the bitmap will take up */
+    const size_t bitmap_bytes = BITS_TO_BYTES(nr_bitmap_entries);
+    /* Total bytes we have for data */
+    const size_t total_entries_bytes = entry_size * nr_bitmap_entries - bitmap_bytes;
+
+    /* Construct the bitmap */
+    init_bitmap(&zone->m_entries, nr_bitmap_entries, bitmap_bytes, 0);
+
+    /* Set the size of the entries we allocate */
+    zone->m_zone_entry_size = entry_size;
+    /* Calculate where the memory actually starts */
+    zone->m_total_available_size = zone->m_entries.m_entries * zone->m_zone_entry_size;
+    /* Initialize the zone data fields */
+    zone->m_entries_start = ((uintptr_t)zone + total_entries_bytes);
+
+    return zone;
 }
 
 /*
