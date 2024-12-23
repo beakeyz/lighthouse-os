@@ -68,7 +68,7 @@ error_t do_aniva_tests(aniva_tests_result_t* results)
     for (u32 i = 0; i < __aniva_test_nr; i++) {
         c_test = __aniva_test_vec[i];
 
-        KLOG_INFO("[%d/%d] %s ... ", (i + 1), __aniva_test_nr, c_test->title ? c_test->title : "Unknown");
+        KLOG_INFO("[%d/%d] %s ... ", (i + 1), __aniva_test_nr, "Unknown");
 
         /* If there was no test function specified,  */
         if (!c_test->tester || !c_test->test_func)

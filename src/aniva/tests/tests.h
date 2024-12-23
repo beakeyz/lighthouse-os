@@ -21,7 +21,6 @@ enum ANIVA_TEST_TYPE {
  * Structure that represents a single aniva test
  */
 typedef struct aniva_test {
-    const char* title;
     /* The function we need to test */
     FuncPtr test_func;
     /* The function used to test this function */
@@ -62,7 +61,6 @@ static inline bool aniva_should_do_tests()
 
 #define ANIVA_REGISTER_TEST(__title, __test_func, __tester, __type) \
     static const USED aniva_test_t __anvtst_##__test_func = {       \
-        .title = (__title),                                         \
         .test_func = (FuncPtr)(__test_func),                        \
         .tester = (__tester),                                       \
         .type = (__type),                                           \

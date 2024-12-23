@@ -5,7 +5,6 @@
 #include "logging/log.h"
 #include "mem/page_dir.h"
 #include "mem/pg.h"
-#include "mem/tracker/mtracker.h"
 #include "phys.h"
 #include "proc/core.h"
 #include "proc/proc.h"
@@ -40,9 +39,6 @@ static struct {
     uint32_t m_kmem_flags;
 
     // bitmap_t* m_phys_bitmap;
-
-    /* Tracker 0: The physical page tracker =D */
-    page_tracker_t m_physical_tracker;
 
     /*
      * This is the base that we use for high mappings
