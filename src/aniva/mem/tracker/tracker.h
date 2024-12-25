@@ -26,8 +26,13 @@ typedef struct page_range {
      * We need this to be 52-bit in order to be able to reference
      * the entire 64-bit (maybe virtual) page range
      */
-    vaddr_t page_idx : 52;
-    u16 flags : 12;
+    union {
+        struct {
+            vaddr_t page_idx : 52;
+            u16 flags : 12;
+        };
+        u64 attr;
+    };
     /* Epic */
     u32 nr_pages;
     /* How often is this shit referenced */
@@ -57,7 +62,7 @@ static inline void* page_range_to_ptr(page_range_t* range)
      * Calculates the (either virtual or physical) address from the page index,
      * which may be a virtual page index, or a physical page index.
      */
-    return (void*)((u64)range->page_idx << PAGE_SHIFT);
+    return (void*)((u64)range->attr & ~PAGE_RANGE_FLAGS_MASK);
 }
 
 /*!
