@@ -19,7 +19,7 @@
 
 /* Masks for page index and flags */
 #define PAGE_RANGE_PGE_IDX_MASK 0x000fffffffffffffULL
-#define PAGE_RANGE_FLAGS_MASK 0x0fff
+#define PAGE_RANGE_FLAGS_MASK 0x0fffULL
 
 typedef struct page_range {
     /*
@@ -29,7 +29,7 @@ typedef struct page_range {
     union {
         struct {
             vaddr_t page_idx : 52;
-            u16 flags : 12;
+            u64 flags : 12;
         };
         u64 attr;
     };
