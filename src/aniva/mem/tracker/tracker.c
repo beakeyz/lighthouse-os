@@ -91,11 +91,16 @@ static page_allocation_t* __page_allocation_append(page_tracker_t* tracker, page
     if (!tracker || !p_alloc_slot || !range)
         return nullptr;
 
+    if (!range->nr_pages)
+        return nullptr;
+
     /* Allocate a new allocation */
     new_allocation = zalloc_fixed(&tracker->allocation_cache);
 
     if (!new_allocation)
         return nullptr;
+
+    KLOG_DBG("Adding also idx: %lld, nr: %d\n", range->page_idx, range->nr_pages);
 
     /* Initialize the range */
     new_allocation->range = *range;
@@ -116,6 +121,8 @@ static error_t __page_allocation_remove(page_tracker_t* tracker, page_allocation
         if (alloc == *a)
             break;
     }
+
+    KLOG_DBG("Removing idx: %lld, len: %d\n", alloc->range.page_idx, alloc->range.nr_pages);
 
     /* Solve the link here */
     *a = alloc->nx_link;
@@ -235,7 +242,7 @@ static error_t __cut_out_range_from_allocation(page_tracker_t* tracker, page_all
     const size_t lowest_end_page_idx = MIN(alloc->range.page_idx + alloc->range.nr_pages,
         range->page_idx + range->nr_pages);
     /* Now we can calculate how much of @range is inside @alloc */
-    const size_t page_delta = lowest_end_page_idx > highest_start_page_idx
+    const size_t page_delta = lowest_end_page_idx < highest_start_page_idx
         ? 0
         : (lowest_end_page_idx - highest_start_page_idx);
 
@@ -246,6 +253,9 @@ static error_t __cut_out_range_from_allocation(page_tracker_t* tracker, page_all
     /* In this case we simply can't cut out a range =( */
     if (highest_start_page_idx != range->page_idx)
         return -EINVAL;
+
+    KLOG_DBG("Delta: %lld\n", page_delta);
+    KLOG_DBG("Low end: %lld, High end: %lld\n", lowest_end_page_idx, highest_start_page_idx);
 
     /*
      * If the delta is equal to the number of pages in @alloc, it means @range
@@ -295,7 +305,7 @@ static error_t __cut_out_range_from_allocation(page_tracker_t* tracker, page_all
         /* Cut off the alloc range */
         alloc->range.nr_pages -= (alloc_end_split.nr_pages + new_range.nr_pages);
         /* If @range sits at the front of @alloc, we need to remove alloc */
-        if (highest_start_page_idx == alloc->range.page_idx)
+        if (highest_start_page_idx == alloc->range.page_idx || alloc->range.nr_pages == 0)
             __page_allocation_remove(tracker, alloc);
     }
 
@@ -309,6 +319,9 @@ update_range_and_exit:
 
 static inline bool __page_range_can_extend(page_range_t* first, page_range_t* last)
 {
+    KLOG_DBG("Can merge? (%lld -> %lld, %lld + %lld), refs=(%lld, %lld), flags=(%lld, %lld)\n",
+        first->page_idx, last->page_idx, first->nr_pages, last->nr_pages,
+        first->refc, last->refc, first->flags, last->flags);
     /* Bordering ranges with the same number of references and the same flags may
      * merge */
     return ((first->page_idx + first->nr_pages) == last->page_idx && first->refc == last->refc && first->flags == last->flags);
@@ -342,7 +355,7 @@ static error_t __page_tracker_add_allocation(page_tracker_t* tracker, u64 page_i
         return error;
 
     /* Check which range we use as the start */
-    if (page_idx < start->range.page_idx)
+    if (page_idx < start->range.page_idx && prev_start)
         start = prev_start;
 
     /* Quick assert here */
