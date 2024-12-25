@@ -394,6 +394,17 @@ void kthread_entry(void)
 
     page_tracker_alloc(&test_tracker, 38, 5, NULL);
 
+    /* Dump one */
+    page_tracker_dump(&test_tracker);
+
+    page_tracker_alloc_any(&test_tracker, PAGE_TRACKER_FIRST_FIT, 6, NULL, &range);
+
+    /* Dump two */
+    page_tracker_dump(&test_tracker);
+
+    page_tracker_alloc(&test_tracker, 4, 205, NULL);
+
+    /* Dump three */
     page_tracker_dump(&test_tracker);
 
     kernel_panic("TEST");

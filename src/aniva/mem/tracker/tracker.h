@@ -1,7 +1,6 @@
 #ifndef __ANIVA_MEM_tracker_H__
 #define __ANIVA_MEM_tracker_H__
 
-#include "mem/kmem.h"
 #include "mem/zalloc/zalloc.h"
 #include "sync/spinlock.h"
 #include <lightos/types.h>
@@ -52,6 +51,25 @@ static inline error_t init_page_range(page_range_t* range, vaddr_t page_idx, u32
     range->nr_pages = nr_pages;
     range->flags = flags;
     range->refc = refc;
+
+    return 0;
+}
+
+static inline void page_range_shrink(page_range_t* range, size_t pages)
+{
+    range->page_idx += pages;
+    range->nr_pages -= pages;
+}
+
+static inline size_t page_range_get_distance_to_page(page_range_t* range, u64 page)
+{
+    /* Page is before the range */
+    if (page <= range->page_idx)
+        return range->page_idx - page;
+
+    /* Page is after the range */
+    if (page > (range->page_idx + range->nr_pages - 1))
+        return page - (range->page_idx + range->nr_pages - 1);
 
     return 0;
 }

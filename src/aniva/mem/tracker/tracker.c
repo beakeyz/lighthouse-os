@@ -192,38 +192,67 @@ static error_t __tracker_get_closest_range(page_tracker_t* tracker, u64 page_idx
             end = target;
     } while (!__range_contains_idx(&target->range, page_idx) && start != end);
 
-    if (!range)
-        return 0;
-
     /* If this range isn't in our target, find the range with the smallest delta
      */
-    if (!__range_contains_idx(&target->range, page_idx)) {
-        u64 best_delta = -1;
-        u64 delta;
-        page_allocation_t* prev = nullptr;
+    if (__range_contains_idx(&target->range, page_idx))
+        goto export_and_return;
 
-        /* Find the range with is closest to @page_idx */
-        for (page_allocation_t* a = start; a != (!end ? nullptr : end->nx_link);
-            a = a->nx_link) {
-            delta = page_idx > a->range.page_idx ? (page_idx - a->range.page_idx)
-                                                 : (a->range.page_idx - page_idx);
+    u64 best_delta = page_range_get_distance_to_page(&target->range, page_idx);
+    u64 delta;
+    page_allocation_t* prev = nullptr;
 
-            if (delta < best_delta) {
-                best_delta = delta;
-                target = a;
+    /* Find the range with is closest to @page_idx */
+    for (page_allocation_t* a = start; a != (!end ? nullptr : end->nx_link); a = a->nx_link) {
+        delta = page_range_get_distance_to_page(&a->range, page_idx);
 
-                /* Export this already */
-                if (prev_range && prev)
-                    *prev_range = prev;
-            }
+        /* Check if this range has a smaller distance to our target */
+        if (delta >= best_delta)
+            goto cycle;
 
-            /* Record the previous basterd */
-            prev = a;
-        }
+        best_delta = delta;
+        target = a;
+
+        /* Export this already */
+        if (prev_range && prev)
+            *prev_range = prev;
+
+    cycle:
+        /* Record the previous basterd */
+        prev = a;
     }
 
+export_and_return:
     /* Export that range */
     *range = target;
+
+    return 0;
+}
+
+/*!
+ * @brief: Check if we can prepend a part of @range to alloc
+ *
+ * This might happen when @alloc is at tracker->base and there is a part of @range that sticks out in front of
+ * @alloc. In this case, we simply want to prepend a range in front of alloc, such that tracker->base points to
+ * that range.
+ */
+static inline error_t __check_base_prepend(page_tracker_t* tracker, page_allocation_t* alloc, page_range_t* range)
+{
+    page_range_t new_range = { 0 };
+
+    if (tracker->base != alloc)
+        return -EINVAL;
+
+    if (range->page_idx >= alloc->range.page_idx)
+        return -EINVAL;
+
+    /* Initialize a new range */
+    init_page_range(&new_range, range->page_idx, (alloc->range.page_idx - range->page_idx), range->flags, range->refc);
+
+    /* Append the bastard */
+    __page_allocation_append_in_slot(tracker, &tracker->base, &new_range);
+
+    /* Shrink the old range */
+    page_range_shrink(range, new_range.nr_pages);
 
     return 0;
 }
@@ -251,7 +280,7 @@ static error_t __cut_out_range_from_allocation(page_tracker_t* tracker, page_all
         return -ENOENT;
 
     /* In this case we simply can't cut out a range =( */
-    if (highest_start_page_idx != range->page_idx)
+    if (highest_start_page_idx != range->page_idx && __check_base_prepend(tracker, alloc, range))
         return -EINVAL;
 
     KLOG_DBG("Delta: %lld\n", page_delta);
@@ -311,8 +340,7 @@ static error_t __cut_out_range_from_allocation(page_tracker_t* tracker, page_all
 
 update_range_and_exit:
     /* Update the ranges bounds */
-    range->nr_pages -= page_delta;
-    range->page_idx += page_delta;
+    page_range_shrink(range, page_delta);
 
     return 0;
 }
@@ -335,8 +363,8 @@ static error_t __page_tracker_add_allocation(page_tracker_t* tracker, u64 page_i
     page_range_t this_range;
     page_allocation_t* next;
     page_allocation_t* last;
-    page_allocation_t* start;
-    page_allocation_t* prev_start;
+    page_allocation_t* start = NULL;
+    page_allocation_t* prev_start = NULL;
 
     /* Initialize a single range */
     range.page_idx = page_idx;
@@ -344,9 +372,13 @@ static error_t __page_tracker_add_allocation(page_tracker_t* tracker, u64 page_i
     range.flags = flags;
     range.refc = 1;
 
+    KLOG_DBG("A\n");
+
     /* If there are no ranges yet, we can just append this one at the base */
     if (!tracker->base)
         return __page_allocation_append_in_slot(tracker, &tracker->base, &range);
+
+    KLOG_DBG("Trying to get closest\n");
 
     /* Find the range closest to @page_idx */
     error = __tracker_get_closest_range(tracker, page_idx, &start, &prev_start);
@@ -354,12 +386,13 @@ static error_t __page_tracker_add_allocation(page_tracker_t* tracker, u64 page_i
     if (error)
         return error;
 
+    KLOG_DBG("got closest\n");
+
     /* Check which range we use as the start */
     if (page_idx < start->range.page_idx && prev_start)
         start = prev_start;
 
-    /* Quick assert here */
-    ASSERT(start->range.page_idx < page_idx);
+    KLOG_DBG("Trying to cut out ranges...\n");
 
     /*
      * Loop over all allocations until we've depleted @range
@@ -378,6 +411,8 @@ static error_t __page_tracker_add_allocation(page_tracker_t* tracker, u64 page_i
         /* Pre-set last */
         last = a;
 
+        KLOG_DBG("Cutting in range idx: %lld, pages: %d...\n", a->range.page_idx, a->range.nr_pages);
+
         /* First, check if @range is (partially) inside @a */
         (void)__cut_out_range_from_allocation(tracker, a, &range, &last);
 
@@ -387,6 +422,8 @@ static error_t __page_tracker_add_allocation(page_tracker_t* tracker, u64 page_i
 
         target_size_pgs = MIN(
             range.nr_pages, !next ? (u32)-1 : (next->range.page_idx - (this_range.page_idx + this_range.nr_pages)));
+
+        KLOG_DBG("Pages left: %lld\n", target_size_pgs);
 
         /* Second, check how much space if free after @a */
         page_range_t new_range = {
@@ -405,25 +442,31 @@ static error_t __page_tracker_add_allocation(page_tracker_t* tracker, u64 page_i
 
         /* Last, mutate @range by removing some of its size according to how we
          * added it to the tracker already and cycle */
-        range.nr_pages -= target_size_pgs;
-        range.page_idx += target_size_pgs;
+        page_range_shrink(&range, target_size_pgs);
+    }
 
-        /* Okay the REAL last thing we do is check if we can merge the next range */
-        while (next && __page_range_can_extend(&last->range, &next->range)) {
-            /* 'Merge' lol */
-            last->range.nr_pages += next->range.nr_pages;
-            /* Fix the link */
-            last->nx_link = next->nx_link;
+    KLOG_DBG("Trying to expand ranges...\n");
 
-            /* Save this allocation pointer */
-            page_allocation_t* to_remove = next;
+    /* Walk the loop again, to remove unneeded ranges */
+    for (page_allocation_t* a = start; a != nullptr && a != last; a = next) {
+        /* Pre-set the next link */
+        next = a->nx_link;
 
-            /* Cycle to the next */
-            next = next->nx_link;
+        /* Make sure we're alive */
+        if (!next)
+            break;
 
-            /* Remove this boi */
-            __page_allocation_remove(tracker, to_remove);
-        }
+        if (!__page_range_can_extend(&a->range, &next->range))
+            continue;
+
+        /* 'Merge' lol */
+        a->range.nr_pages += next->range.nr_pages;
+
+        /* Set the next next guy */
+        next = next->nx_link;
+
+        /* Remove this bastard */
+        __page_allocation_remove(tracker, a->nx_link);
     }
 
     return error;
@@ -466,7 +509,7 @@ error_t page_tracker_alloc_any(page_tracker_t* tracker, enum PAGE_TRACKER_ALLOC_
 
         /* If we found a delta that has space and we're trying to find the first
          * fit, break */
-        if (page_delta < nr_pages && mode == PAGE_TRACKER_FIRST_FIT)
+        if (page_delta >= nr_pages && mode == PAGE_TRACKER_FIRST_FIT)
             break;
     }
 
