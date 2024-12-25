@@ -92,6 +92,7 @@ typedef struct page_tracker {
 
 error_t init_page_tracker(page_tracker_t* tracker, void* range_cache_buf, size_t bsize);
 error_t destroy_page_tracker(page_tracker_t* tracker);
+error_t page_tracker_dump(page_tracker_t* tracker);
 
 /*
  * Different allocation modes for

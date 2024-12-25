@@ -1,5 +1,6 @@
 #include "tracker.h"
 #include "libk/flow/error.h"
+#include "logging/log.h"
 #include "mem/kmem.h"
 #include "mem/zalloc/zalloc.h"
 #include "sync/spinlock.h"
@@ -26,6 +27,29 @@ error_t init_page_tracker(page_tracker_t* tracker, void* range_cache_buf, size_t
     /* FUck */
     if (error)
         return error;
+
+    return 0;
+}
+
+/*!
+ * @brief: Destroy a page tracker and all it's tracked memory
+ *
+ * TODO: Implement
+ */
+error_t destroy_page_tracker(page_tracker_t* tracker)
+{
+    kernel_panic("TODO: destroy_page_tracker");
+    return 0;
+}
+
+error_t page_tracker_dump(page_tracker_t* tracker)
+{
+    u32 idx = 1;
+    for (page_allocation_t* a = tracker->base; a; a = a->nx_link) {
+        KLOG_DBG("(%d): From Page: %lld (Size: %lld). Flag=%d, Refs=%d\n", idx, a->range.page_idx, a->range.nr_pages, a->range.flags, a->range.refc);
+
+        idx++;
+    }
 
     return 0;
 }
@@ -393,17 +417,6 @@ static error_t __page_tracker_add_allocation(page_tracker_t* tracker, u64 page_i
 }
 
 /*!
- * @brief: Destroy a page tracker and all it's tracked memory
- *
- * TODO: Implement
- */
-error_t destroy_page_tracker(page_tracker_t* tracker)
-{
-    kernel_panic("TODO: destroy_page_tracker");
-    return 0;
-}
-
-/*!
  * @brief: Allocate any range
  */
 error_t page_tracker_alloc_any(page_tracker_t* tracker, enum PAGE_TRACKER_ALLOC_MODE mode, size_t nr_pages, u32 flags, page_range_t* prange)
@@ -462,8 +475,7 @@ error_t page_tracker_alloc_any(page_tracker_t* tracker, enum PAGE_TRACKER_ALLOC_
     return 0;
 }
 
-error_t page_tracker_alloc(page_tracker_t* tracker, u64 start_page,
-    size_t nr_pages, u32 flags)
+error_t page_tracker_alloc(page_tracker_t* tracker, u64 start_page, size_t nr_pages, u32 flags)
 {
     error_t error;
 

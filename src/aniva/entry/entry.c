@@ -22,6 +22,7 @@
 #include "libk/stddef.h"
 #include "logging/log.h"
 #include "mem/buffer.h"
+#include "mem/tracker/tracker.h"
 #include "mem/zalloc/zalloc.h"
 #include "oss/core.h"
 #include "proc/core.h"
@@ -38,7 +39,6 @@
 #include <mem/heap.h>
 #include <mem/kmem.h>
 #include <sched/scheduler.h>
-#include <stdio.h>
 
 system_info_t g_system_info;
 static proc_t* root_proc;
@@ -343,8 +343,6 @@ NOINLINE void __init _start(struct multiboot_tag* mb_addr, uint32_t mb_magic)
  */
 void kthread_entry(void)
 {
-    error_t error;
-    aniva_tests_result_t ktest_results;
     /* Make sure the scheduler won't ruin our day */
     // pause_scheduler();
 
@@ -382,20 +380,29 @@ void kthread_entry(void)
      * Late environment stuff right before we are done bootstrapping kernel systems
      */
 
+    char alloc_buffer[0x5000];
+    page_tracker_t test_tracker;
+
+    if (init_page_tracker(&test_tracker, alloc_buffer, sizeof(alloc_buffer)))
+        KLOG_ERR("Failed to init tracker");
+
+    page_tracker_alloc(&test_tracker, 34, 6, PAGE_RANGE_FLAG_EXPORTED);
+
+    page_range_t range;
+
+    page_tracker_alloc_any(&test_tracker, PAGE_TRACKER_FIRST_FIT, 2, NULL, &range);
+
+    page_tracker_alloc(&test_tracker, 38, 5, NULL);
+
+    page_tracker_dump(&test_tracker);
+
+    kernel_panic("TEST");
+
     /* (libk/bin/elf.c): Load the driver for dynamic executables */
     init_dynamic_loader();
 
     /* Do late initialization of the default profiles */
     init_profiles_late();
-
-    /*
-     * At this point, everything is ready to launch userspace. The only thing we might
-     * have to do now, is perform kernel tests
-     */
-    error = do_aniva_tests(&ktest_results);
-
-    /* TODO: Act on this boi */
-    (void)error;
 
     /* Allocate a quick buffer for our init process */
     driver_t* drv;
