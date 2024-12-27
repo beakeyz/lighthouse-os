@@ -15,7 +15,6 @@
 int init_kmem_phys(u64* mb_addr);
 int init_kmem_phys_late();
 
-size_t kmem_phys_get_total_bytecount();
 kmem_range_t* kmem_phys_get_range(u32 idx);
 u32 kmem_phys_get_nr_ranges();
 
@@ -32,5 +31,8 @@ error_t kmem_phys_dealloc_page(u64 page_idx);
 error_t kmem_phys_reserve_range(u64 page_idx, u32 nr_pages);
 error_t kmem_phys_alloc_range(u32 nr_pages, u64* p_page_idx);
 error_t kmem_phys_dealloc_range(u64 page_idx, u32 nr_pages);
+
+size_t kmem_phys_get_total_bytecount();
+size_t kmem_phys_get_used_bytecount();
 
 #endif // !__ANIVA_MEM_PHYSICAL_H__

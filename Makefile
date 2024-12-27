@@ -1,5 +1,7 @@
 DIRECTORY_GUARD=mkdir -p $(@D)
 
+INSTALL_DEV ?= none
+
 define DEFAULT_VAR =
     ifeq ($(origin $1),default)
         override $(1) := $(2)
@@ -173,5 +175,14 @@ install-gcc-hdrs:
 	@$(MAKE) -C ./cross_compiler/build/binutils install
 	@$(MAKE) -C ./cross_compiler/build/gcc install-gcc
 	@$(MAKE) -C ./cross_compiler/build/gcc install-target-libgcc
+
+.PHONY: install
+install: image ## Install the bootloader onto a blockdevice (parameter INSTALL_DEV=<device_path>)
+ifeq ($(INSTALL_DEV),none)
+	@echo Please specify INSTALL_DEV=?
+else
+	@stat $(INSTALL_DEV)
+	@sudo dd bs=4M if=$(OUT)/$(LIGHTOS_IMG) of=$(INSTALL_DEV) conv=fsync oflag=direct status=progress
+endif
 
 .PHONY: aniva drivers loader modules libs user ramdisk clean all install-gcc-hdrs

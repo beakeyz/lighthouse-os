@@ -1,6 +1,7 @@
 #ifndef __ANIVA_MEM_tracker_H__
 #define __ANIVA_MEM_tracker_H__
 
+#include "mem/kmem.h"
 #include "mem/zalloc/zalloc.h"
 #include "sync/spinlock.h"
 #include <lightos/types.h>
@@ -17,7 +18,7 @@
 #define PAGE_RANGE_FLAG_PHYSICAL 0x010
 
 /* Masks for page index and flags */
-#define PAGE_RANGE_PGE_IDX_MASK 0x000fffffffffffffULL
+#define PAGE_RANGE_PGE_IDX_MASK 0xfffffffffffff000ULL
 #define PAGE_RANGE_FLAGS_MASK 0x0fffULL
 
 typedef struct page_range {
@@ -25,34 +26,29 @@ typedef struct page_range {
      * We need this to be 52-bit in order to be able to reference
      * the entire 64-bit (maybe virtual) page range
      */
-    union {
-        struct {
-            vaddr_t page_idx : 52;
-            u64 flags : 12;
-        };
-        u64 attr;
-    };
+    u64 page_idx;
     /* Epic */
     u32 nr_pages;
     /* How often is this shit referenced */
-    u32 refc;
+    u16 refc;
+    u16 flags;
 } page_range_t;
 
-static inline error_t init_page_range(page_range_t* range, vaddr_t page_idx, u32 nr_pages, u16 flags, u32 refc)
+static inline void* page_range_to_ptr(page_range_t* range)
 {
-    if ((flags & ~PAGE_RANGE_FLAGS_MASK) != 0)
-        return -EINVAL;
+    /*
+     * Calculates the (either virtual or physical) address from the page index,
+     * which may be a virtual page index, or a physical page index.
+     */
+    return (void*)((u64)(range->page_idx << PAGE_SHIFT) & PAGE_RANGE_PGE_IDX_MASK);
+}
 
-    /* Check for index bounds */
-    if ((page_idx & ~PAGE_RANGE_PGE_IDX_MASK) != 0)
-        return -EINVAL;
-
+static inline void init_page_range(page_range_t* range, vaddr_t page_idx, u32 nr_pages, u16 flags, u32 refc)
+{
     range->page_idx = page_idx;
     range->nr_pages = nr_pages;
     range->flags = flags;
     range->refc = refc;
-
-    return 0;
 }
 
 /*!
@@ -95,24 +91,17 @@ static inline bool page_range_equal_bounds(page_range_t* a, page_range_t* b)
 
 static inline size_t page_range_get_distance_to_page(page_range_t* range, u64 page)
 {
+    const size_t page_idx = range->page_idx;
+
     /* Page is before the range */
-    if (page <= range->page_idx)
-        return range->page_idx - page;
+    if (page <= page_idx)
+        return page_idx - page;
 
     /* Page is after the range */
-    if (page > (range->page_idx + range->nr_pages - 1))
-        return page - (range->page_idx + range->nr_pages - 1);
+    if (page > (page_idx + range->nr_pages - 1))
+        return page - (page_idx + range->nr_pages - 1);
 
     return 0;
-}
-
-static inline void* page_range_to_ptr(page_range_t* range)
-{
-    /*
-     * Calculates the (either virtual or physical) address from the page index,
-     * which may be a virtual page index, or a physical page index.
-     */
-    return (void*)((u64)range->attr & ~PAGE_RANGE_FLAGS_MASK);
 }
 
 /*!
@@ -137,15 +126,15 @@ typedef struct page_allocation {
 typedef struct page_tracker {
     /* Base allocation list pointer */
     page_allocation_t* base;
-    /* Count the number of allocated pages */
-    size_t nr_alloced_pages;
+    /* The maximum addressable page in this tracker */
+    u64 max_page;
     /* Main lock that protects this boi =) */
     spinlock_t lock;
     /* Quick cache for getting allocation structs from */
     zone_allocator_t allocation_cache;
 } page_tracker_t;
 
-error_t init_page_tracker(page_tracker_t* tracker, void* range_cache_buf, size_t bsize);
+error_t init_page_tracker(page_tracker_t* tracker, void* range_cache_buf, size_t bsize, u64 max_page);
 error_t destroy_page_tracker(page_tracker_t* tracker);
 error_t page_tracker_dump(page_tracker_t* tracker);
 
@@ -172,5 +161,6 @@ error_t page_tracker_dealloc(page_tracker_t* tracker, page_range_t* range);
 error_t page_tracker_has_addr(page_tracker_t* tracker, u64 addr, bool* phas);
 error_t page_tracker_get_range(page_tracker_t* tracker, u64 page_idx, page_range_t* range);
 error_t page_tracker_copy(page_tracker_t* src, page_tracker_t* dest);
+error_t page_tracker_get_used_page_count(page_tracker_t* tracker, size_t* pcount);
 
 #endif // !__ANIVA_MEM_tracker_H__

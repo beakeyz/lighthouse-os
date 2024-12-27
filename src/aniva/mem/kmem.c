@@ -107,8 +107,6 @@ void debug_kmem(void)
 
 int kmem_get_info(kmem_info_t* info_buffer, uint32_t cpu_id)
 {
-    uint64_t total_used_pages = 0;
-
     if (!info_buffer)
         return -1;
 
@@ -117,13 +115,9 @@ int kmem_get_info(kmem_info_t* info_buffer, uint32_t cpu_id)
     info_buffer->cpu_id = cpu_id;
     info_buffer->flags = KMEM_DATA.m_kmem_flags;
     info_buffer->total_pages = kmem_phys_get_total_bytecount() >> PAGE_SHIFT;
+    info_buffer->used_pages = kmem_phys_get_used_bytecount() >> PAGE_SHIFT;
 
-    for (uint64_t i = 0; i < info_buffer->total_pages; i++) {
-        // if (bitmap_isset(KMEM_DATA.m_phys_bitmap, i))
-        // total_used_pages++;
-    }
-
-    info_buffer->used_pages = total_used_pages;
+    KLOG_ERR("Got info buffer (used: %lld, total: %lld)\n", info_buffer->used_pages, info_buffer->total_pages);
 
     return 0;
 }
@@ -937,6 +931,8 @@ static void _init_kmem_page_layout(void)
 
     /* Return the old pagemap to the physical pool */
     __kmem_free_old_pagemaps();
+
+    // kernel_panic("We reached hell =D");
 }
 
 /*!

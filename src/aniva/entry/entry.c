@@ -174,13 +174,17 @@ static kerror_t _start_system_management(void)
     // Initialize an early console
     init_early_tty();
 
-    KLOG_INFO("Initialized tty");
+    KLOG_INFO("Initialized tty\n");
 
     // Setup interrupts (Fault handlers and IRQ request framework)
     init_interrupts();
 
+    KLOG_INFO("Initialized interrupts\n");
+
     // initialize cpu-related things that need the memorymanager and the heap
     init_processor_late(&g_bsp);
+
+    KLOG_INFO("Initialized processor late\n");
 
     return KERR_NONE;
 }
@@ -195,47 +199,77 @@ static kerror_t _start_subsystems(void)
     // we need more memory
     init_zalloc();
 
+    KLOG_INFO("Initialized zalloc\n");
+
     // we need resources
     init_kresources();
+
+    KLOG_INFO("Initialized kresources\n");
 
     // Initialize libk
     init_libk();
 
+    KLOG_INFO("Initialized libk\n");
+
     /* Just kinda get them ready */
     init_aniva_tests();
+
+    KLOG_INFO("Initialized aniva tests\n");
 
     // Initialize buffer
     init_aniva_buffers();
 
+    KLOG_INFO("Initialized aniva buffers\n");
+
     // Initialize kevent
     init_kevents();
+
+    KLOG_INFO("Initialized kevents\n");
 
     // Make sure we know how to access the PCI configuration space at this point
     init_pci_early();
 
+    KLOG_INFO("Initialized pci space\n");
+
     /* Initialize OSS */
     init_oss();
+
+    KLOG_INFO("Initialized oss\n");
 
     /* Initialize the filesystem core */
     init_fs_core();
 
+    KLOG_INFO("Initialized fs core\n");
+
     /* Init the infrastructure needed for drivers */
     init_driver_subsys();
+
+    KLOG_INFO("Initialized drivers\n");
 
     /* Init the kernel device subsystem */
     init_devices();
 
+    KLOG_INFO("Initialized devices\n");
+
     /* Initialize global disk device subsystem */
     init_volumes();
+
+    KLOG_INFO("Initialized volumes\n");
 
     /* Initialize the video subsystem */
     init_video();
 
+    KLOG_INFO("Initialized video\n");
+
     /* Initialize HID driver subsystem */
     init_hid();
 
+    KLOG_INFO("Initialized HID\n");
+
     /* Initialize the USB subsystem */
     init_usb();
+
+    KLOG_INFO("Initialized subsystems\n");
 
     return KERR_NONE;
 }

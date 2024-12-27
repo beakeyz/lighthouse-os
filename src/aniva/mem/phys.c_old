@@ -1,3 +1,4 @@
+#include "phys.h"
 #include "entry/entry.h"
 #include "libk/data/bitmap.h"
 #include "libk/data/linkedlist.h"
@@ -5,7 +6,6 @@
 #include "lightos/types.h"
 #include "mem/kmem.h"
 #include "mem/tracker/tracker.h"
-#include "phys.h"
 #include "sync/spinlock.h"
 
 static struct {
@@ -20,7 +20,7 @@ static struct {
     size_t m_total_unavail_memory_bytes;
 
     /* TODO: Replace this with the physical tracker */
-    // bitmap_t* m_phys_bitmap;
+    bitmap_t* m_phys_bitmap;
 
     /* Tracker 0: The physical page tracker =D */
     page_tracker_t m_physical_tracker;
@@ -335,7 +335,7 @@ static int _allocate_free_physical_range(kmem_range_t* range, size_t size)
     return 0;
 }
 
-static USED int __init_physical_tracker_bitmap()
+static int __init_physical_tracker()
 {
     kmem_range_t bm_range;
     bitmap_t* physical_bitmap;
@@ -374,8 +374,7 @@ static USED int __init_physical_tracker_bitmap()
 
     memset(physical_bitmap->m_map, physical_bitmap->m_default, physical_pages_bytes);
 
-    /* FIXME: ??? */
-    // g_phys_data.m_phys_bitmap = physical_bitmap;
+    g_phys_data.m_phys_bitmap = physical_bitmap;
 
     paddr_t base;
     size_t size;
@@ -401,49 +400,6 @@ static USED int __init_physical_tracker_bitmap()
     return 0;
 }
 
-static int __init_physical_tracker()
-{
-    kmem_range_t cache_range;
-    vaddr_t cache_start_addr;
-    /* Check how many physical pages we need to track */
-    const size_t physical_pages = kmem_get_page_idx(g_phys_data.m_highest_phys_page_base) + 1;
-    /* Calculate how big our range cache size is going to be */
-    const size_t needed_range_cache_size = (3 << PAGE_SHIFT) + (g_phys_data.m_phys_ranges->m_length * sizeof(page_allocation_t));
-
-    /* Find a bitmap. This is crucial */
-    ASSERT_MSG(_allocate_free_physical_range(&cache_range, needed_range_cache_size) == NULL, "Failed to find a physical range for our physmem tracker!");
-
-    /* Compute where our bitmap MUST go */
-    cache_start_addr = kmem_ensure_high_mapping(cache_range.start);
-
-    /* Initialize the page tracker object */
-    ASSERT_MSG(init_page_tracker(&g_phys_data.m_physical_tracker, (void*)cache_start_addr, needed_range_cache_size) == 0, "Failed to initialize the page tracker");
-
-    /* Pre-allocate all physical memory */
-    page_tracker_alloc(&g_phys_data.m_physical_tracker, 0, physical_pages, PAGE_RANGE_FLAG_KERNEL | PAGE_RANGE_FLAG_PHYSICAL);
-
-    // Mark the contiguous 'free' ranges as free in our bitmap
-    FOREACH(i, g_phys_data.m_phys_ranges)
-    {
-        const kmem_range_t* range = i->data;
-
-        if (range->type != MEMTYPE_USABLE)
-            continue;
-
-        u64 base = range->start;
-        size_t size = range->length;
-
-        KLOG_DBG("Marking free range: start=0x%llx, size=0x%llx\n", base, size);
-
-        /* Base and size should already be page-aligned */
-        kmem_phys_dealloc_range(
-            kmem_get_page_idx(base),
-            GET_PAGECOUNT(base, size));
-    }
-
-    return 0;
-}
-
 size_t kmem_phys_get_total_bytecount()
 {
     return g_phys_data.m_total_avail_memory_bytes;
@@ -461,13 +417,7 @@ u32 kmem_phys_get_nr_ranges()
 
 bool kmem_phys_is_page_used(uintptr_t idx)
 {
-    bool has;
-
-    /* Check if the tracker has this page tracked */
-    if (page_tracker_has_addr(&g_phys_data.m_physical_tracker, kmem_get_page_addr(idx), &has))
-        return true;
-
-    return has;
+    return bitmap_isset(g_phys_data.m_phys_bitmap, idx);
 }
 
 /*!
@@ -483,7 +433,17 @@ error_t kmem_phys_alloc_page(u64* p_page_idx)
  */
 error_t kmem_phys_dealloc_page(u64 page_idx)
 {
-    return kmem_phys_dealloc_range(page_idx, 1);
+    if (!g_phys_data.m_phys_bitmap)
+        return -ENULL;
+
+    spinlock_lock(&g_phys_data.m_allocator_lock);
+
+    /* Mark the entry used */
+    bitmap_unmark(g_phys_data.m_phys_bitmap, page_idx);
+
+    spinlock_unlock(&g_phys_data.m_allocator_lock);
+
+    return 0;
 }
 
 /*!
@@ -494,13 +454,16 @@ error_t kmem_phys_dealloc_page(u64 page_idx)
  */
 error_t kmem_phys_reserve_range(u64 page_idx, u32 nr_pages)
 {
+    if (!g_phys_data.m_phys_bitmap)
+        return -ENULL;
+
     if (!nr_pages)
         return -EINVAL;
 
     spinlock_lock(&g_phys_data.m_allocator_lock);
 
     /* Mark the entry used */
-    page_tracker_alloc(&g_phys_data.m_physical_tracker, page_idx, nr_pages, PAGE_RANGE_FLAG_KERNEL | PAGE_RANGE_FLAG_PHYSICAL);
+    bitmap_mark_range(g_phys_data.m_phys_bitmap, page_idx, nr_pages);
 
     spinlock_unlock(&g_phys_data.m_allocator_lock);
 
@@ -513,21 +476,26 @@ error_t kmem_phys_reserve_range(u64 page_idx, u32 nr_pages)
 error_t kmem_phys_alloc_range(u32 nr_pages, u64* p_page_idx)
 {
     error_t error;
-    page_range_t range;
+    u64 result = NULL;
 
     if (!p_page_idx || !nr_pages)
         return -EINVAL;
 
     spinlock_lock(&g_phys_data.m_allocator_lock);
 
-    /* Try to allocate any range */
-    error = page_tracker_alloc_any(&g_phys_data.m_physical_tracker, PAGE_TRACKER_FIRST_FIT, nr_pages, PAGE_RANGE_FLAG_PHYSICAL | PAGE_RANGE_FLAG_KERNEL, &range);
+    /* Find a free range */
+    error = bitmap_find_free_range(g_phys_data.m_phys_bitmap, nr_pages, &result);
 
+    if (error)
+        goto unlock_and_exit;
+
+    /* Mark the range used */
+    bitmap_mark_range(g_phys_data.m_phys_bitmap, result, nr_pages);
+
+unlock_and_exit:
     spinlock_unlock(&g_phys_data.m_allocator_lock);
 
-    /* Export the page idx */
-    if (!error)
-        *p_page_idx = range.page_idx;
+    *p_page_idx = result;
 
     return error;
 }
@@ -537,24 +505,17 @@ error_t kmem_phys_alloc_range(u32 nr_pages, u64* p_page_idx)
  */
 error_t kmem_phys_dealloc_range(u64 page_idx, u32 nr_pages)
 {
-    error_t error;
-    page_range_t range;
+    if (!nr_pages)
+        return -EINVAL;
 
-    /* Initialize the range */
-    range.page_idx = page_idx;
-    range.refc = 1;
-    range.nr_pages = nr_pages;
-    range.flags = NULL;
-
-    /* Lock this fucker */
     spinlock_lock(&g_phys_data.m_allocator_lock);
 
-    /* Deallocate */
-    error = page_tracker_dealloc(&g_phys_data.m_physical_tracker, &range);
+    /* Mark the range used */
+    bitmap_unmark_range(g_phys_data.m_phys_bitmap, page_idx, nr_pages);
 
     spinlock_unlock(&g_phys_data.m_allocator_lock);
 
-    return error;
+    return 0;
 }
 
 int init_kmem_phys(u64* mb_addr)
@@ -579,8 +540,6 @@ int init_kmem_phys(u64* mb_addr)
      */
     kmem_parse_mmap();
 
-    // if (__init_physical_tracker_bitmap())
-    // return -ENOMEM;
     if (__init_physical_tracker())
         return -ENOMEM;
 
