@@ -22,7 +22,6 @@
 #include "libk/stddef.h"
 #include "logging/log.h"
 #include "mem/buffer.h"
-#include "mem/tracker/tracker.h"
 #include "mem/zalloc/zalloc.h"
 #include "oss/core.h"
 #include "proc/core.h"
@@ -379,35 +378,6 @@ void kthread_entry(void)
     /*
      * Late environment stuff right before we are done bootstrapping kernel systems
      */
-
-    char alloc_buffer[0x5000];
-    page_tracker_t test_tracker;
-
-    if (init_page_tracker(&test_tracker, alloc_buffer, sizeof(alloc_buffer)))
-        KLOG_ERR("Failed to init tracker");
-
-    page_tracker_alloc(&test_tracker, 34, 6, PAGE_RANGE_FLAG_EXPORTED);
-
-    page_range_t range;
-
-    page_tracker_alloc_any(&test_tracker, PAGE_TRACKER_FIRST_FIT, 2, NULL, &range);
-
-    page_tracker_alloc(&test_tracker, 38, 5, NULL);
-
-    /* Dump one */
-    page_tracker_dump(&test_tracker);
-
-    page_tracker_alloc_any(&test_tracker, PAGE_TRACKER_FIRST_FIT, 6, NULL, &range);
-
-    /* Dump two */
-    page_tracker_dump(&test_tracker);
-
-    page_tracker_alloc(&test_tracker, 4, 205, NULL);
-
-    /* Dump three */
-    page_tracker_dump(&test_tracker);
-
-    kernel_panic("TEST");
 
     /* (libk/bin/elf.c): Load the driver for dynamic executables */
     init_dynamic_loader();

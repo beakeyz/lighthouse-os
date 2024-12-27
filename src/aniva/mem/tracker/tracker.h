@@ -55,10 +55,42 @@ static inline error_t init_page_range(page_range_t* range, vaddr_t page_idx, u32
     return 0;
 }
 
-static inline void page_range_shrink(page_range_t* range, size_t pages)
+/*!
+ * @brief: Shrinks @range forward by @pages pages
+ *
+ * @returns: True if the range is reduced to zero pages. False otherwise
+ */
+static inline bool page_range_shrink_from_start(page_range_t* range, size_t pages)
 {
+    if (!range->nr_pages)
+        return true;
+
+    if (pages > range->nr_pages)
+        pages = range->nr_pages;
+
+    /* Reduce the range */
     range->page_idx += pages;
     range->nr_pages -= pages;
+
+    /* Check if there is space left */
+    return (range->nr_pages == 0);
+}
+
+static inline size_t page_range_get_pages_inside(page_range_t* inside, page_range_t* outside)
+{
+    const size_t inside_end_page = inside->page_idx + inside->nr_pages;
+    const size_t outsize_end_page = outside->page_idx + outside->nr_pages;
+
+    /*
+     * If @inside is, in fact, completely inside @outside, we can just return @inside's size.
+     * If there is a bit peeping out, we need to subtract that part
+     */
+    return inside->nr_pages - (inside_end_page > outsize_end_page ? (inside_end_page - outsize_end_page) : 0);
+}
+
+static inline bool page_range_equal_bounds(page_range_t* a, page_range_t* b)
+{
+    return (a->page_idx == b->page_idx && a->nr_pages == b->nr_pages);
 }
 
 static inline size_t page_range_get_distance_to_page(page_range_t* range, u64 page)
