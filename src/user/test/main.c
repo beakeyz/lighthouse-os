@@ -23,5 +23,14 @@ int main()
     printf("Device subclass: %d\n", info.subclass);
     printf("Device ctype: %s\n", devinfo_get_ctype(info.ctype));
 
+    HANDLE hook = open_handle("threads.test", HNDL_TYPE_EVENTHOOK, NULL, HNDL_MODE_CREATE);
+
+    /* Fuck */
+    if (handle_verify(hook))
+        return -ENOENT;
+
+    /* Lol */
+    device_send_ctl_ex(hook, DEVICE_CTLC_KEVENT_POLL, 0, NULL, NULL);
+
     return 0;
 }

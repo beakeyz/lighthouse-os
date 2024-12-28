@@ -1,4 +1,5 @@
 #include "hook.h"
+#include "kevent/event.h"
 #include "kevent/hash.h"
 #include "libk/flow/error.h"
 #include "mem/heap.h"
@@ -171,4 +172,49 @@ int keventhook_call(kevent_hook_t* hook, kevent_ctx_t* ctx)
 bool keventhook_is_set(kevent_hook_t* hook)
 {
     return (hook->is_set || hook->hookname || hook->f_hook);
+}
+
+int kevent_hook_poll(kevent_hook_t* hook, struct kevent_hook_poll_block** pblock)
+{
+    return kevent_hook_poll_await_fire(hook, 1, pblock);
+}
+
+int kevent_hook_poll_await_fire(kevent_hook_t* hook, uint64_t timeout, struct kevent_hook_poll_block** pblock)
+{
+    error_t error;
+    kevent_hook_poll_block_t* block;
+
+    if (!hook)
+        return -KERR_NOT_FOUND;
+
+    do {
+        /* Zero this bitch real quick */
+        block = NULL;
+
+        /* Try to dequeue a poll block */
+        error = keventhook_dequeue_poll_block(hook, &block);
+
+        if (timeout)
+            if (timeout-- == 0)
+                break;
+
+        // serial_println("Waiting for hook..");
+
+        /* Fuck bro */
+        scheduler_yield();
+    } while (error);
+
+    if (error)
+        return error;
+
+    if (!block)
+        return -KERR_NULL;
+
+    /* Export the block to the caller if it wants it. Otherwise just kill it lmao */
+    if (pblock)
+        *pblock = block;
+    else
+        destroy_keventhook_poll_block(block);
+
+    return 0;
 }

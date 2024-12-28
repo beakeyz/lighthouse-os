@@ -4,6 +4,14 @@
 #include "proc/hdrv/driver.h"
 #include <kevent/event.h>
 
+/*!
+ * @brief: Handles user requests to open a kernel event
+ *
+ * This function can serve a couple of purposes:
+ * 1) Create new kernel events
+ * 2) Open existing kernel events
+ * 3) Open new event hooks on events (path format: "<kevent>.<keventhook>")
+ */
 static int kevent_hdrv_open(khandle_driver_t* driver, const char* path, u32 flags, enum HNDL_MODE mode, khandle_t* bHandle)
 {
     struct kevent* event;
@@ -43,10 +51,30 @@ static int kevent_hdrv_open(khandle_driver_t* driver, const char* path, u32 flag
     return 0;
 }
 
+static error_t kevent_hdrv_ctl(khandle_driver_t* driver, khandle_t* handle, enum DEVICE_CTLC code, u64 offset, void* buffer, size_t bsize)
+{
+    struct kevent* event;
+
+    if (!driver || !handle)
+        return -EINVAL;
+
+    /* Grab the event */
+    event = handle->reference.event;
+
+    (void)event;
+
+    switch (code) {
+    default:
+        return -ENOTSUP;
+    }
+    return 0;
+}
+
 khandle_driver_t kevent_handle_driver = {
     .name = "kevents",
     .handle_type = HNDL_TYPE_EVENT,
-    .function_flags = KHDRIVER_FUNC_OPEN,
+    .function_flags = KHDRIVER_FUNC_OPEN | KHDRIVER_FUNC_CTL,
     .f_open = kevent_hdrv_open,
+    .f_ctl = kevent_hdrv_ctl,
 };
 EXPORT_KHANDLE_DRIVER(kevent_handle_driver);

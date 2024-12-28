@@ -4,7 +4,6 @@
 #include "kevent/types/error/kerror.h"
 #include "libk/data/hashmap.h"
 #include "libk/flow/error.h"
-#include "libk/stddef.h"
 #include "mem/kmem.h"
 #include "mem/zalloc/zalloc.h"
 #include "proc/thread.h"
@@ -363,7 +362,7 @@ int kevent_add_poll_hook(const char* event_name, const char* hook_name, bool (*f
 {
     kevent_t* event;
 
-    if (!event_name)
+    if (!event_name || !hook_name)
         return -1;
 
     event = kevent_get(event_name);
@@ -612,10 +611,8 @@ int kevent_fire_ex(struct kevent* event, void* buffer, size_t size)
  */
 int kevent_await_hook_fire(const char* event_name, const char* hook_name, uint64_t timeout, struct kevent_hook_poll_block** pblock)
 {
-    int error;
     kevent_t* event;
     kevent_hook_t* hook;
-    kevent_hook_poll_block_t* block;
 
     if (!event_name || !hook_name)
         return -KERR_INVAL;
@@ -629,39 +626,7 @@ int kevent_await_hook_fire(const char* event_name, const char* hook_name, uint64
     /* Grab the hook we're interested in */
     hook = kevent_get_hook(event, hook_name);
 
-    if (!hook)
-        return -KERR_NOT_FOUND;
-
-    do {
-        /* Zero this bitch real quick */
-        block = NULL;
-
-        /* Try to dequeue a poll block */
-        error = keventhook_dequeue_poll_block(hook, &block);
-
-        if (timeout)
-            if (timeout-- == 0)
-                break;
-
-        // serial_println("Waiting for hook..");
-
-        /* Fuck bro */
-        scheduler_yield();
-    } while (error);
-
-    if (error)
-        return error;
-
-    if (!block)
-        return -KERR_NULL;
-
-    /* Export the block to the caller if it wants it. Otherwise just kill it lmao */
-    if (pblock)
-        *pblock = block;
-    else
-        destroy_keventhook_poll_block(block);
-
-    return 0;
+    return kevent_hook_poll_await_fire(hook, timeout, pblock);
 }
 
 enum KEVENT_TYPE kevent_get_type(struct kevent* event)

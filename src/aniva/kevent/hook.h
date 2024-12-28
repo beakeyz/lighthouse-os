@@ -65,6 +65,9 @@ void destroy_keventhook(kevent_hook_t* hook);
 int keventhook_call(kevent_hook_t* hook, kevent_ctx_t* ctx);
 int keventhook_dequeue_poll_block(kevent_hook_t* hook, kevent_hook_poll_block_t** block);
 
+int kevent_hook_poll_await_fire(kevent_hook_t* hook, uint64_t timeout, struct kevent_hook_poll_block** pblock);
+int kevent_hook_poll(kevent_hook_t* hook, struct kevent_hook_poll_block** pblock);
+
 bool keventhook_is_set(kevent_hook_t* hook);
 
 #endif //__ANIVA_KEVENT_HOOK__

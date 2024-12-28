@@ -133,6 +133,11 @@ enum DEVICE_CTLC {
     /* Video control codes */
     DEVICE_CTLC_GET_FBINFO,
 
+    /* Device event codes */
+    DEVICE_CTLC_KEVENT_POLL,
+    DEVICE_CTLC_KEVENT_AWAIT_FIRE,
+    DEVICE_CTLC_KEVENT_FIRE,
+
     /* The amount of control codes there are */
     N_DEVICE_CTLC
 };
