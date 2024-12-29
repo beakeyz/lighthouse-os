@@ -39,7 +39,7 @@ typedef struct tm {
  */
 
 /* A good target for fast machines might be 1000 or more */
-#define TARGET_TPS 1000
+#define TARGET_TPS 100
 
 typedef enum TICK_TYPE {
     UNSET = 0,

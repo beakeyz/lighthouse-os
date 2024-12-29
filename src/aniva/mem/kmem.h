@@ -63,7 +63,7 @@ void debug_kmem(void);
 // Anything IO can be mapped here
 #define IO_MAP_BASE 0xffff000000000000ULL
 // Base for early kernelheap mappings
-#define EARLY_KERNEL_HEAP_BASE ALIGN_UP((uintptr_t) & _kernel_end, SMALL_PAGE_SIZE)
+#define EARLY_KERNEL_HEAP_BASE ALIGN_UP((uintptr_t)&_kernel_end, SMALL_PAGE_SIZE)
 // Base for early multiboot fb
 #define EARLY_FB_MAP_BASE 0xffffff8000000000ULL
 // Base for the quickmap engine. We take the pretty much highest possible vaddr
@@ -160,6 +160,7 @@ size_t kmem_get_early_map_size();
 error_t init_kmem(uintptr_t* mb_addr);
 
 void kmem_load_page_dir(uintptr_t dir, bool __disable_interrupts);
+pml_entry_t* kmem_get_krnl_dir();
 
 uintptr_t kmem_get_page_idx(uintptr_t page_addr);
 uintptr_t kmem_get_page_base(uintptr_t base);
@@ -187,11 +188,7 @@ uintptr_t kmem_to_phys_aligned(pml_entry_t* root, uintptr_t addr);
  */
 void kmem_refresh_tlb();
 
-int kmem_prepare_new_physical_page(paddr_t* p_addr);
-pml_entry_t* kmem_get_krnl_dir();
-
 kerror_t kmem_get_page(pml_entry_t** bentry, pml_entry_t* root, uintptr_t addr, uint32_t kmem_flags, uint32_t page_flags);
-
 void kmem_set_page_flags(pml_entry_t* page, uint32_t flags);
 
 /* mem mapping */
@@ -212,6 +209,8 @@ bool kmem_unmap_range_ex(pml_entry_t* table, uintptr_t virt, size_t page_count, 
  */
 int kmem_validate_ptr(struct proc* process, vaddr_t v_address, size_t size);
 int kmem_ensure_mapped(pml_entry_t* table, vaddr_t base, size_t size);
+
+int kmem_alloc_phys_page(paddr_t* p_addr);
 
 /*
  * These functions are all about mapping and allocating

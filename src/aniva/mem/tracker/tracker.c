@@ -47,11 +47,20 @@ error_t destroy_page_tracker(page_tracker_t* tracker)
 error_t page_tracker_dump(page_tracker_t* tracker)
 {
     KLOG_DBG("Dumping page tracker (0x%p):\n", tracker);
+
+    u64 prev_range_terminating_page = 0;
     u32 idx = 1;
+
     for (page_allocation_t* a = tracker->base; a; a = a->nx_link) {
+        u64 free_space_before = a->range.page_idx - prev_range_terminating_page;
+
+        if (free_space_before)
+            KLOG_DBG("  - Free range of %lld pages\n", free_space_before);
+
         KLOG_DBG("(%d): From Page: 0x%llx (Size: %lld). Flag=%d, Refs=%d\n", idx, a->range.page_idx, a->range.nr_pages, a->range.flags, a->range.refc);
 
         idx++;
+        prev_range_terminating_page = (a->range.page_idx + a->range.nr_pages);
     }
 
     return 0;
@@ -282,15 +291,20 @@ static error_t __cut_out_range_from_allocation(page_tracker_t* tracker, page_all
 {
     page_allocation_t* last = nullptr;
     page_allocation_t* first = nullptr;
+
+    // [ alloc ] [ range ]
+    //         | |
+
     /* Calculate which start idx is the highest */
     const size_t highest_start_page_idx = MAX(alloc->range.page_idx, range->page_idx);
     /* Calculate which end idx is the lowest */
-    const size_t lowest_end_page_idx = MIN(alloc->range.page_idx + alloc->range.nr_pages,
-        range->page_idx + range->nr_pages);
+    const size_t lowest_end_page_idx = MIN(alloc->range.page_idx + (u64)alloc->range.nr_pages - 1, range->page_idx + (u64)range->nr_pages - 1);
     /* Now we can calculate how much of @range is inside @alloc */
     const size_t page_delta = lowest_end_page_idx < highest_start_page_idx
         ? 0
-        : (lowest_end_page_idx - highest_start_page_idx);
+        : (lowest_end_page_idx - highest_start_page_idx) + 1;
+
+    // KLOG_DBG("Comparing range 0x%llx(%d) to 0x%llx(%d)\n", alloc->range.page_idx, alloc->range.nr_pages, range->page_idx, range->nr_pages);
 
     /* If there is a page delta of 0, there is no part of @range inside @alloc */
     if (!page_delta)
@@ -332,7 +346,7 @@ static error_t __cut_out_range_from_allocation(page_tracker_t* tracker, page_all
         /* New range for the end split of @alloc */
         page_range_t alloc_end_split = {
             .page_idx = range->page_idx + range->nr_pages,
-            .nr_pages = (alloc->range.page_idx + alloc->range.nr_pages) - lowest_end_page_idx,
+            .nr_pages = (alloc->range.page_idx + alloc->range.nr_pages - 1) - lowest_end_page_idx,
             .refc = alloc->range.refc,
             .flags = alloc->range.flags,
         };
@@ -353,6 +367,7 @@ static error_t __cut_out_range_from_allocation(page_tracker_t* tracker, page_all
 
         /* Cut off the alloc range */
         alloc->range.nr_pages -= (alloc_end_split.nr_pages + new_range.nr_pages);
+
         /* If @range sits at the front of @alloc, we need to remove alloc */
         if (highest_start_page_idx == alloc->range.page_idx || alloc->range.nr_pages == 0)
             __page_allocation_remove(tracker, alloc);
@@ -379,6 +394,31 @@ static inline bool __page_range_can_extend(page_range_t* first, page_range_t* la
     /* Bordering ranges with the same number of references and the same flags may
      * merge */
     return ((first->page_idx + first->nr_pages) == last->page_idx && first->refc == last->refc && first->flags == last->flags);
+}
+
+static void __page_tracker_try_merge_ranges(page_tracker_t* tracker, page_allocation_t* start, page_allocation_t* end)
+{
+    page_allocation_t* next;
+
+    for (page_allocation_t* alloc = start; alloc != nullptr; alloc = next) {
+        next = alloc->nx_link;
+
+        if (!next)
+            break;
+
+        /* Check if these ranges can be merged */
+        if (!__page_range_can_extend(&alloc->range, &next->range))
+            continue;
+
+        /* Extend alloc by the amount of pages in next */
+        alloc->range.nr_pages += next->range.nr_pages;
+
+        /* We want to check this range again, so let's tell that to the for loop */
+        next = alloc;
+
+        /* Remove the next link */
+        __page_allocation_remove(tracker, alloc->nx_link);
+    }
 }
 
 static error_t __page_tracker_add_allocation(page_tracker_t* tracker, u64 page_idx, u64 page_count, u32 flags)
@@ -437,7 +477,7 @@ static error_t __page_tracker_add_allocation(page_tracker_t* tracker, u64 page_i
             break;
 
         target_size_pgs = MIN(
-            range.nr_pages, !next ? (u32)-1 : (next->range.page_idx - (this_range.page_idx + this_range.nr_pages)));
+            range.nr_pages, (!next) ? (u32)0xffffffffUL : (next->range.page_idx - (this_range.page_idx + this_range.nr_pages)));
 
         /* Second, check how much space if free after @a */
         page_range_t new_range = {
@@ -459,54 +499,7 @@ static error_t __page_tracker_add_allocation(page_tracker_t* tracker, u64 page_i
         page_range_shrink_from_start(&range, target_size_pgs);
     }
 
-    /* Walk the loop again, to remove unneeded ranges */
-    for (page_allocation_t* a = start; a != nullptr && a != last; a = next) {
-        /* Pre-set the next link */
-        next = a->nx_link;
-
-        /* Make sure we're alive */
-        if (!next)
-            break;
-
-        if (!__page_range_can_extend(&a->range, &next->range))
-            continue;
-
-        /* 'Merge' lol */
-        a->range.nr_pages += next->range.nr_pages;
-
-        /* Set the next next guy */
-        next = next->nx_link;
-
-        /* Remove this bastard */
-        __page_allocation_remove(tracker, a->nx_link);
-    }
-
     return error;
-}
-
-static void __page_tracker_try_merge_ranges(page_tracker_t* tracker, page_allocation_t* start, page_allocation_t* end)
-{
-    page_allocation_t* next;
-
-    for (page_allocation_t* alloc = start; alloc != nullptr; alloc = next) {
-        next = alloc->nx_link;
-
-        if (!next)
-            break;
-
-        /* Check if these ranges can be merged */
-        if (!__page_range_can_extend(&alloc->range, &next->range))
-            continue;
-
-        /* Extend alloc by the amount of pages in next */
-        alloc->range.nr_pages += next->range.nr_pages;
-
-        /* We want to check this range again, so let's tell that to the for loop */
-        next = alloc;
-
-        /* Remove the next link */
-        __page_allocation_remove(tracker, alloc->nx_link);
-    }
 }
 
 static inline error_t __page_tracker_find_range_with_gap_after(page_tracker_t* tracker, enum PAGE_TRACKER_ALLOC_MODE mode, size_t nr_pages, page_allocation_t** palloc, page_range_t* this_range)

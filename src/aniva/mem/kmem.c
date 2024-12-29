@@ -186,7 +186,7 @@ uintptr_t kmem_to_phys(pml_entry_t* root, vaddr_t addr)
  * FIXME: we might grab a page that is located at kernel_end + 1 Gib which won't be
  * mapped to our kernel HIGH map extention. When this happens, we want to have
  */
-int kmem_prepare_new_physical_page(paddr_t* p_addr)
+int kmem_alloc_phys_page(paddr_t* p_addr)
 {
     int error;
     paddr_t address;
@@ -235,7 +235,7 @@ static inline kerror_t _allocate_pde(pml_entry_t* pde, uint32_t custom_flags, ui
     if (!pd_entry_exists) {
         vaddr_t page_addr;
 
-        error = kmem_prepare_new_physical_page(&page_addr);
+        error = kmem_alloc_phys_page(&page_addr);
 
         /* Mega fuck */
         if (error)
@@ -278,10 +278,11 @@ kerror_t kmem_get_page(pml_entry_t** bentry, pml_entry_t* root, uintptr_t addr, 
     /* Make sure the virtual address is not fucking us in our ass */
     addr = addr & PDE_SIZE_MASK;
 
-    const uintptr_t pml4_idx = (addr >> 39) & ENTRY_MASK;
-    const uintptr_t pdp_idx = (addr >> 30) & ENTRY_MASK;
-    const uintptr_t pd_idx = (addr >> 21) & ENTRY_MASK;
-    const uintptr_t pt_idx = (addr >> 12) & ENTRY_MASK;
+    /* Compute indices */
+    const uint16_t pml4_idx = (addr >> 39) & ENTRY_MASK;
+    const uint16_t pdp_idx = (addr >> 30) & ENTRY_MASK;
+    const uint16_t pd_idx = (addr >> 21) & ENTRY_MASK;
+    const uint16_t pt_idx = (addr >> 12) & ENTRY_MASK;
 
     pml4 = (root == nullptr) ? (pml_entry_t*)kmem_from_phys((uintptr_t)kmem_get_krnl_dir(), KMEM_DATA.m_high_page_base) : root;
     error = _allocate_pde(&pml4[pml4_idx], kmem_flags, page_flags);
@@ -734,7 +735,7 @@ int kmem_alloc_scattered(void** result, pml_entry_t* map, kresource_bundle_t* re
      */
     for (uint64_t i = 0; i < pages_needed; i++) {
 
-        error = kmem_prepare_new_physical_page(&p_addr);
+        error = kmem_alloc_phys_page(&p_addr);
 
         if (error)
             return error;
@@ -911,7 +912,7 @@ static void _init_kmem_page_layout(void)
     uintptr_t map;
 
     /* Grab the page for our pagemap root */
-    ASSERT_MSG(kmem_prepare_new_physical_page(&map) == 0, "Failed to get kmem kernel root page");
+    ASSERT_MSG(kmem_alloc_phys_page(&map) == 0, "Failed to get kmem kernel root page");
 
     /* Set the managers data */
     KMEM_DATA.m_kernel_base_pd = (pml_entry_t*)map;

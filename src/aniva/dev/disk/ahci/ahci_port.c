@@ -460,7 +460,7 @@ ahci_port_t* create_ahci_port(struct ahci_device* device, uintptr_t port_offset,
     ret->m_device = device;
     ret->m_port_offset = port_offset;
 
-    ASSERT(KERR_OK(kmem_prepare_new_physical_page(&ret->m_ib_page)));
+    ASSERT(KERR_OK(kmem_alloc_phys_page(&ret->m_ib_page)));
 
     /* Flags? */
     ret->m_awaiting_dma_transfer_complete = false;

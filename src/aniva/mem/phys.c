@@ -94,7 +94,7 @@ static kmem_range_t* _create_kmem_range(multiboot_memory_map_t* mb_mmap_entry)
     /* DEBUG */
     KLOG_DBG("mmap range (type=%d) addr=0x%llx len=0x%llx\n", range->type, range->start, range->length);
 
-    range_end = ALIGN_DOWN(range->start + range->length, SMALL_PAGE_SIZE);
+    range_end = ALIGN_UP(range->start + range->length, SMALL_PAGE_SIZE) - SMALL_PAGE_SIZE;
 
     if (range_end > g_phys_data.m_highest_phys_page_base)
         g_phys_data.m_highest_phys_page_base = range_end;
@@ -444,8 +444,6 @@ static int __init_physical_tracker()
             GET_PAGECOUNT(base, size));
     }
 
-    page_tracker_dump(&g_phys_data.m_physical_tracker);
-
     return 0;
 }
 
@@ -474,6 +472,11 @@ kmem_range_t* kmem_phys_get_range(u32 idx)
 u32 kmem_phys_get_nr_ranges()
 {
     return g_phys_data.m_phys_ranges->m_length;
+}
+
+void kmem_phys_dump()
+{
+    page_tracker_dump(&g_phys_data.m_physical_tracker);
 }
 
 bool kmem_phys_is_page_used(uintptr_t idx)

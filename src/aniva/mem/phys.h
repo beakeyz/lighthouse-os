@@ -18,6 +18,8 @@ int init_kmem_phys_late();
 kmem_range_t* kmem_phys_get_range(u32 idx);
 u32 kmem_phys_get_nr_ranges();
 
+void kmem_phys_dump();
+
 /*
  * Physical page manipulation functions
  * TODO: Remove and replace with higher level and more robust functions
