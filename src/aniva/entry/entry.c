@@ -31,12 +31,12 @@
 #include "system/acpi/acpi.h"
 #include "system/processor/processor.h"
 #include "system/profile/profile.h"
-#include "system/resource.h"
 #include "tests/tests.h"
 #include "time/core.h"
 #include <dev/debug/serial.h>
 #include <mem/heap.h>
 #include <mem/kmem.h>
+#include <mem/phys.h>
 #include <sched/scheduler.h>
 
 system_info_t g_system_info;
@@ -200,11 +200,6 @@ static kerror_t _start_subsystems(void)
     init_zalloc();
 
     KLOG_INFO("Initialized zalloc\n");
-
-    // we need resources
-    init_kresources();
-
-    KLOG_INFO("Initialized kresources\n");
 
     // Initialize libk
     init_libk();
@@ -435,6 +430,8 @@ void kthread_entry(void)
 
     /* Execute the buffer */
     ASSERT_MSG(proc_exec(init_buffer, vec, get_admin_profile(), PROC_KERNEL | PROC_SYNC) != nullptr, "Failed to launch init process");
+
+    //kernel_panic("TEST");
 
     /*
      * Remove the early TTY right before we finish low-level system setup. After

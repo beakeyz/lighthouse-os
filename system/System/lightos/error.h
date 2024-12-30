@@ -1,6 +1,8 @@
 #ifndef __LIGHTOS_ERROR_H__
 #define __LIGHTOS_ERROR_H__
 
+#define EOK 0 /* Everyting is OK */
+
 /*
  * Posix shit (Yuck)
  */
@@ -144,5 +146,11 @@
 #define ETESTFAIL 179
 
 #define ERESTARTSYS 512
+
+/* A few macros to handle error codes in a more verbose way */
+#define HAS_ERROR(err) ((err) < 0)
+#define IS_OK(err) ((err) == 0)
+#define HAS_VALUE(err) ((err) >= 0)
+#define GET_VALUE(err) (HAS_ERROR(err) ? 0 : (err))
 
 #endif // !__LIGHTOS_ERROR_H__

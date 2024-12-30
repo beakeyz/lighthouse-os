@@ -12,7 +12,6 @@
 #include "proc/thread.h"
 #include "sched/scheduler.h"
 #include "sync/mutex.h"
-#include "system/resource.h"
 #include <dev/core.h>
 #include <dev/driver.h>
 #include <lightos/handle_def.h>
@@ -478,7 +477,7 @@ kerror_t await_lib_init(dynamic_library_t* lib)
     memcpy((void*)libtramp_kvirt, __lib_trampoline, SMALL_PAGE_SIZE);
 
     /* Make sure it knows to leave physical memory alone */
-    resource_apply_flags(libtramp_uvirt, SMALL_PAGE_SIZE, KRES_FLAG_MEM_KEEP_PHYS, target_proc->m_resource_bundle->resources[KRES_TYPE_MEM]);
+    //resource_apply_flags(libtramp_uvirt, SMALL_PAGE_SIZE, KRES_FLAG_MEM_KEEP_PHYS, target_proc->m_resource_bundle->resources[KRES_TYPE_MEM]);
 
     lib_entry_thread = create_thread_for_proc(target_proc, (FuncPtr)libtramp_uvirt, (uintptr_t)lib->entry, lib->name);
 

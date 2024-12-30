@@ -1,7 +1,7 @@
 #include "buffer.h"
 #include "libk/flow/error.h"
-#include "libk/stddef.h"
 #include "logging/log.h"
+#include "mem/heap.h"
 #include "mem/zalloc/zalloc.h"
 #include <libk/data/hashmap.h>
 #include <mem/kmem.h>
@@ -198,7 +198,7 @@ static inline kerror_t __cleanup_aniva_buffer(aniva_buffer_t* buffer, buffer_han
             buffer->cleanup.f_kzalloc_cleanup(buffer->data, buffer->len);
             break;
         case ANIVA_BUFFER_METHOD_KMEM:
-            buffer->cleanup.f_kmem_cleanup(buffer->mem_attr.kmem.page_map, buffer->mem_attr.kmem.resource_bundle, buffer->data, buffer->len);
+            buffer->cleanup.f_kmem_cleanup(buffer->mem_attr.kmem.page_map, buffer->mem_attr.kmem.tracker, buffer->data, buffer->len);
             break;
         case ANIVA_BUFFER_METHOD_OBJECT:
             buffer->cleanup.f_object_cleanup(buffer->data);

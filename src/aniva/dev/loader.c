@@ -21,7 +21,6 @@ struct loader_ctx {
     char* section_strings;
     char* strtab;
     driver_t* driver;
-
     size_t size;
     size_t sym_count;
 
@@ -45,7 +44,7 @@ static kerror_t __fixup_section_headers(struct loader_ctx* ctx)
                 break;
 
             /* Just give any NOBITS sections a bit of memory */
-            error = kmem_alloc_range(&result, nullptr, ctx->driver->m_resources, HIGH_MAP_BASE, shdr->sh_size, NULL, KMEM_FLAG_WRITABLE | KMEM_FLAG_KERNEL);
+            error = driver_alloc_mem(ctx->driver, &result, HIGH_MAP_BASE, shdr->sh_size, NULL, KMEM_FLAG_WRITABLE | KMEM_FLAG_KERNEL);
 
             if (error)
                 return error;
@@ -508,7 +507,7 @@ driver_t* load_external_driver_ex(file_t* file)
         goto fail_and_deallocate;
 
     /* Allocate contiguous high space for the driver */
-    error = kmem_alloc_range((void**)&driver_load_base, nullptr, out->m_resources, HIGH_MAP_BASE, file->m_total_size, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE);
+    error = driver_alloc_mem(out, (void**)&driver_load_base, HIGH_MAP_BASE, file->m_total_size, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE);
 
     if ((error))
         goto fail_and_deallocate;
@@ -583,7 +582,7 @@ driver_t* install_external_driver(const char* path)
         goto fail_and_deallocate;
 
     /* Allocate contiguous high space for the driver */
-    error = kmem_alloc_range((void**)&driver_load_base, nullptr, driver->m_resources, HIGH_MAP_BASE, file->m_total_size, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE);
+    error = driver_alloc_mem(driver, (void**)&driver_load_base, HIGH_MAP_BASE, file->m_total_size, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE);
 
     read_size = file_get_size(file);
 

@@ -5,10 +5,65 @@
 #include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"
 #include "lightos/dev/shared.h"
+#include "mem/kmem.h"
+#include "mem/phys.h"
+#include "mem/tracker/tracker.h"
 #include "oss/obj.h"
 #include "sync/mutex.h"
 #include <libk/string.h>
 #include <mem/heap.h>
+
+#define DRIVER_RESOURCES_INITIAL_TRACKER_BUFSZ 0x8000
+
+error_t init_driver_resources(driver_resources_t* resources)
+{
+    error_t error;
+    void* range_cache_buf;
+
+    /* Clear the resources buffer */
+    memset(resources, 0, sizeof(*resources));
+
+    /* Allocate a cache range for this tracker */
+    error = kmem_kernel_alloc_range(&range_cache_buf, 0x8000, NULL, KMEM_FLAG_WRITABLE);
+
+    if (error)
+        return error;
+
+    /* Initialize the page tracker of this driver */
+    error = init_page_tracker(&resources->tracker, range_cache_buf, DRIVER_RESOURCES_INITIAL_TRACKER_BUFSZ, (u64)-1);
+
+    if (error) {
+        kmem_kernel_dealloc((u64)range_cache_buf, resources->tracker.sz_cache_buffer);
+        return error;
+    }
+
+    /* Put these bytes on the bill of this driver */
+    resources->total_allocated_bytes = resources->tracker.sz_cache_buffer;
+
+    return 0;
+}
+
+error_t destroy_driver_resources(driver_resources_t* resources)
+{
+    size_t bsize;
+    void* buffer;
+
+    if (!resources)
+        return -EINVAL;
+
+    /* Cache this size real quick */
+    bsize = resources->tracker.sz_cache_buffer;
+    buffer = resources->tracker.cache_buffer;
+
+    /* Deallocate all the memory from this tracker */
+    ASSERT(IS_OK(kmem_phys_dealloc_from_tracker(nullptr, &resources->tracker)));
+
+    /* Fuck */
+    destroy_page_tracker(&resources->tracker);
+
+    /* Yeet out the memory */
+    return kmem_kernel_dealloc((u64)buffer, bsize);
+}
 
 int generic_driver_entry(driver_t* driver);
 
@@ -197,12 +252,8 @@ driver_t* create_driver(aniva_driver_t* handle)
         ret->m_flags |= DRV_DEFERRED_HNDL;
     }
 
-    /*
-     * NOTE: drivers use the kernels page dir, which is why we can pass NULL
-     * This might be SUPER DUPER dumb but like idc and it's extra work to isolate
-     * drivers from the kernel, so yea fuckoff
-     */
-    ret->m_resources = create_resource_bundle(NULL);
+    /* Initialize our resource tracker */
+    init_driver_resources(&ret->resources);
 
     ret->m_max_n_dev = DRIVER_MAX_DEV_COUNT;
     // ret->m_dev_list = create_vector(ret->m_max_n_dev, sizeof(device_t*), VEC_FLAG_NO_DUPLICATES);
@@ -274,8 +325,8 @@ void destroy_driver(driver_t* driver)
      */
     destroy_list(driver->m_dev_list);
 
-    /* Destroy the resources */
-    destroy_resource_bundle(driver->m_resources);
+    /* Kill off our resource tracker */
+    destroy_driver_resources(&driver->resources);
 
     /* Free strings and stuff */
     kfree((void*)driver->m_url);

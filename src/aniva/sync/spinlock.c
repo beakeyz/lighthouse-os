@@ -65,6 +65,7 @@ static inline int aquire_spinlock(spinlock_t* lock)
         ;
 
     lock->m_flags |= SPINLOCK_FLAG_LOCKED;
+
     return 0;
 }
 
@@ -83,6 +84,7 @@ static inline int release_spinlock(spinlock_t* lock)
 
     /* If interrupts were enabled when we locked the bastard, enable them now again */
     lock->m_flags &= ~SPINLOCK_FLAG_HAD_INTERRUPTS;
+
     enable_interrupts();
     return 0;
 }

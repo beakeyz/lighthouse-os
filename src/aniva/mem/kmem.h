@@ -4,12 +4,12 @@
 #include "libk/flow/error.h"
 #include "mem/page_dir.h"
 #include "mem/pg.h"
-#include "system/resource.h"
 #include <libk/multiboot.h>
 #include <libk/stddef.h>
 #include <libk/string.h>
 
 struct proc;
+struct page_tracker;
 
 enum KMEM_MEMORY_TYPE {
     MEMTYPE_USABLE = 1,
@@ -115,6 +115,7 @@ void debug_kmem(void);
 
 #define KMEM_STATUS_FLAG_DONE_INIT 0x00000001
 #define KMEM_STATUS_FLAG_HAS_QUICKMAP 0x00000002
+
 
 // defines for alignment
 #define ALIGN_UP(addr, size) \
@@ -222,21 +223,22 @@ int kmem_kernel_alloc_range(void** p_result, size_t size, uint32_t custom_flags,
 int kmem_dma_alloc(void** p_result, uintptr_t addr, size_t size, uint32_t custom_flag, uint32_t page_flags);
 int kmem_dma_alloc_range(void** p_result, size_t size, uint32_t custom_flag, uint32_t page_flags);
 
-int kmem_alloc(void** p_result, pml_entry_t* map, kresource_bundle_t* resources, paddr_t addr, size_t size, uint32_t custom_flags, uint32_t page_flags);
-int kmem_alloc_ex(void** p_result, pml_entry_t* map, kresource_bundle_t* resources, paddr_t addr, vaddr_t vbase, size_t size, uint32_t custom_flags, uintptr_t page_flags);
+int kmem_alloc(void** p_result, pml_entry_t* map, struct page_tracker* tracker, paddr_t addr, size_t size, uint32_t custom_flags, uint32_t page_flags);
+int kmem_alloc_ex(void** p_result, pml_entry_t* map, struct page_tracker* tracker, paddr_t addr, vaddr_t vbase, size_t size, uint32_t custom_flags, uintptr_t page_flags);
 
-int kmem_alloc_range(void** p_result, pml_entry_t* map, kresource_bundle_t* resources, vaddr_t vbase, size_t size, uint32_t custom_flags, uint32_t page_flags);
+int kmem_alloc_range(void** p_result, pml_entry_t* map, struct page_tracker* tracker, vaddr_t vbase, size_t size, uint32_t custom_flags, uint32_t page_flags);
 
-int kmem_dealloc(pml_entry_t* map, kresource_bundle_t* resources, uintptr_t virt_base, size_t size);
-int kmem_dealloc_unmap(pml_entry_t* map, kresource_bundle_t* resources, uintptr_t virt_base, size_t size);
-int kmem_dealloc_ex(pml_entry_t* map, kresource_bundle_t* resources, uintptr_t virt_base, size_t size, bool unmap, bool ignore_unused, bool defer_res_release);
+int kmem_dealloc(pml_entry_t* map, struct page_tracker* tracker, uintptr_t virt_base, size_t size);
+int kmem_dealloc_unmap(pml_entry_t* map, struct page_tracker* tracker, uintptr_t virt_base, size_t size);
+int kmem_dealloc_ex(pml_entry_t* map, struct page_tracker* tracker, uintptr_t virt_base, size_t size, bool unmap, bool defer_res_release);
 
 int kmem_kernel_dealloc(uintptr_t virt_base, size_t size);
 
-int kmem_alloc_scattered(void** p_result, pml_entry_t* map, kresource_bundle_t* resources, vaddr_t vbase, size_t size, uint32_t custom_flags, uint32_t page_flags);
+int kmem_alloc_scattered(void** result, pml_entry_t* map, struct page_tracker* tracker, vaddr_t vbase, size_t size, uint32_t custom_flags, uint32_t page_flags);
 
 int kmem_user_alloc_range(void** p_result, struct proc* p, size_t size, uint32_t custom_flags, uint32_t page_flags);
 int kmem_user_alloc(void** p_result, struct proc* p, paddr_t addr, size_t size, uint32_t custom_flags, uint32_t page_flags);
+int kmem_user_alloc_scattered(void** p_result, struct proc* p, vaddr_t addr, size_t size, uint32_t custom_flags, uint32_t page_flags);
 int kmem_user_dealloc(struct proc* p, vaddr_t vaddr, size_t size);
 
 /*

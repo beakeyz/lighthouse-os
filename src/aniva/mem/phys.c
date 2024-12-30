@@ -1,11 +1,11 @@
 #include "phys.h"
 #include "entry/entry.h"
-#include "libk/data/bitmap.h"
 #include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"
 #include "libk/multiboot.h"
 #include "lightos/types.h"
 #include "logging/log.h"
+#include "mem/heap.h"
 #include "mem/kmem.h"
 #include "mem/tracker/tracker.h"
 #include "sync/spinlock.h"
@@ -337,72 +337,6 @@ static int _allocate_free_physical_range(kmem_range_t* range, size_t size)
     return 0;
 }
 
-static USED int __init_physical_tracker_bitmap()
-{
-    kmem_range_t bm_range;
-    bitmap_t* physical_bitmap;
-    vaddr_t bitmap_start_addr;
-    size_t physical_bitmap_size;
-    size_t physical_pages;
-    size_t physical_pages_bytes;
-
-    physical_pages = kmem_get_page_idx(g_phys_data.m_highest_phys_page_base) + 1;
-    physical_pages_bytes = (ALIGN_UP(physical_pages, 8) >> 3);
-    physical_bitmap_size = physical_pages_bytes + sizeof(bitmap_t);
-
-    /* Find a bitmap. This is crucial */
-    ASSERT_MSG(_allocate_free_physical_range(&bm_range, physical_bitmap_size) == NULL, "Failed to find a physical range for our physmem bitmap!");
-
-    /* Compute where our bitmap MUST go */
-    bitmap_start_addr = kmem_ensure_high_mapping(bm_range.start);
-
-    /*
-     * new FIXME: we allocate a bitmap for the entire memory page space on the heap,
-     * which means that on systems with a lot of RAM, we need a biiig heap to contain
-     * that. That's an issue, because we need to reserve that space right now in the form of
-     * a static memory space that gets embedded into the kernel binary, because in order
-     * for us to have a dynamic heap like this, we'll need a working physical allocator,
-     * but for that we also need a dynamic heap...
-     * The solution would be to map enough memory in the boot stub to try to find a suitable
-     * location for the bitmap to fit manualy and then initialize the heap after that.
-     */
-    physical_bitmap = (bitmap_t*)(bitmap_start_addr);
-
-    physical_bitmap->m_size = physical_pages_bytes;
-    physical_bitmap->m_entries = physical_pages;
-    physical_bitmap->m_default = 0xff;
-
-    KLOG_DBG("Trying to initialize our bitmap at 0x%llx with %lld entries\n", bitmap_start_addr, physical_bitmap->m_entries);
-
-    memset(physical_bitmap->m_map, physical_bitmap->m_default, physical_pages_bytes);
-
-    /* FIXME: ??? */
-    // g_phys_data.m_phys_bitmap = physical_bitmap;
-
-    paddr_t base;
-    size_t size;
-
-    // Mark the contiguous 'free' ranges as free in our bitmap
-    FOREACH(i, g_phys_data.m_phys_ranges)
-    {
-        const kmem_range_t* range = i->data;
-
-        if (range->type != MEMTYPE_USABLE)
-            continue;
-
-        base = range->start;
-        size = range->length;
-
-        KLOG_DBG("Marking free range: start=0x%llx, size=0x%llx\n", base, size);
-
-        /* Base and size should already be page-aligned */
-        kmem_phys_dealloc_range(
-            kmem_get_page_idx(base),
-            GET_PAGECOUNT(base, size));
-    }
-    return 0;
-}
-
 static int __init_physical_tracker()
 {
     kmem_range_t cache_range;
@@ -459,8 +393,6 @@ size_t kmem_phys_get_used_bytecount()
     /* Do the thing */
     (void)page_tracker_get_used_page_count(&g_phys_data.m_physical_tracker, &count);
 
-    page_tracker_dump(&g_phys_data.m_physical_tracker);
-
     return (count << PAGE_SHIFT);
 }
 
@@ -514,19 +446,21 @@ error_t kmem_phys_dealloc_page(u64 page_idx)
  */
 error_t kmem_phys_reserve_range(u64 page_idx, u32 nr_pages)
 {
+    error_t error;
+
     if (!nr_pages)
         return -EINVAL;
 
     spinlock_lock(&g_phys_data.m_allocator_lock);
 
     /* Mark the entry used */
-    page_tracker_alloc(&g_phys_data.m_physical_tracker, page_idx, nr_pages, PAGE_RANGE_FLAG_KERNEL | PAGE_RANGE_FLAG_PHYSICAL);
+    error = page_tracker_alloc(&g_phys_data.m_physical_tracker, page_idx, nr_pages, PAGE_RANGE_FLAG_KERNEL | PAGE_RANGE_FLAG_PHYSICAL);
 
     // page_tracker_dump(&g_phys_data.m_physical_tracker);
 
     spinlock_unlock(&g_phys_data.m_allocator_lock);
 
-    return 0;
+    return error;
 }
 
 /*!
@@ -578,6 +512,48 @@ error_t kmem_phys_dealloc_range(u64 page_idx, u32 nr_pages)
     spinlock_unlock(&g_phys_data.m_allocator_lock);
 
     return error;
+}
+
+error_t kmem_phys_dealloc_from_tracker(pml_entry_t* ptable_root, page_tracker_t* tracker)
+{
+    error_t error;
+    page_allocation_t* alloc, *next;
+
+    if (!tracker)
+        return -EINVAL;
+
+    /* Everything is A-OK */
+    error = EOK;
+
+    /* Lock the fucker */
+    spinlock_lock(&tracker->lock);
+
+    /* Grab the base range */
+    alloc = tracker->base;
+
+    /* All good =) */
+    if (!alloc)
+        goto unlock_and_exit;
+
+    while (alloc && IS_OK(error)) {
+        next = alloc->nx_link;
+
+        /*
+         * Deallocate this range in order to release the references to the physical pages this
+         * this process holds
+         */
+        if (page_range_is_backed(&alloc->range))
+            error = kmem_dealloc(ptable_root, nullptr, kmem_get_page_addr(alloc->range.page_idx), (alloc->range.nr_pages << PAGE_SHIFT));
+
+        /* Loop over this allocator */
+        alloc = next;
+    }
+
+unlock_and_exit:
+    spinlock_unlock(&tracker->lock);
+
+    return error;
+
 }
 
 int init_kmem_phys(u64* mb_addr)

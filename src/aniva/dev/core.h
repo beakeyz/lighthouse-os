@@ -173,13 +173,6 @@ kerror_t driver_send_msg_a(const char* path, driver_control_code_t code, void* b
 kerror_t driver_send_msg_ex(struct driver* driver, driver_control_code_t code, void* buffer, size_t buffer_size, void* resp_buffer, size_t resp_buffer_size);
 kerror_t driver_send_msg_sync(const char* path, driver_control_code_t code, void* buffer, size_t buffer_size);
 
-int driver_map(struct driver* driver, void* base, size_t size, uint32_t page_flags);
-int driver_unmap(struct driver* driver, void* base, size_t size);
-void* driver_allocate(struct driver* driver, size_t size, uint32_t page_flags);
-int driver_deallocate(struct driver* driver, void* base);
-void* driver_kmalloc(struct driver* driver, size_t size);
-int driver_kfree(struct driver* driver, void*);
-
 /*
  * Sends a packet to the target driver and waits a number of scheduler yields for the socket to be ready
  * if the timer runs out before the socket is ready, we return nullptr

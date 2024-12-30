@@ -5,12 +5,12 @@
 #include "logging/log.h"
 #include "mem/page_dir.h"
 #include "mem/pg.h"
+#include "mem/tracker/tracker.h"
 #include "phys.h"
 #include "proc/core.h"
 #include "proc/proc.h"
 #include "sync/mutex.h"
 #include "system/processor/processor.h"
-#include "system/resource.h"
 #include <dev/core.h>
 #include <dev/driver.h>
 #include <libk/stddef.h>
@@ -56,39 +56,27 @@ static struct {
 
 /* Variable from boot.asm */
 extern const size_t early_map_size;
+static mutex_t* _kmem_map_lock;
 
 size_t kmem_get_early_map_size()
 {
     return early_map_size;
 }
 
-static void _init_kmem_page_layout(void);
-
-static mutex_t* _kmem_map_lock;
-
-/*
- * TODO: Implement a lock around the physical allocator
- * FIXME: this could be heapless
- */
-error_t init_kmem(uintptr_t* mb_addr)
+static inline u32 generate_tracker_flags(u32 custom_flags, u32 page_flags)
 {
-    memset(&KMEM_DATA, 0, sizeof(KMEM_DATA));
+    u32 ret = PAGE_RANGE_FLAG_EXEC;
 
-    /* Create our mutex */
-    _kmem_map_lock = create_mutex(NULL);
+    if (page_flags & KMEM_FLAG_KERNEL)
+        ret |= PAGE_RANGE_FLAG_KERNEL; 
 
-    /* Initialize the kernel physical memory unit */
-    if (init_kmem_phys(mb_addr))
-        return -ENULL;
+    if (page_flags & KMEM_FLAG_NOEXECUTE)
+        ret &= ~PAGE_RANGE_FLAG_EXEC;
 
-    // Perform multiboot finalization
-    finalize_multiboot();
+    if (page_flags & KMEM_FLAG_WRITABLE)
+        ret &= PAGE_RANGE_FLAG_WRITABLE;
 
-    _init_kmem_page_layout();
-
-    KMEM_DATA.m_kmem_flags |= KMEM_STATUS_FLAG_DONE_INIT;
-
-    return 0;
+    return ret;
 }
 
 void debug_kmem(void)
@@ -117,7 +105,9 @@ int kmem_get_info(kmem_info_t* info_buffer, uint32_t cpu_id)
     info_buffer->total_pages = kmem_phys_get_total_bytecount() >> PAGE_SHIFT;
     info_buffer->used_pages = kmem_phys_get_used_bytecount() >> PAGE_SHIFT;
 
-    KLOG_ERR("Got info buffer (used: %lld, total: %lld)\n", info_buffer->used_pages, info_buffer->total_pages);
+    //KLOG_ERR("Got info buffer (used: %lld, total: %lld)\n", info_buffer->used_pages, info_buffer->total_pages);
+
+    //kmem_phys_dump();
 
     return 0;
 }
@@ -568,23 +558,24 @@ int kmem_kernel_dealloc(uintptr_t virt_base, size_t size)
     return kmem_dealloc(nullptr, nullptr, virt_base, size);
 }
 
-int kmem_dealloc(pml_entry_t* map, kresource_bundle_t* resources, uintptr_t virt_base, size_t size)
+int kmem_dealloc(pml_entry_t* map, page_tracker_t* tracker, uintptr_t virt_base, size_t size)
 {
     /* NOTE: process is nullable, so it does not matter if we are not in a process at this point */
-    return kmem_dealloc_ex(map, resources, virt_base, size, true, false, false);
+    return kmem_dealloc_ex(map, tracker, virt_base, size, true, false);
 }
 
-int kmem_dealloc_unmap(pml_entry_t* map, kresource_bundle_t* resources, uintptr_t virt_base, size_t size)
+int kmem_dealloc_unmap(pml_entry_t* map, page_tracker_t* tracker, uintptr_t virt_base, size_t size)
 {
-    return kmem_dealloc_ex(map, resources, virt_base, size, true, false, false);
+    return kmem_dealloc_ex(map, tracker, virt_base, size, true, false);
 }
 
 /*!
  * @brief Expanded deallocation function
  *
  */
-int kmem_dealloc_ex(pml_entry_t* map, kresource_bundle_t* resources, uintptr_t virt_base, size_t size, bool unmap, bool ignore_unused, bool defer_res_release)
+int kmem_dealloc_ex(pml_entry_t* map, page_tracker_t* tracker, uintptr_t virt_base, size_t size, bool unmap, bool defer_res_release)
 {
+    page_range_t range;
     const size_t pages_needed = GET_PAGECOUNT(virt_base, size);
 
     for (uintptr_t i = 0; i < pages_needed; i++) {
@@ -594,23 +585,27 @@ int kmem_dealloc_ex(pml_entry_t* map, kresource_bundle_t* resources, uintptr_t v
         const paddr_t paddr = kmem_to_phys_aligned(map, vaddr);
         // get the index of that physical page
         const uintptr_t page_idx = kmem_get_page_idx(paddr);
-        // check if this page is actually used
-        const bool was_used = kmem_phys_is_page_used(page_idx);
 
-        if (!was_used && !ignore_unused)
-            return 1;
-
-        kmem_phys_dealloc_page(page_idx);
+        if (kmem_phys_dealloc_page(page_idx))
+            return 2;
 
         if (unmap && !kmem_unmap_page(map, vaddr))
             return 1;
     }
 
     /* Only release the resource if we dont want to defer that opperation */
-    if (resources && !defer_res_release && resource_release(virt_base, size, GET_RESOURCE(resources, KRES_TYPE_MEM)))
-        return 1;
+    //if (resources && !defer_res_release && resource_release(virt_base, size, GET_RESOURCE(resources, KRES_TYPE_MEM)))
+        //return 1;
 
-    return 0;
+    /* We don't want to track this deallocation. Dip */
+    if (!tracker || defer_res_release)
+        return 0;
+
+    /* Initialize the range */
+    init_page_range(&range, kmem_get_page_idx(virt_base), pages_needed, NULL, 1);
+
+    /* Deallocate it from the tracker */
+    return page_tracker_dealloc(tracker, &range);
 }
 
 /*!
@@ -641,12 +636,12 @@ int kmem_dma_alloc_range(void** result, size_t size, uint32_t custom_flags, uint
     return kmem_alloc_range(result, nullptr, nullptr, KERNEL_MAP_BASE, size, custom_flags, page_flags | KMEM_FLAG_DMA);
 }
 
-int kmem_alloc(void** result, pml_entry_t* map, kresource_bundle_t* resources, paddr_t addr, size_t size, uint32_t custom_flags, uint32_t page_flags)
+int kmem_alloc(void** result, pml_entry_t* map, page_tracker_t* tracker, paddr_t addr, size_t size, uint32_t custom_flags, uint32_t page_flags)
 {
-    return kmem_alloc_ex(result, map, resources, addr, KERNEL_MAP_BASE, size, custom_flags, page_flags);
+    return kmem_alloc_ex(result, map, tracker, addr, KERNEL_MAP_BASE, size, custom_flags, page_flags);
 }
 
-int kmem_alloc_ex(void** result, pml_entry_t* map, kresource_bundle_t* resources, paddr_t addr, vaddr_t vbase, size_t size, uint32_t custom_flags, uintptr_t page_flags)
+int kmem_alloc_ex(void** result, pml_entry_t* map, page_tracker_t* tracker, paddr_t addr, vaddr_t vbase, size_t size, uint32_t custom_flags, uintptr_t page_flags)
 {
     const bool should_identity_map = (custom_flags & KMEM_CUSTOMFLAG_IDENTITY) == KMEM_CUSTOMFLAG_IDENTITY;
     const bool should_remap = (custom_flags & KMEM_CUSTOMFLAG_NO_REMAP) != KMEM_CUSTOMFLAG_NO_REMAP;
@@ -669,13 +664,14 @@ int kmem_alloc_ex(void** result, pml_entry_t* map, kresource_bundle_t* resources
     if (!kmem_map_range(map, virt_base, phys_base, pages_needed, KMEM_CUSTOMFLAG_GET_MAKE | custom_flags, page_flags))
         return -1;
 
-    if (resources) {
+    if (tracker) {
         /*
          * NOTE: make sure to claim the range that we actually plan to use here, not what is actually
          * allocated internally. This is because otherwise we won't be able to find this resource again if we
          * try to release it
          */
-        resource_claim_ex("kmem alloc", nullptr, ALIGN_DOWN(ret, SMALL_PAGE_SIZE), pages_needed * SMALL_PAGE_SIZE, KRES_TYPE_MEM, resources);
+        //resource_claim_ex("kmem alloc", nullptr, ALIGN_DOWN(ret, SMALL_PAGE_SIZE), pages_needed * SMALL_PAGE_SIZE, KRES_TYPE_MEM, resources);
+        page_tracker_alloc(tracker, kmem_get_page_idx(ret), pages_needed, generate_tracker_flags(custom_flags, page_flags));
     }
 
     if (result)
@@ -683,7 +679,7 @@ int kmem_alloc_ex(void** result, pml_entry_t* map, kresource_bundle_t* resources
     return 0;
 }
 
-int kmem_alloc_range(void** result, pml_entry_t* map, kresource_bundle_t* resources, vaddr_t vbase, size_t size, uint32_t custom_flags, uint32_t page_flags)
+int kmem_alloc_range(void** result, pml_entry_t* map, page_tracker_t* tracker, vaddr_t vbase, size_t size, uint32_t custom_flags, uint32_t page_flags)
 {
     int error;
     uintptr_t phys_idx;
@@ -707,8 +703,9 @@ int kmem_alloc_range(void** result, pml_entry_t* map, kresource_bundle_t* resour
     if (!kmem_map_range(map, virt_base, phys_base, pages_needed, KMEM_CUSTOMFLAG_GET_MAKE | custom_flags, page_flags))
         return -1;
 
-    if (resources)
-        resource_claim_ex("kmem alloc range", nullptr, ALIGN_DOWN(virt_base, SMALL_PAGE_SIZE), (pages_needed * SMALL_PAGE_SIZE), KRES_TYPE_MEM, resources);
+    if (tracker)
+        //resource_claim_ex("kmem alloc range", nullptr, ALIGN_DOWN(virt_base, SMALL_PAGE_SIZE), (pages_needed * SMALL_PAGE_SIZE), KRES_TYPE_MEM, resources);
+        page_tracker_alloc(tracker, kmem_get_page_idx(virt_base), pages_needed, generate_tracker_flags(custom_flags, page_flags));
 
     *result = (void*)virt_base;
     return 0;
@@ -718,7 +715,7 @@ int kmem_alloc_range(void** result, pml_entry_t* map, kresource_bundle_t* resour
  * This function will never remap or use identity mapping, so
  * KMEM_CUSTOMFLAG_NO_REMAP and KMEM_CUSTOMFLAG_IDENTITY are ignored here
  */
-int kmem_alloc_scattered(void** result, pml_entry_t* map, kresource_bundle_t* resources, vaddr_t vbase, size_t size, uint32_t custom_flags, uint32_t page_flags)
+int kmem_alloc_scattered(void** result, pml_entry_t* map, page_tracker_t* tracker, vaddr_t vbase, size_t size, uint32_t custom_flags, uint32_t page_flags)
 {
     int error;
     paddr_t p_addr;
@@ -756,9 +753,9 @@ int kmem_alloc_scattered(void** result, pml_entry_t* map, kresource_bundle_t* re
         }
     }
 
-    if (resources) {
-        resource_claim_ex("kmem alloc scattered", nullptr, v_base, pages_needed * SMALL_PAGE_SIZE, KRES_TYPE_MEM, resources);
-    }
+    /* Register this range in the page tracker, if it's specified */
+    if (tracker)
+        page_tracker_alloc(tracker, kmem_get_page_idx(v_base), pages_needed, generate_tracker_flags(custom_flags, page_flags));
 
     *result = (void*)vbase;
     return 0;
@@ -771,13 +768,19 @@ int kmem_alloc_scattered(void** result, pml_entry_t* map, kresource_bundle_t* re
 int kmem_user_alloc_range(void** result, struct proc* p, size_t size, uint32_t custom_flags, uint32_t page_flags)
 {
     int error;
-    uintptr_t first_usable_base;
+    u32 tracker_flags;
+    page_range_t range;
+    size_t nr_pages;
 
     if (!p || !size)
         return -1;
 
+    nr_pages = GET_PAGECOUNT(0, size);
+    tracker_flags = generate_tracker_flags(custom_flags, page_flags);
+
     /* FIXME: this is not very safe, we need to randomize the start of process data probably lmaoo */
-    error = resource_find_usable_range(p->m_resource_bundle, KRES_TYPE_MEM, size, &first_usable_base);
+    //error = resource_find_usable_range(p->m_resource_bundle, KRES_TYPE_MEM, size, &first_usable_base);
+    error = page_tracker_alloc_any(&p->m_virtual_tracker, PAGE_TRACKER_FIRST_FIT, nr_pages, tracker_flags, &range);
 
     if (error)
         return error;
@@ -786,8 +789,8 @@ int kmem_user_alloc_range(void** result, struct proc* p, size_t size, uint32_t c
     return kmem_alloc_scattered(
         result,
         p->m_root_pd.m_root,
-        p->m_resource_bundle,
-        first_usable_base,
+        nullptr,
+        kmem_get_page_addr(range.page_idx),
         size,
         custom_flags | KMEM_CUSTOMFLAG_CREATE_USER,
         page_flags);
@@ -800,6 +803,7 @@ int kmem_user_dealloc(struct proc* p, vaddr_t vaddr, size_t size)
 {
     paddr_t c_phys_base;
     uintptr_t c_phys_idx;
+    page_range_t range;
     const size_t page_count = GET_PAGECOUNT(vaddr, size);
 
     for (uintptr_t i = 0; i < page_count; i++) {
@@ -809,7 +813,7 @@ int kmem_user_dealloc(struct proc* p, vaddr_t vaddr, size_t size)
         /* Grab it's physical page index */
         c_phys_idx = kmem_get_page_idx(c_phys_base);
 
-        /* Free that page */
+        /* Free the physical page */
         kmem_phys_dealloc_page(c_phys_idx);
 
         /* Unmap from the process */
@@ -818,6 +822,12 @@ int kmem_user_dealloc(struct proc* p, vaddr_t vaddr, size_t size)
         /* Next page */
         vaddr += SMALL_PAGE_SIZE;
     }
+
+    /* Initialize a page range */
+    init_page_range(&range, kmem_get_page_idx(vaddr), page_count, 0, 1);
+
+    /* Deallocate the user range */
+    page_tracker_dealloc(&p->m_virtual_tracker, &range);
 
     return (0);
 }
@@ -829,26 +839,38 @@ int kmem_user_dealloc(struct proc* p, vaddr_t vaddr, size_t size)
 int kmem_user_alloc(void** result, struct proc* p, paddr_t addr, size_t size, uint32_t custom_flags, uint32_t page_flags)
 {
     int error;
-    uintptr_t first_usable_base;
+    u32 tracker_flags;
+    page_range_t range;
+    size_t nr_pages;
 
     if (!p || !size)
         return -1;
 
+    nr_pages = GET_PAGECOUNT(addr, size);
+    tracker_flags = generate_tracker_flags(custom_flags, page_flags);
+
     /* FIXME: this is not very safe, we need to randomize the start of process data probably lmaoo */
-    error = resource_find_usable_range(p->m_resource_bundle, KRES_TYPE_MEM, size, &first_usable_base);
+    //error = resource_find_usable_range(&p->m_virtual_tracker, KRES_TYPE_MEM, size, &first_usable_base);
+    error = page_tracker_alloc_any(&p->m_virtual_tracker, PAGE_TRACKER_FIRST_FIT, nr_pages, tracker_flags, &range);
 
     if (error)
         return error;
 
+    /* NOTE: We don't supply a tracker, since we already allocated in the processes tracker */
     return kmem_alloc_ex(
         result,
         p->m_root_pd.m_root,
-        p->m_resource_bundle,
+        nullptr,
         addr,
-        first_usable_base,
+        kmem_get_page_base(range.page_idx),
         size,
         custom_flags | KMEM_CUSTOMFLAG_CREATE_USER,
         page_flags);
+}
+
+int kmem_user_alloc_scattered(void** p_result, struct proc* p, vaddr_t addr, size_t size, uint32_t custom_flags, uint32_t page_flags)
+{
+    return kmem_alloc_scattered(p_result, p->m_root_pd.m_root, &p->m_virtual_tracker, addr, size, custom_flags | KMEM_CUSTOMFLAG_CREATE_USER, page_flags);
 }
 
 /*!
@@ -1326,3 +1348,29 @@ int kmem_map_to_kernel(vaddr_t* p_kaddr, vaddr_t uaddr, size_t size, vaddr_t map
     *p_kaddr = (v_kernel_address + v_align_delta);
     return 0;
 }
+
+/*
+ * TODO: Implement a lock around the physical allocator
+ * FIXME: this could be heapless
+ */
+error_t init_kmem(uintptr_t* mb_addr)
+{
+    memset(&KMEM_DATA, 0, sizeof(KMEM_DATA));
+
+    /* Create our mutex */
+    _kmem_map_lock = create_mutex(NULL);
+
+    /* Initialize the kernel physical memory unit */
+    if (init_kmem_phys(mb_addr))
+        return -ENULL;
+
+    // Perform multiboot finalization
+    finalize_multiboot();
+
+    _init_kmem_page_layout();
+
+    KMEM_DATA.m_kmem_flags |= KMEM_STATUS_FLAG_DONE_INIT;
+
+    return 0;
+}
+

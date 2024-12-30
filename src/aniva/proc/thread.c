@@ -65,7 +65,7 @@ thread_t* create_thread(FuncPtr entry, uintptr_t data, const char* name, proc_t*
     ASSERT(kmem_alloc_range(
                (void**)&thread->m_kernel_stack_bottom,
                proc->m_root_pd.m_root,
-               proc->m_resource_bundle,
+               &proc->m_virtual_tracker,
                KERNEL_MAP_BASE,
                DEFAULT_STACK_SIZE,
                NULL,
@@ -95,7 +95,7 @@ thread_t* create_thread(FuncPtr entry, uintptr_t data, const char* name, proc_t*
         ASSERT(kmem_alloc_range(
                    (void**)&thread->m_user_stack_bottom,
                    proc->m_root_pd.m_root,
-                   proc->m_resource_bundle,
+                   &proc->m_virtual_tracker,
                    thread->m_user_stack_bottom,
                    DEFAULT_STACK_SIZE,
                    KMEM_CUSTOMFLAG_NO_REMAP | KMEM_CUSTOMFLAG_CREATE_USER,
@@ -178,10 +178,21 @@ ANIVA_STATUS destroy_thread(thread_t* thread)
     /* Get rid of the mutex list */
     destroy_list(mutex_list);
 
-    kmem_dealloc(parent_proc->m_root_pd.m_root, parent_proc->m_resource_bundle, thread->m_kernel_stack_bottom, DEFAULT_STACK_SIZE);
+    /* Lol */
+    kmem_dealloc(
+            parent_proc->m_root_pd.m_root,
+            &parent_proc->m_virtual_tracker,
+            thread->m_kernel_stack_bottom,
+            DEFAULT_STACK_SIZE
+            );
 
     if (thread->m_user_stack_bottom)
-        kmem_dealloc(parent_proc->m_root_pd.m_root, parent_proc->m_resource_bundle, thread->m_user_stack_bottom, DEFAULT_STACK_SIZE);
+        kmem_dealloc(
+                parent_proc->m_root_pd.m_root,
+                &parent_proc->m_virtual_tracker,
+                thread->m_user_stack_bottom,
+                DEFAULT_STACK_SIZE
+                );
 
     if (thread->m_lock)
         destroy_mutex(thread->m_lock);

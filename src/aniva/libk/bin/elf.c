@@ -234,7 +234,7 @@ proc_t* elf_exec_64(file_t* file, bool kernel)
             ASSERT_MSG(!kmem_alloc_range(
                            (void**)&v_user_phdr_start,
                            proc->m_root_pd.m_root,
-                           proc->m_resource_bundle,
+                           &proc->m_virtual_tracker,
                            virtual_phdr_base,
                            phdr_size,
                            KMEM_CUSTOMFLAG_GET_MAKE | KMEM_CUSTOMFLAG_CREATE_USER | KMEM_CUSTOMFLAG_NO_REMAP,

@@ -1,6 +1,7 @@
 #include "libk/flow/error.h"
 #include "lightos/memory/memflags.h"
 #include "lightos/syscall.h"
+#include "logging/log.h"
 #include "proc/proc.h"
 #include "sched/scheduler.h"
 #include <mem/kmem.h>
@@ -46,8 +47,12 @@ error_t sys_alloc_vmem(size_t size, u32 flags, vaddr_t* buffer)
     /* TODO: Must calls in syscalls that fail may kill the process with the internal error flags set */
     error = kmem_user_alloc_range(&result, current_process, size, customflags, kmem_flags);
 
+    KLOG_DBG("sys_alloc_vmem: Trying to alloc\n");
+
     if (error)
         return ENOMEM;
+
+    KLOG_DBG("sys_alloc_vmem: did alloc -> 0x%llx\n", (u64)result);
 
     /* Set the buffer hihi */
     *buffer = (vaddr_t)result;

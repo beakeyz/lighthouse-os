@@ -6,9 +6,9 @@
 #include "lightos/sysvar/shared.h"
 #include "mem/kmem.h"
 #include "mem/page_dir.h"
+#include "mem/tracker/tracker.h"
 #include "proc/core.h"
 #include "proc/handle.h"
-#include "system/resource.h"
 #include <libk/string.h>
 
 struct penv;
@@ -73,7 +73,7 @@ typedef struct proc {
     /* Resource tracking */
     page_dir_t m_root_pd;
     khandle_map_t m_handle_map;
-    kresource_bundle_t* m_resource_bundle;
+    page_tracker_t m_virtual_tracker;
 
     /* A couple of static pointers to certain threads */
     struct thread* m_init_thread;

@@ -5,7 +5,6 @@
 #include "sync/mutex.h"
 #include "system/acpi/tables.h"
 #include <libk/stddef.h>
-#include <system/resource.h>
 
 #define PCI_PORT_ADDR 0xCF8
 #define PCI_PORT_VALUE 0xCFC
@@ -209,9 +208,6 @@ typedef struct pci_device {
     pci_device_ops_t ops;
     pci_device_ops_io_t raw_ops;
     pci_device_address_t address;
-
-    /* These resources can be both I/O and memory ranges */
-    kresource_bundle_t* resources[PCI_NUM_RESOURCES];
 
     struct pci_bus* bus;
     struct pci_driver* driver;

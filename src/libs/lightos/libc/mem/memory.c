@@ -399,4 +399,7 @@ void __init_memalloc(void)
     /* Use the initial memory we get to initialize the allocator further */
     /* Mark readiness */
     __start_range = _create_malloc_pool(1);
+
+    /* Asser this crap */
+    assert(__start_range != nullptr);
 }

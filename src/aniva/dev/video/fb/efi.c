@@ -81,7 +81,7 @@ static ssize_t efifb_map(device_t* dev, fb_handle_t fb, uint32_t x, uint32_t y, 
 
     if (size)
         /* Map the framebuffer to the exact base described by the caller */
-        ASSERT(kmem_alloc_ex(nullptr, nullptr, nullptr, info->addr + x * BYTES_PER_PIXEL(info->bpp) + y * info->pitch, base, size, KMEM_CUSTOMFLAG_NO_REMAP, KMEM_FLAG_WC | KMEM_FLAG_WRITABLE) == 0);
+        ASSERT(kmem_map_range(nullptr, base, info->addr + x * BYTES_PER_PIXEL(info->bpp) + y * info->pitch, kmem_get_page_idx(size), KMEM_CUSTOMFLAG_GET_MAKE, KMEM_FLAG_WC | KMEM_FLAG_WRITABLE));
     else
         kernel_panic("TODO: handle size = 0 (efifb_map)");
 

@@ -1,6 +1,6 @@
 PROCESS_NAME=init
 
 LINK_TYPE=dynamic
-LIBRARIES :=
+LIBRARIES := -l:libgfx.lib
 
 include ../user.mk

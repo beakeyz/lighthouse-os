@@ -186,15 +186,25 @@ static kerror_t gather_ports_info(ahci_device_t* device)
 
 static void maybe_claim_hba(ahci_device_t* device)
 {
-    // We might need to fetch AHCI from the BIOS
-    if (ahci_mmio_read32((uintptr_t)device->m_hba_region, AHCI_REG_CAP2) & AHCI_CAP2_BOH) {
-        uint32_t bohc = ahci_mmio_read32((uintptr_t)device->m_hba_region, AHCI_REG_BOHC) | AHCI_BOHC_OOS;
-        ahci_mmio_write32((uintptr_t)device->m_hba_region, AHCI_REG_BOHC, bohc);
+    uint32_t bohc;
+    uint32_t cap_field_2;
 
-        while (ahci_mmio_read32((uintptr_t)device->m_hba_region, AHCI_REG_BOHC) & (AHCI_BOHC_BOS | AHCI_BOHC_BB)) {
-            udelay(100);
-        }
-    }
+    /* We might need to fetch AHCI from the BIOS. Fetch the second capabilities dword */
+    cap_field_2 = ahci_mmio_read32((uintptr_t)device->m_hba_region, AHCI_REG_CAP2);
+
+    /* Check if we the bios marks this bastard as owned */
+    if ((cap_field_2 & AHCI_CAP2_BOH) == 0)
+        return;
+
+    /* Grab the bios ownership semaphore */
+    bohc = ahci_mmio_read32((uintptr_t)device->m_hba_region, AHCI_REG_BOHC) | AHCI_BOHC_OOS;
+
+    /* Write back the OS ownership bit, so we can take control of the HBA */
+    ahci_mmio_write32((uintptr_t)device->m_hba_region, AHCI_REG_BOHC, bohc);
+
+    /* Wait until the bios gives in */
+    while (ahci_mmio_read32((uintptr_t)device->m_hba_region, AHCI_REG_BOHC) & (AHCI_BOHC_BOS | AHCI_BOHC_BB))
+        udelay(100);
 }
 
 static ANIVA_STATUS initialize_hba(ahci_device_t* device)

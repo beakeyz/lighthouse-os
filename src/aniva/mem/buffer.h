@@ -1,10 +1,9 @@
 #ifndef __ANIVA_MEMORY_BUFFER__
 #define __ANIVA_MEMORY_BUFFER__
 
+#include "mem/tracker/tracker.h"
 #include "mem/zalloc/zalloc.h"
-#include "system/resource.h"
 #include <libk/stddef.h>
-#include <system/resource.h>
 
 /*
  * Aniva buffers
@@ -36,7 +35,7 @@ typedef buffer_handle_t BUFFER_HANDLE;
 typedef union __aniva_buffer_mem_attr {
     struct {
         pml_entry_t* page_map;
-        kresource_bundle_t* resource_bundle;
+        page_tracker_t* tracker;
     } kmem;
     zone_allocator_t* zallocator;
 } aniva_buffer_mem_attr_t;
@@ -75,7 +74,7 @@ typedef struct aniva_buffer {
         void (*f_malloc_cleanup)(void* ptr);
         void (*f_zalloc_cleanup)(zone_allocator_t* zalloc, void* ptr);
         void (*f_kzalloc_cleanup)(void* ptr, size_t len);
-        void (*f_kmem_cleanup)(pml_entry_t* map, kresource_bundle_t* resources, void* ptr, size_t len);
+        void (*f_kmem_cleanup)(pml_entry_t* map, page_tracker_t* tracker, void* ptr, size_t len);
         void (*f_object_cleanup)(void* object);
     } cleanup;
 } aniva_buffer_t;

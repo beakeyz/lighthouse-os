@@ -28,6 +28,8 @@ error_t init_page_tracker(page_tracker_t* tracker, void* range_cache_buf, size_t
     if (error)
         return error;
 
+    tracker->cache_buffer = range_cache_buf;
+    tracker->sz_cache_buffer = bsize;
     tracker->max_page = max_page;
 
     return 0;
@@ -36,17 +38,19 @@ error_t init_page_tracker(page_tracker_t* tracker, void* range_cache_buf, size_t
 /*!
  * @brief: Destroy a page tracker and all it's tracked memory
  *
- * TODO: Implement
+ * We don't need to destroy the spinlock, since that's a self-sustaining structure for us
  */
 error_t destroy_page_tracker(page_tracker_t* tracker)
 {
-    kernel_panic("TODO: destroy_page_tracker");
+    /* Destroy the zone allocator we used */
+    destroy_zone_allocator(&tracker->allocation_cache, false);
+
     return 0;
 }
 
 error_t page_tracker_dump(page_tracker_t* tracker)
 {
-    KLOG_DBG("Dumping page tracker (0x%p):\n", tracker);
+    KLOG_ERR("Dumping page tracker (0x%p):\n", tracker);
 
     u64 prev_range_terminating_page = 0;
     u32 idx = 1;
@@ -55,9 +59,9 @@ error_t page_tracker_dump(page_tracker_t* tracker)
         u64 free_space_before = a->range.page_idx - prev_range_terminating_page;
 
         if (free_space_before)
-            KLOG_DBG("  - Free range of %lld pages\n", free_space_before);
+            KLOG_ERR("  - Free range of %lld pages\n", free_space_before);
 
-        KLOG_DBG("(%d): From Page: 0x%llx (Size: %lld). Flag=%d, Refs=%d\n", idx, a->range.page_idx, a->range.nr_pages, a->range.flags, a->range.refc);
+        KLOG_ERR("(%d): From Page: 0x%llx (Size: %lld). Flag=%d, Refs=%d\n", idx, a->range.page_idx, a->range.nr_pages, a->range.flags, a->range.refc);
 
         idx++;
         prev_range_terminating_page = (a->range.page_idx + a->range.nr_pages);
@@ -68,7 +72,7 @@ error_t page_tracker_dump(page_tracker_t* tracker)
 
 static inline bool __range_contains_idx(page_range_t* range, u64 page)
 {
-    return (range->page_idx >= page && (range->page_idx + range->nr_pages) < page);
+    return (range->page_idx >= page && (range->page_idx + range->nr_pages - 1) <= page);
 }
 
 /*!
@@ -113,7 +117,7 @@ static page_allocation_t* __page_allocation_append(page_tracker_t* tracker, page
         return nullptr;
 
     /* Initialize the range */
-    new_allocation->range = *range;
+    memcpy(&new_allocation->range, range, sizeof(*range));
 
     /* Complete the link */
     new_allocation->nx_link = p_alloc_slot->nx_link;
@@ -211,10 +215,10 @@ static error_t __tracker_get_closest_range(page_tracker_t* tracker, u64 page_idx
             break;
 
         /* Check how we shift the bounds */
-        if (page_idx > ((u64)target->range.page_idx + target->range.nr_pages))
-            start = target;
-        else
+        if (page_idx < target->range.page_idx)
             end = target;
+        else
+            start = target;
     } while (!__range_contains_idx(&target->range, page_idx) && start != end);
 
     /* If this range isn't in our target, find the range with the smallest delta
@@ -271,7 +275,7 @@ static inline error_t __check_base_prepend(page_tracker_t* tracker, page_allocat
         return -EINVAL;
 
     /* Initialize a new range */
-    init_page_range(&new_range, range->page_idx, (alloc->range.page_idx - range->page_idx), range->flags, range->refc);
+    init_page_range(&new_range, range->page_idx, MIN(alloc->range.page_idx - range->page_idx, range->nr_pages), range->flags, range->refc);
 
     /* Append the bastard */
     __page_allocation_append_in_slot(tracker, &tracker->base, &new_range);
@@ -304,7 +308,7 @@ static error_t __cut_out_range_from_allocation(page_tracker_t* tracker, page_all
         ? 0
         : (lowest_end_page_idx - highest_start_page_idx) + 1;
 
-    // KLOG_DBG("Comparing range 0x%llx(%d) to 0x%llx(%d)\n", alloc->range.page_idx, alloc->range.nr_pages, range->page_idx, range->nr_pages);
+    //KLOG_DBG("Comparing range 0x%llx(%d) to 0x%llx(%d)\n", alloc->range.page_idx, alloc->range.nr_pages, range->page_idx, range->nr_pages);
 
     /* If there is a page delta of 0, there is no part of @range inside @alloc */
     if (!page_delta)
@@ -426,17 +430,13 @@ static error_t __page_tracker_add_allocation(page_tracker_t* tracker, u64 page_i
     error_t error;
     size_t target_size_pgs;
     page_range_t range;
-    page_range_t this_range;
     page_allocation_t* next;
     page_allocation_t* last;
     page_allocation_t* start = NULL;
     page_allocation_t* prev_start = NULL;
 
     /* Initialize a single range */
-    range.page_idx = page_idx;
-    range.nr_pages = page_count;
-    range.flags = flags;
-    range.refc = 1;
+    init_page_range(&range, page_idx, page_count, flags, 1);
 
     /* If there are no ranges yet, we can just append this one at the base */
     if (!tracker->base)
@@ -452,6 +452,13 @@ static error_t __page_tracker_add_allocation(page_tracker_t* tracker, u64 page_i
     if (page_idx < start->range.page_idx && prev_start)
         start = prev_start;
 
+    /* Check if we can put this range (at least partially) in front of ->base */
+    if (__check_base_prepend(tracker, tracker->base, &range))
+        /* Check if that used up the range */
+        if (!range.nr_pages)
+            /* Yes. Dip */
+            return 0;
+
     /*
      * Loop over all allocations until we've depleted @range
      * What are the options:
@@ -464,8 +471,6 @@ static error_t __page_tracker_add_allocation(page_tracker_t* tracker, u64 page_i
         /* Specify the next allocation early, so we don't mess up when adding new
          * allocations */
         next = a->nx_link;
-        /* Store a copy of the current range */
-        this_range = a->range;
         /* Pre-set last */
         last = a;
 
@@ -476,8 +481,15 @@ static error_t __page_tracker_add_allocation(page_tracker_t* tracker, u64 page_i
         if (!range.nr_pages)
             break;
 
+        /* SKIP */
+        if (next && next->range.page_idx == range.page_idx)
+            continue;
+
+        /* Quick assert for my sanity */
+        ASSERT(!next || (next->range.page_idx > range.page_idx));
+
         target_size_pgs = MIN(
-            range.nr_pages, (!next) ? (u32)0xffffffffUL : (next->range.page_idx - (this_range.page_idx + this_range.nr_pages)));
+            range.nr_pages, (!next) ? (u32)0xffffffffUL : (next->range.page_idx - range.page_idx));
 
         /* Second, check how much space if free after @a */
         page_range_t new_range = {
@@ -502,21 +514,31 @@ static error_t __page_tracker_add_allocation(page_tracker_t* tracker, u64 page_i
     return error;
 }
 
-static inline error_t __page_tracker_find_range_with_gap_after(page_tracker_t* tracker, enum PAGE_TRACKER_ALLOC_MODE mode, size_t nr_pages, page_allocation_t** palloc, page_range_t* this_range)
+static inline error_t __page_tracker_find_range_with_gap_after(page_tracker_t* tracker, enum PAGE_TRACKER_ALLOC_MODE mode, page_allocation_t** palloc, page_range_t* this_range)
 {
     page_allocation_t* cur_range;
     size_t page_delta;
 
+    /* ???? */
+    if (!this_range)
+        return -EINVAL;
+
+    /* Find a base range */
+    if (__tracker_get_closest_range(tracker, this_range->page_idx, &cur_range, NULL))
+        return -ENOENT;
+
+    /* Skip any potential ranges that might come before us */
+    while ((cur_range->range.page_idx + cur_range->range.nr_pages - 1) < this_range->page_idx)
+        cur_range = cur_range->nx_link;
+
     /* Loop over all the ranges to check if there is any space inbetween them */
-    for (cur_range = tracker->base; cur_range->nx_link != nullptr; cur_range = cur_range->nx_link) {
+    for (; cur_range->nx_link != nullptr; cur_range = cur_range->nx_link) {
         /* Calculate the page delta */
         page_delta = cur_range->nx_link->range.page_idx - (cur_range->range.page_idx + cur_range->range.nr_pages);
 
-        // KLOG_DBG("delta: %lld, to nr_page: %lld\n", page_delta, nr_pages);
-
         /* If we found a delta that has space and we're trying to find the first
          * fit, break */
-        if (page_delta >= nr_pages && mode == PAGE_TRACKER_FIRST_FIT)
+        if (page_delta >= this_range->nr_pages && mode == PAGE_TRACKER_FIRST_FIT)
             break;
     }
 
@@ -533,10 +555,11 @@ static inline error_t __page_tracker_find_range_with_gap_after(page_tracker_t* t
     return 0;
 }
 
+
 /*!
  * @brief: Allocate any range
  */
-error_t page_tracker_alloc_any(page_tracker_t* tracker, enum PAGE_TRACKER_ALLOC_MODE mode, size_t nr_pages, u32 flags, page_range_t* prange)
+error_t page_tracker_alloc_any_from(page_tracker_t* tracker, enum PAGE_TRACKER_ALLOC_MODE mode, u64 base, size_t nr_pages, u32 flags, page_range_t* prange)
 {
     error_t error = 0;
     page_range_t this_range;
@@ -547,7 +570,7 @@ error_t page_tracker_alloc_any(page_tracker_t* tracker, enum PAGE_TRACKER_ALLOC_
         return -EINVAL;
 
     /* Init our page range */
-    init_page_range(&this_range, 0, nr_pages, flags, 1);
+    init_page_range(&this_range, base, nr_pages, flags, 1);
 
     /* Lock this fucker */
     spinlock_lock(&tracker->lock);
@@ -560,7 +583,7 @@ error_t page_tracker_alloc_any(page_tracker_t* tracker, enum PAGE_TRACKER_ALLOC_
     }
 
     /* Try to find a range where our target range can fit after */
-    error = __page_tracker_find_range_with_gap_after(tracker, mode, nr_pages, &cur_range, &this_range);
+    error = __page_tracker_find_range_with_gap_after(tracker, mode, &cur_range, &this_range);
 
     if (error)
         goto unlock_and_exit;
@@ -576,13 +599,19 @@ error_t page_tracker_alloc_any(page_tracker_t* tracker, enum PAGE_TRACKER_ALLOC_
     /* Try to merge weird ranges */
     __page_tracker_try_merge_ranges(tracker, tracker->base, nullptr);
 
+
 unlock_and_exit:
     spinlock_unlock(&tracker->lock);
 
     /* Export the fucking range */
-    *prange = this_range;
+    memcpy(prange, &this_range, sizeof(this_range));
 
     return error;
+}
+
+error_t page_tracker_alloc_any(page_tracker_t* tracker, enum PAGE_TRACKER_ALLOC_MODE mode, size_t nr_pages, u32 flags, page_range_t* prange)
+{
+    return page_tracker_alloc_any_from(tracker, mode, NULL, nr_pages, flags, prange);
 }
 
 error_t page_tracker_alloc(page_tracker_t* tracker, u64 start_page, size_t nr_pages, u32 flags)
@@ -645,7 +674,11 @@ error_t page_tracker_dealloc(page_tracker_t* tracker, page_range_t* range)
     if (error || !start)
         goto unlock_and_exit;
 
-    // KLOG_DBG("Closest range to r:%lld(%d) is c:%lld(%d)\n", range->page_idx, range->nr_pages, start->range.page_idx, start->range.nr_pages);
+    //KLOG_DBG("Closest range to r:%llx(%d) is c:%llx(%d)\n", range->page_idx, range->nr_pages, start->range.page_idx, start->range.nr_pages);
+
+    //if (start->nx_link) {
+        //KLOG_DBG("   ==> Next: %llx(%d)\n", start->nx_link->range.page_idx, start->nx_link->range.nr_pages);
+    //}
 
     /*
      * If @range lies outside the starting range for a part, we need to simply shave off that
@@ -731,6 +764,9 @@ error_t page_tracker_has_addr(page_tracker_t* tracker, u64 addr, bool* phas)
     return 0;
 }
 
+/*!
+ * @brief: Grab the range that includes @page_idx. Returns an error if there isn't one
+ */
 error_t page_tracker_get_range(page_tracker_t* tracker, u64 page_idx, page_range_t* range)
 {
     error_t error;
@@ -753,12 +789,18 @@ error_t page_tracker_get_range(page_tracker_t* tracker, u64 page_idx, page_range
     return 0;
 }
 
+/*!
+ * @brief: Copy the ranges inside @src into a new empty page tracker at @dest
+ */
 error_t page_tracker_copy(page_tracker_t* src, page_tracker_t* dest)
 {
     kernel_panic("TODO: page_tracker_copy");
     return 0;
 }
 
+/*!
+ * @brief: Cound the amount of pages used inside @tracker
+ */
 error_t page_tracker_get_used_page_count(page_tracker_t* tracker, size_t* pcount)
 {
     size_t total_sz = 0;
@@ -766,9 +808,13 @@ error_t page_tracker_get_used_page_count(page_tracker_t* tracker, size_t* pcount
     if (!tracker || !pcount)
         return -EINVAL;
 
+    spinlock_lock(&tracker->lock);
+
     /* Loop over all allocations to sum up all the pages */
     for (page_allocation_t* allocation = tracker->base; allocation; allocation = allocation->nx_link)
         total_sz += allocation->range.nr_pages;
+
+    spinlock_unlock(&tracker->lock);
 
     *pcount = total_sz;
 

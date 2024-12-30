@@ -10,6 +10,7 @@
  */
 
 #include "mem/kmem.h"
+#include "mem/tracker/tracker.h"
 #include <lightos/types.h>
 
 int init_kmem_phys(u64* mb_addr);
@@ -36,5 +37,7 @@ error_t kmem_phys_dealloc_range(u64 page_idx, u32 nr_pages);
 
 size_t kmem_phys_get_total_bytecount();
 size_t kmem_phys_get_used_bytecount();
+
+error_t kmem_phys_dealloc_from_tracker(pml_entry_t* ptable_root, page_tracker_t* tracker);
 
 #endif // !__ANIVA_MEM_PHYSICAL_H__

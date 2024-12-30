@@ -16,6 +16,8 @@
 #define PAGE_RANGE_FLAG_EXEC 0x008
 /* This range describes a chunk of physical memory */
 #define PAGE_RANGE_FLAG_PHYSICAL 0x010
+/* This range isn't backed by anything */
+#define PAGE_RANGE_FLAG_UNBACKED 0x020
 
 /* Masks for page index and flags */
 #define PAGE_RANGE_PGE_IDX_MASK 0xfffffffffffff000ULL
@@ -33,6 +35,12 @@ typedef struct page_range {
     u16 refc;
     u16 flags;
 } page_range_t;
+
+static inline bool page_range_is_backed(page_range_t* range)
+{
+    /* If the flag is clear, this range is backed */
+    return (range->flags & PAGE_RANGE_FLAG_UNBACKED) != PAGE_RANGE_FLAG_UNBACKED;
+}
 
 static inline void* page_range_to_ptr(page_range_t* range)
 {
@@ -130,6 +138,10 @@ typedef struct page_tracker {
     u64 max_page;
     /* Main lock that protects this boi =) */
     spinlock_t lock;
+    /* Store the cache buffer here... */
+    void* cache_buffer;
+    /* and the size of that buffer */
+    size_t sz_cache_buffer;
     /* Quick cache for getting allocation structs from */
     zone_allocator_t allocation_cache;
 } page_tracker_t;
@@ -156,6 +168,7 @@ enum PAGE_TRACKER_ALLOC_MODE {
  * represent an allocation. This way we stimulate clean allocation handling
  */
 error_t page_tracker_alloc_any(page_tracker_t* tracker, enum PAGE_TRACKER_ALLOC_MODE mode, size_t nr_pages, u32 flags, page_range_t* prange);
+error_t page_tracker_alloc_any_from(page_tracker_t* tracker, enum PAGE_TRACKER_ALLOC_MODE mode, u64 base, size_t nr_pages, u32 flags, page_range_t* prange);
 error_t page_tracker_alloc(page_tracker_t* tracker, u64 start_page, size_t nr_pages, u32 flags);
 error_t page_tracker_dealloc(page_tracker_t* tracker, page_range_t* range);
 error_t page_tracker_has_addr(page_tracker_t* tracker, u64 addr, bool* phas);

@@ -3,6 +3,7 @@
 #include "libk/data/hashmap.h"
 #include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"
+#include "logging/log.h"
 #include "mem/heap.h"
 #include "mem/zalloc/zalloc.h"
 #include "priv.h"
@@ -156,17 +157,23 @@ kerror_t load_dynamic_lib(const char* path, struct loaded_app* target_app, dynam
     dynamic_library_t* lib;
     sysvar_t* libs_var;
 
+    //KLOG_DBG("Does app have lib...\n");
+
     if (app_has_lib(target_app, path))
         return KERR_INVAL;
 
     profile_find_var(LIBSPATH_VARPATH, &libs_var);
     sysvar_get_str_value(libs_var, &search_dir);
 
+    //KLOG_DBG("Trying to find search dir...\n");
+
     lib = nullptr;
     search_path = _append_path_to_searchdir(search_dir, path);
 
     if (!search_path)
         return -KERR_NOMEM;
+
+    //KLOG_DBG("Creating lib structure...\n");
 
     /* First, try to create a library object */
     lib = _create_dynamic_lib(target_app, path, search_path);
@@ -178,6 +185,8 @@ kerror_t load_dynamic_lib(const char* path, struct loaded_app* target_app, dynam
 
     /* Register ourselves preemptively to the app */
     list_append(target_app->library_list, lib);
+
+    //KLOG_DBG("Trying to open file...\n");
 
     /* Then try to open the target file */
     lib_file = file_open(lib->path);
@@ -229,8 +238,11 @@ kerror_t unload_dynamic_lib(dynamic_library_t* lib)
 
 static inline kerror_t load_app_generic_headers(file_t* file, loaded_app_t* app)
 {
+    //KLOG_DBG(" ==> Program headers...\n");
     if (_elf_load_phdrs(&app->image))
         return -KERR_INVAL;
+
+    //KLOG_DBG(" ==> Processing program headers...\n");
 
     if (_elf_do_headers(&app->image))
         return -KERR_INVAL;
@@ -240,12 +252,15 @@ static inline kerror_t load_app_generic_headers(file_t* file, loaded_app_t* app)
 
 static inline kerror_t load_app_dyn_sections(loaded_app_t* app)
 {
+    //KLOG_DBG(" ==> Dyn sections...\n");
     if (_elf_load_dyn_sections(&app->image, app))
         return -KERR_INVAL;
 
+    //KLOG_DBG(" ==> Symbols...\n");
     if (_elf_do_symbols(app->symbol_list, app->exported_symbols, app, &app->image))
         return -KERR_INVAL;
 
+    //KLOG_DBG(" ==> Relocations...\n");
     if (_elf_do_relocations(&app->image, app))
         return -KERR_INVAL;
 
@@ -266,6 +281,7 @@ static inline void _finalise_load(loaded_app_t* app)
 
 static kerror_t _do_load(file_t* file, loaded_app_t* app)
 {
+    //KLOG_DBG("Generic headers...\n");
     /*
      * Read the program headers to find basic binary info about the
      * app we are currently trying to load
@@ -273,12 +289,15 @@ static kerror_t _do_load(file_t* file, loaded_app_t* app)
     if (load_app_generic_headers(file, app))
         return -KERR_INVAL;
 
+    //KLOG_DBG("Dyn sections...\n");
     /*
      * Load the dynamic sections that are included in the binary we are trying to
      * load. Here we also cache any libraries and libraries of the libraries, ect.
      */
     if (load_app_dyn_sections(app))
         return -KERR_INVAL;
+
+    //KLOG_DBG("Finalise...\n");
 
     /* Clean up our mess */
     _finalise_load(app);

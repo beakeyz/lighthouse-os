@@ -63,6 +63,7 @@ BOOL close_lwindow(lwindow_t* wnd)
  */
 LIGHTENTRY int gfxlibentry(void)
 {
+    printf("hello from libgfx =)\n");
     char drvname[128] = { 0 };
 
     /* Try to get the drivername from the system */

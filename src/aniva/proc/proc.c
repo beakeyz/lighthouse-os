@@ -11,10 +11,13 @@
 #include "libk/flow/error.h"
 #include "libk/stddef.h"
 #include "lightos/driver/loader.h"
+#include "lightos/error.h"
 #include "lightos/syscall.h"
 #include "lightos/sysvar/shared.h"
 #include "logging/log.h"
 #include "mem/kmem.h"
+#include "mem/phys.h"
+#include "mem/tracker/tracker.h"
 #include "oss/node.h"
 #include "oss/obj.h"
 #include "oss/path.h"
@@ -26,11 +29,12 @@
 #include "sys/types.h"
 #include "system/processor/processor.h"
 #include "system/profile/profile.h"
-#include "system/resource.h"
 #include "thread.h"
 #include "time/core.h"
 #include <libk/string.h>
 #include <mem/heap.h>
+
+#define PROC_DEFAULT_PAGE_TRACKER_BSIZE 0x8000
 
 static void __destroy_proc(proc_t* p);
 
@@ -46,6 +50,60 @@ static int _proc_init_pagemap(proc_t* proc)
     proc->m_root_pd.m_kernel_high = (uintptr_t)&_kernel_end;
     proc->m_root_pd.m_kernel_low = (uintptr_t)&_kernel_start;
     return 0;
+}
+
+static inline int __proc_init_page_tracker(proc_t* proc, size_t bsize)
+{
+    error_t error;
+    void* range_cache_buf;
+
+    /* Try to allocate a buffer for our tracker allocations */
+    error = kmem_kernel_alloc_range(&range_cache_buf, bsize, NULL, KMEM_FLAG_WRITABLE);
+
+    if (error)
+        return error;
+
+    /* Initialize the page tracker */
+    error =  init_page_tracker(&proc->m_virtual_tracker, range_cache_buf, bsize, (u64)-1);
+
+    if (error)
+        goto dealloc_and_exit;
+
+    /* Pre-allocate the first 1 Mib of pages, so the NULL address can always stay un-allocated */
+    error = page_tracker_alloc(&proc->m_virtual_tracker, 0, 255, PAGE_RANGE_FLAG_UNBACKED);
+
+    if (HAS_ERROR(error))
+        goto dealloc_and_exit;
+
+    /* Algood, let's exit */
+    return error;
+
+dealloc_and_exit:
+    kmem_kernel_dealloc((u64)range_cache_buf, bsize);
+
+    return error;
+}
+
+static inline int __proc_destroy_page_tracker(proc_t* proc)
+{
+    size_t bsize;
+    void* buffer;
+
+    if (!proc)
+        return -EINVAL;
+
+    /* Cache this size real quick */
+    bsize = proc->m_virtual_tracker.sz_cache_buffer;
+    buffer = proc->m_virtual_tracker.cache_buffer;
+
+    /* Clear the virtual page tracker */
+    ASSERT(IS_OK(kmem_phys_dealloc_from_tracker(proc->m_root_pd.m_root, &proc->m_virtual_tracker)));
+
+    /* Destroy the tracker and it's trackings */
+    destroy_page_tracker(&proc->m_virtual_tracker);
+
+    /* Also fuck the buffer we created */
+    return kmem_kernel_dealloc((u64)buffer, bsize);
 }
 
 /*!
@@ -101,8 +159,11 @@ proc_t* create_proc(proc_t* parent, struct user_profile* profile, char* name, Fu
     /* Create a handle map */
     init_khandle_map(&proc->m_handle_map, KHNDL_DEFAULT_ENTRIES);
 
+    /* Initialize this fucker */
+    __proc_init_page_tracker(proc, PROC_DEFAULT_PAGE_TRACKER_BSIZE);
+
     /* Okay to pass a reference, since resource bundles should NEVER own this memory */
-    proc->m_resource_bundle = create_resource_bundle(&proc->m_root_pd);
+    //proc->m_resource_bundle = create_resource_bundle(&proc->m_root_pd);
     proc->m_env = create_penv(proc->m_name, proc, NULL, NULL);
 
     init_thread = create_thread_for_proc(proc, entry, args, "main");
@@ -206,8 +267,8 @@ int proc_clone(proc_t* p, FuncPtr clone_entry, const char* clone_name, proc_t** 
     /* Copy the handle map */
     copy_khandle_map(&cloneproc->m_handle_map, &p->m_handle_map);
 
-    /* Yoink the resource bundle */
-    cloneproc->m_resource_bundle = share_resource_bundle(p->m_resource_bundle);
+    /* Yoink the virtual tracker */
+    page_tracker_copy(&p->m_virtual_tracker, &cloneproc->m_virtual_tracker);
 
     /* Wrap the entry in a healthy environment and create a thread for it */
     _userproc_wrap_entry(cloneproc, clone_entry);
@@ -319,21 +380,6 @@ kerror_t proc_set_entry(proc_t* p, FuncPtr entry, uintptr_t arg0, uintptr_t arg1
     return KERR_NONE;
 }
 
-static void __proc_clear_shared_resources(proc_t* proc)
-{
-    /* 1) Loop over all the allocated resources by this process */
-    /* 2) detach from every resource and then the resource manager should
-     *    automatically destroy resources and merge their address ranges
-     *    into neighboring resources
-     */
-
-    if (!proc->m_resource_bundle)
-        return;
-
-    /* Destroy the entire bundle, which deallocates the structures */
-    destroy_resource_bundle(proc->m_resource_bundle);
-}
-
 /*
  * Loop over all the open handles of this process and clear out the
  * lingering references and objects
@@ -394,6 +440,8 @@ static inline void __proc_kill_threads(proc_t* proc)
  */
 void __destroy_proc(proc_t* proc)
 {
+    page_tracker_dump(&proc->m_virtual_tracker);
+
     /* Yeet threads */
     __proc_kill_threads(proc);
 
@@ -405,10 +453,10 @@ void __destroy_proc(proc_t* proc)
 
     destroy_khandle_map(&proc->m_handle_map);
 
-    KLOG_DBG("Doing shared resources\n");
+    KLOG_DBG("Doing proc tracker\n");
 
     /* loop over all the resources of this process and release them by using kmem_dealloc */
-    __proc_clear_shared_resources(proc);
+    __proc_destroy_page_tracker(proc);
 
     KLOG_DBG("Doing page dir\n");
     /*

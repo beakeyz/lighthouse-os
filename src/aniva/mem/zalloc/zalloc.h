@@ -6,14 +6,9 @@
 #include <libk/flow/error.h>
 #include <libk/stddef.h>
 
-/*
- * Flags for an indevidual zone
- */
-typedef enum ZONE_FLAGS {
-    ZONE_USED = (1 << 0),
-    ZONE_PERMANENT = (1 << 1),
-    ZONE_SHOULD_ZERO = (1 << 2)
-} ZONE_FLAGS_t;
+#define ZONE_FLAG_DID_ALLOCATE 0x00000001
+
+#define ZONE_STORE_FLAG_DID_ALLOCATE 0x00000001
 
 /* These are the default entry sizes */
 typedef enum ZONE_ENTRY_SIZE {
@@ -34,6 +29,7 @@ typedef enum ZONE_ENTRY_SIZE {
 #define ZALLOC_FLAG_KERNEL (0x00000001)
 /* Allocate DMA regions */
 #define ZALLOC_FLAG_DMA (0x00000002)
+#define ZALLOC_FLAG_DID_ALLOCATE (0x00000004)
 
 #define ZALLOC_DEFAULT_MEM_SIZE 16 * Kib
 #define ZALLOC_DEFAULT_ALLOC_COUNT 128 /* What is the default amount of an object that we should be able to allocate before we should expand the allocator */
@@ -64,7 +60,8 @@ typedef enum ZONE_ENTRY_SIZE {
  *    is able to snatch a few more pages, it won't hesitate to fill that empty space with more subzones/blocks/entries.
  */
 typedef struct zone {
-    size_t m_zone_entry_size;
+    u32 flags;
+    u32 m_zone_entry_size;
     size_t m_total_available_size;
 
     vaddr_t m_entries_start;
@@ -84,7 +81,8 @@ typedef struct zone {
  * contain the header, so with every extra page, we can store 512 zones extra
  */
 typedef struct zone_store {
-    size_t m_zones_count;
+    u32 flags;
+    u32 m_zones_count;
     size_t m_capacity;
     struct zone_store* m_next; /* When a store is full, we can allocate a new store and link it after this one */
     zone_t* m_zones[];

@@ -9,10 +9,11 @@
 #include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"
 #include "logging/log.h"
+#include "mem/heap.h"
 #include "mem/kmem.h"
 #include "mem/zalloc/zalloc.h"
 #include "proc/proc.h"
-#include "system/resource.h"
+#include "stdint.h"
 #include <lightos/lightos.h>
 
 /*!
@@ -64,6 +65,17 @@ static inline void* _elf_get_shdr_kaddr(elf_image_t* image, struct elf64_shdr* h
     return image->kernel_image + hdr->sh_offset;
 }
 
+static void* _elf_compute_image_base(elf_image_t* image)
+{
+    page_range_t range;
+
+    /* With this we can find the user base */
+    ASSERT(page_tracker_alloc_any(&image->proc->m_virtual_tracker, PAGE_TRACKER_FIRST_FIT, GET_PAGECOUNT(0, image->user_image_size), PAGE_RANGE_FLAG_UNBACKED, &range) == 0);
+
+    /* Return the base pointer */
+    return page_range_to_ptr(&range);
+}
+
 /*!
  * @brief: Itterate the program headers and load shit we need
  *
@@ -99,12 +111,10 @@ kerror_t _elf_load_phdrs(elf_image_t* image)
 
     /* Simple delta */
     image->user_image_size = ALIGN_UP(user_high, SMALL_PAGE_SIZE);
-    /* With this we can find the user base */
-    ASSERT(resource_find_usable_range(image->proc->m_resource_bundle, KRES_TYPE_MEM, image->user_image_size, (uintptr_t*)&image->user_base) == 0);
+    /* Compute the user base pointer */
+    image->user_base = _elf_compute_image_base(image);
 
-    image->user_base = (void*)ALIGN_DOWN((uintptr_t)image->user_base, SMALL_PAGE_SIZE);
-
-    // printf("Found elf image user base: 0x%p (size=%lld bytes)\n", image->user_base, image->user_image_size);
+    KLOG_DBG("Found elf image user base: 0x%p (size=%lld bytes)\n", image->user_base, image->user_image_size);
 
     /* Now we can actually start to load the headers */
     for (uint32_t i = 0; i < hdr->e_phnum; i++) {
@@ -120,7 +130,7 @@ kerror_t _elf_load_phdrs(elf_image_t* image)
             ASSERT(kmem_alloc_range(
                        (void**)&v_user_phdr_start,
                        proc->m_root_pd.m_root,
-                       proc->m_resource_bundle,
+                       &proc->m_virtual_tracker,
                        virtual_phdr_base,
                        phdr_size,
                        KMEM_CUSTOMFLAG_GET_MAKE | KMEM_CUSTOMFLAG_CREATE_USER | KMEM_CUSTOMFLAG_NO_REMAP,
@@ -132,7 +142,7 @@ kerror_t _elf_load_phdrs(elf_image_t* image)
              * (meaning we first allocate in the kernel (With KERNEL_MAP_BASE) and then transfer the mapping to userspace)
              * or use proc_map_into_kernel. This does use a little bit more physical RAM though
              */
-            ASSERT(kmem_get_kernel_address(&v_kernel_phdr_start, v_user_phdr_start, proc->m_root_pd.m_root) == 0);
+            ASSERT(kmem_map_to_kernel(&v_kernel_phdr_start, v_user_phdr_start, phdr_size, KERNEL_MAP_BASE, proc->m_root_pd.m_root, NULL, KMEM_FLAG_WRITABLE) == 0);
 
             // printf("Allocated %lld bytes at 0x%llx (kernel_addr=%llx)\n", phdr_size, v_user_phdr_start, v_kernel_phdr_start);
 
@@ -145,18 +155,22 @@ kerror_t _elf_load_phdrs(elf_image_t* image)
              */
             memcpy((void*)v_kernel_phdr_start, image->kernel_image + c_phdr->p_offset,
                 c_phdr->p_filesz > c_phdr->p_memsz ? c_phdr->p_memsz : c_phdr->p_filesz);
+
+            /* Unmap the range from the kernel */
+            kmem_unmap_range(nullptr, v_kernel_phdr_start, GET_PAGECOUNT(v_kernel_phdr_start, phdr_size));
         } break;
         case PT_DYNAMIC:
             /* Remap to the kernel */
             image->elf_dyntbl_mapsize = ALIGN_UP(c_phdr->p_memsz, SMALL_PAGE_SIZE);
+
+            /* FIXME: Map into kernel, in stead of just yoinking a high address and hoping that does the trick */
             ASSERT(kmem_get_kernel_address((vaddr_t*)&image->elf_dyntbl, (vaddr_t)image->user_base + c_phdr->p_vaddr, proc->m_root_pd.m_root) == 0);
 
-            // printf("Setting PT_DYNAMIC addr=0x%p size=0x%llx\n", image->elf_dyntbl, image->elf_dyntbl_mapsize);
+            //KLOG_DBG("Setting PT_DYNAMIC addr=0x%p size=0x%llx\n", image->elf_dyntbl, image->elf_dyntbl_mapsize);
             break;
         }
     }
 
-    /* Suck my dick */
     return KERR_NONE;
 }
 
@@ -185,9 +199,15 @@ kerror_t _elf_do_headers(elf_image_t* image)
 
             /* Zero the scattered range (FIXME: How do we assure that we don't reach memory we haven't mapped to the kernel?) */
             for (uint64_t i = 0; i < GET_PAGECOUNT(shdr->sh_addr, shdr->sh_size); i++) {
-                ASSERT(kmem_get_kernel_address((vaddr_t*)&kaddr, shdr->sh_addr + kmem_get_page_addr(i), image->proc->m_root_pd.m_root) == 0);
+                //ASSERT(kmem_get_kernel_address((vaddr_t*)&kaddr, shdr->sh_addr + kmem_get_page_addr(i), image->proc->m_root_pd.m_root) == 0);
+                /* Map the page */
+                ASSERT(kmem_map_to_kernel((vaddr_t*)&kaddr, shdr->sh_addr + kmem_get_page_addr(i), SMALL_PAGE_SIZE, KERNEL_MAP_BASE, image->proc->m_root_pd.m_root, NULL, KMEM_FLAG_WRITABLE) == 0);
 
+                /* Clear the page */
                 memset(kaddr, 0, SMALL_PAGE_SIZE);
+
+                /* Unmap the page */
+                kmem_unmap_range(nullptr, (vaddr_t)kaddr, 1);
             }
             break;
         default:
@@ -233,61 +253,87 @@ kerror_t _elf_do_headers(elf_image_t* image)
     return 0;
 }
 
+static inline error_t __elf_add_symbol(list_t* symlist, hashmap_t* symmap, struct elf64_sym* current_symbol, const char* sym_name)
+{
+    /*
+     * Allocate the symbol manually. This gets freed when the loaded_app is destroyed 
+     * TODO: Move over to arena allocators for this
+     */
+    loaded_sym_t* sym = kzalloc(sizeof(loaded_sym_t));
+
+    if (!sym)
+        return -ENOMEM;
+
+    memset(sym, 0, sizeof(*sym));
+
+    sym->name = sym_name;
+    sym->uaddr = current_symbol->st_value;
+
+    /* Add both to the symbol map for easy lookup and the list for easy cleanup */
+    hashmap_put(symmap, (hashmap_key_t)sym_name, sym);
+    list_append(symlist, sym);
+
+    return 0;
+}
+
+/*!
+ * @brief: Parse the symbol table and 
+ */
 static inline kerror_t __elf_parse_symbol_table(loaded_app_t* app, list_t* symlist, hashmap_t* symmap, elf_image_t* image, struct elf64_sym* symtable, size_t sym_count, const char* strtab)
 {
     loaded_sym_t* sym;
+    const char* sym_name;
+    struct elf64_sym* current_symbol;
 
     /* Grab the start of the symbol table */
     struct elf64_sym* sym_table_start = symtable;
 
     /* Walk the table and resolve any symbols */
     for (uint32_t i = 0; i < sym_count; i++) {
-        struct elf64_sym* current_symbol = &sym_table_start[i];
-        const char* sym_name = (const char*)((uint64_t)strtab + current_symbol->st_name);
+        current_symbol = &sym_table_start[i];
+        sym_name = (const char*)((uint64_t)strtab + current_symbol->st_name);
 
         /* Debug print lmao */
         // printf("Found a symbol (\'%s\'). info=0x%x\n", sym_name, current_symbol->st_info);
 
+        /* Offset the thing */
         current_symbol->st_value += (vaddr_t)image->user_base;
 
-        switch (current_symbol->st_shndx) {
-        case SHN_UNDEF:
-            // printf("Resolving: %s\n", sym_name);
+        /* Skip undefined symbols */
+        if (current_symbol->st_shndx == SHN_UNDEF) 
+            continue;
 
-            /*
-             * Need to look for this symbol in an earlier loaded binary =/
-             */
-            sym = loaded_app_find_symbol(app, (hashmap_key_t)sym_name);
+        /* Don't add weird symbols */
+        if (!strlen(sym_name))
+            continue;
 
-            if (!sym)
-                break;
-
-            current_symbol->st_value = sym->uaddr;
-            sym->usecount++;
-            break;
-        default:
-
-            /* Don't add weird symbols */
-            if (!strlen(sym_name))
-                break;
-
-            /* Allocate the symbol manually. This gets freed when the loaded_app is destroyed */
-            sym = kzalloc(sizeof(loaded_sym_t));
-
-            if (!sym)
-                return -KERR_NOMEM;
-
-            memset(sym, 0, sizeof(*sym));
-
-            sym->name = sym_name;
-            sym->uaddr = current_symbol->st_value;
-
-            /* Add both to the symbol map for easy lookup and the list for easy cleanup */
-            hashmap_put(symmap, (hashmap_key_t)sym_name, sym);
-            list_append(symlist, sym);
-            break;
-        }
+        /* If we can't add this symbol, die */
+        if (__elf_add_symbol(symlist, symmap, current_symbol, sym_name))
+            return -ENOMEM;
     }
+
+    for (uint32_t i = 0; i < sym_count; i++) {
+        current_symbol = &sym_table_start[i];
+        sym_name = (const char*)((uint64_t)strtab + current_symbol->st_name);
+
+        if (current_symbol->st_shndx != SHN_UNDEF)
+            continue;
+
+        // printf("Resolving: %s\n", sym_name);
+
+        /*
+         * Need to look for this symbol in an earlier loaded binary =/
+         */
+        sym = loaded_app_find_symbol(app, (hashmap_key_t)sym_name);
+
+        /* Couldn't find it =( */
+        if (!sym)
+            continue;
+
+        current_symbol->st_value = sym->uaddr;
+        sym->usecount++;
+    }
+
     return 0;
 }
 
@@ -368,7 +414,7 @@ kerror_t _elf_do_symbols(list_t* symbol_list, hashmap_t* exported_symbol_map, lo
             rel = (struct elf64_rel*)_elf_get_shdr_kaddr(image, shdr);
 
             /* Calculate the table size */
-            entry_count = shdr->sh_size / sizeof(*rel);
+            entry_count = ALIGN_DOWN(shdr->sh_size, sizeof(*rel)) / sizeof(*rel);
 
             for (uint64_t i = 0; i < entry_count; i++) {
                 if (ELF64_R_TYPE(rel[i].r_info) != R_X86_64_COPY)
@@ -391,7 +437,7 @@ kerror_t _elf_do_symbols(list_t* symbol_list, hashmap_t* exported_symbol_map, lo
             rela = (struct elf64_rela*)_elf_get_shdr_kaddr(image, shdr);
 
             /* Calculate the table size */
-            entry_count = shdr->sh_size / sizeof(*rela);
+            entry_count = ALIGN_DOWN(shdr->sh_size, sizeof(*rela)) / sizeof(*rela);
 
             for (uint64_t i = 0; i < entry_count; i++) {
                 if (ELF64_R_TYPE(rela[i].r_info) != R_X86_64_COPY)
@@ -428,6 +474,9 @@ static kerror_t __elf_get_dynsect_info(elf_image_t* image)
     strtab = nullptr;
     dyn_syms = nullptr;
     dyns_entry = image->elf_dyntbl;
+
+    if (!dyns_entry)
+        return -EINVAL;
 
     /* The dynamic section table is null-terminated xD */
     while (dyns_entry->d_tag) {
@@ -484,6 +533,8 @@ static kerror_t __elf_process_dynsect_info(elf_image_t* image, loaded_app_t* app
         if (dyns_entry->d_tag != DT_NEEDED)
             goto cycle;
 
+        //KLOG_DBG("Trying to load dynamic lib...\n");
+
         /* Load the library */
         error = load_dynamic_lib((const char*)(image->elf_dynstrtab + dyns_entry->d_un.d_val), app, NULL);
 
@@ -512,11 +563,14 @@ kerror_t _elf_load_dyn_sections(elf_image_t* image, loaded_app_t* app)
     if (!image)
         return -KERR_INVAL;
 
+    //KLOG_DBG("    ==> Getting info...\n");
     /* Gather info on the dynamic part of this image */
     error = __elf_get_dynsect_info(image);
 
     if (error)
         return error;
+
+    //KLOG_DBG("    ==> Processing info...\n");
 
     /* Do meaningful shit */
     return __elf_process_dynsect_info(image, app);

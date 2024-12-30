@@ -87,7 +87,10 @@ fail_and_dealloc:
     if (new_zone_store)
         destroy_zone_store(ret, new_zone_store);
 
-    kfree(ret);
+    /* Oof */
+    if ((ret->m_flags & ZALLOC_FLAG_DID_ALLOCATE) == ZALLOC_FLAG_DID_ALLOCATE)
+        kfree(ret);
+
     return error;
 }
 
@@ -111,7 +114,8 @@ zone_allocator_t* create_zone_allocator_ex(pml_entry_t* map, vaddr_t start_addr,
 
     memset(ret, 0, sizeof(*ret));
 
-    if (init_zone_allocator(ret, initial_size, hard_max_entry_size, flags))
+    /* We did allocate this, so make sure that flag is set */
+    if (init_zone_allocator(ret, initial_size, hard_max_entry_size, flags | ZALLOC_FLAG_DID_ALLOCATE))
         return nullptr;
 
     return ret;
@@ -137,7 +141,8 @@ int init_zone_allocator_ex(zone_allocator_t* ret, void* start_buffer, size_t ini
 
     // Initialize the initial zones
     ret->m_total_size = 0;
-    ret->m_flags = flags;
+    /* We know we didn't allocate this fucker */
+    ret->m_flags = flags & ~ZALLOC_FLAG_DID_ALLOCATE;
     ret->m_grow_size = initial_size;
     ret->m_entry_size = hard_max_entry_size;
 
@@ -221,13 +226,12 @@ ANIVA_REGISTER_TEST("init zone allocator", init_zone_allocator_ex, __test_init_z
 
 void destroy_zone_allocator(zone_allocator_t* allocator, bool clear_zones)
 {
-    (void)clear_zones;
-
-    // detach_allocator(allocator);
-
+    /* Destroy the zone stores attached to this allocator */
     destroy_zone_stores(allocator);
 
-    // destroy_heap(allocator->m_heap);
+    /* Didn't malloc this allocator. Dip */
+    if ((allocator->m_flags & ZALLOC_FLAG_DID_ALLOCATE) != ZALLOC_FLAG_DID_ALLOCATE)
+        return;
 
     kfree(allocator);
 }
@@ -365,6 +369,7 @@ zone_store_t* create_zone_store(size_t initial_capacity)
     store->m_zones_count = 0;
     store->m_next = nullptr;
     store->m_capacity = initial_capacity;
+    store->flags = ZONE_STORE_FLAG_DID_ALLOCATE;
 
     // Make sure this zone store is uninitialised
     memset(store->m_zones, 0, initial_capacity * sizeof(zone_t*));
@@ -373,7 +378,6 @@ zone_store_t* create_zone_store(size_t initial_capacity)
 
 void destroy_zone_store(zone_allocator_t* allocator, zone_store_t* store)
 {
-
     for (uintptr_t i = 0; i < store->m_zones_count; i++) {
         zone_t* zone = store->m_zones[i];
 
@@ -383,6 +387,10 @@ void destroy_zone_store(zone_allocator_t* allocator, zone_store_t* store)
 
         destroy_zone(allocator, zone);
     }
+
+    /* We didn't allocate this boi, we can chill =) */
+    if ((store->flags & ZONE_STORE_FLAG_DID_ALLOCATE) != ZONE_STORE_FLAG_DID_ALLOCATE)
+        return;
 
     kmem_kernel_dealloc((uintptr_t)store, store->m_capacity * sizeof(uintptr_t) + (sizeof(zone_store_t) - 8));
 }
@@ -469,7 +477,7 @@ int zone_store_remove(zone_store_t* store, zone_t* zone)
         return -1;
 
     // Sanity check
-    if (store->m_zones_count == (uintptr_t)-1) {
+    if (store->m_zones_count == (u32)-1) {
         kernel_panic("FUCK: store->m_zones_count seems to be invalid?");
     }
 
@@ -501,6 +509,10 @@ void destroy_zone(zone_allocator_t* allocator, zone_t* zone)
 {
     /* TODO: use this to grab the pml root */
     (void)allocator;
+
+    /* Didn't allocate this zone, we can chill */
+    if ((zone->flags & ZONE_FLAG_DID_ALLOCATE) != ZONE_FLAG_DID_ALLOCATE)
+        return;
 
     size_t zone_size = sizeof(zone_t);
 
@@ -571,6 +583,9 @@ zone_t* init_zone(zone_allocator_t* allocator, void* buffer, size_t bsize, const
 
     /* The zone struct will live at the start of the supplied buffer */
     zone = buffer;
+
+    /* Clear the zone */
+    memset(zone, 0, sizeof(*zone));
 
     /* Calculate how many entries our bitmap will have */
     const size_t nr_bitmap_entries = __calculate_optimal_nr_bitmap_entries(ALIGN_DOWN((bsize - sizeof(zone_t)), 8), entry_size, 32);
@@ -644,17 +659,20 @@ zone_t* create_zone(zone_allocator_t* allocator, const size_t entry_size, size_t
     if (error)
         return nullptr;
 
+    memset(zone, 0, sizeof(*zone));
+
     /* Construct the bitmap */
     init_bitmap(&zone->m_entries, max_entries, bitmap_bytes, 0);
 
     /* Set the size of the entries we allocate */
+    zone->flags = ZONE_FLAG_DID_ALLOCATE;
     zone->m_zone_entry_size = entry_size;
 
     // Calculate where the memory actually starts
     const size_t entries_bytes = zone->m_entries.m_entries * zone->m_zone_entry_size;
 
-    zone->m_entries_start = ((uintptr_t)zone + aligned_size) - entries_bytes;
     zone->m_total_available_size = entries_bytes;
+    zone->m_entries_start = ALIGN_UP(((uintptr_t)zone + aligned_size) - entries_bytes, 8);
 
     return zone;
 }

@@ -4,8 +4,7 @@
 #include "core.h"
 #include "libk/data/linkedlist.h"
 #include "libk/data/vector.h"
-#include "mem/zalloc/zalloc.h"
-#include "system/resource.h"
+#include "mem/tracker/tracker.h"
 #include <libk/stddef.h>
 
 struct oss_obj;
@@ -161,9 +160,7 @@ typedef struct driver_dependency {
  */
 typedef struct driver_resources {
     /* Resources for mapped and kmem_alloced regions */
-    kresource_bundle_t* raw_resources;
-    /* Allocator on wich common objects will be allocated */
-    zone_allocator_t* zallocator;
+    page_tracker_t tracker;
     /* List that keeps track of the syscalls that have been allocated by this driver */
     list_t* syscall_list;
     /* List that keeps track of the non-persistent oss_objs created by this driver */
@@ -172,6 +169,9 @@ typedef struct driver_resources {
     size_t leaked_bytes;
     size_t total_allocated_bytes;
 } driver_resources_t;
+
+error_t init_driver_resources(driver_resources_t* resources);
+error_t destroy_driver_resources(driver_resources_t* resources);
 
 /*
  * Weird driver thing
@@ -190,12 +190,13 @@ typedef struct driver {
     uint32_t m_flags;
     driver_version_t m_check_version;
 
-    /* Resources that this driver has claimed */
-    kresource_bundle_t* m_resources;
     mutex_t* m_lock;
 
     /* Url of the installed driver */
     dev_url_t m_url;
+
+    /* Structure that manages driver resources */
+    driver_resources_t resources;
 
     /* Device object that provides a control interface for the driver, set to NULL, when
      * the driver is created */
@@ -229,6 +230,11 @@ bool driver_has_dev(struct driver* driver, struct device* device, uint32_t* p_id
 
 int driver_set_ctl_device(struct driver* driver, struct device* device);
 int driver_destroy_ctl_device(struct driver* driver);
+
+/* mem.c */
+extern error_t driver_alloc_mem(driver_t* driver, void** presult, vaddr_t vbase, size_t bsize, u32 custom_flags, u32 page_flags);
+extern error_t driver_dealloc_mem(driver_t* driver, vaddr_t vaddr, size_t bsize);
+extern error_t driver_map_mem(driver_t* driver, void** presult, paddr_t pbase, vaddr_t vbase, size_t bsize, u32 custom_flags, u32 page_flags);
 
 static inline bool driver_is_active(driver_t* driver)
 {
