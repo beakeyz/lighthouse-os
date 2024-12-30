@@ -583,7 +583,7 @@ zone_t* init_zone(zone_allocator_t* allocator, void* buffer, size_t bsize, const
     /* Calculate where the memory actually starts */
     zone->m_total_available_size = zone->m_entries.m_entries * zone->m_zone_entry_size;
     /* Initialize the zone data fields */
-    zone->m_entries_start = ((uintptr_t)zone + sizeof(zone_t) + BITS_TO_BYTES(nr_bitmap_entries));
+    zone->m_entries_start = ALIGN_UP((uintptr_t)zone + sizeof(zone_t) + BITS_TO_BYTES(nr_bitmap_entries), 8);
 
     return zone;
 }
