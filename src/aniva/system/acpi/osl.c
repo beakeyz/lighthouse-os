@@ -93,7 +93,7 @@ void AcpiOsUnmapMemory(void* where, ACPI_SIZE length)
      * NOTE: We might need to deallocate over overlapping chunks, which means we might need
      * to deallocate a physical frame marked as unused
      */
-    kmem_dealloc_ex(nullptr, nullptr, (vaddr_t)where, length, true, true);
+    kmem_dealloc_ex(nullptr, nullptr, (vaddr_t)where, length, false, true);
 }
 
 ACPI_STATUS AcpiOsGetPhysicalAddress(void* LogicalAddress, ACPI_PHYSICAL_ADDRESS* PhysicalAddress)

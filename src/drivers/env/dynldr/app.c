@@ -2,7 +2,6 @@
 #include "libk/data/hashmap.h"
 #include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"
-#include "logging/log.h"
 #include "mem/heap.h"
 #include "mem/kmem.h"
 #include "mem/zalloc/zalloc.h"
@@ -78,7 +77,6 @@ void destroy_loaded_app(loaded_app_t* app)
 
 void* proc_map_into_kernel(proc_t* proc, vaddr_t uaddr, size_t size)
 {
-    void* addr;
     paddr_t paddr;
 
     if (!proc)
@@ -91,17 +89,15 @@ void* proc_map_into_kernel(proc_t* proc, vaddr_t uaddr, size_t size)
     if (!paddr)
         return nullptr;
 
-    ASSERT(!kmem_kernel_alloc(
-        &addr,
-        /* Physical address */
-        paddr,
-        /* Our size */
-        size,
-        NULL,
-        /* Basic kernel flags */
-        KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE));
+    ASSERT(kmem_map_range(
+                nullptr,
+                kmem_from_phys(paddr, KERNEL_MAP_BASE),
+                paddr,
+                GET_PAGECOUNT(0, size),
+                KMEM_CUSTOMFLAG_GET_MAKE,
+                KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE));
 
-    return addr;
+    return (void*)kmem_from_phys(paddr, KERNEL_MAP_BASE);
 }
 
 static uintptr_t allocate_lib_entrypoint_vec(loaded_app_t* app, uintptr_t* entrycount)
@@ -122,7 +118,7 @@ static uintptr_t allocate_lib_entrypoint_vec(loaded_app_t* app, uintptr_t* entry
         return NULL;
 
     /* This has to be readonly */
-    ASSERT(IS_OK(kmem_user_alloc_range((void**)&uaddr, app->proc, libarr_size, NULL, NULL)));
+    ASSERT(!kmem_user_alloc_range((void**)&uaddr, app->proc, libarr_size, NULL, NULL));
     kaddr = proc_map_into_kernel(app->proc, uaddr, libarr_size);
 
     if (!kaddr)
@@ -138,8 +134,6 @@ static uintptr_t allocate_lib_entrypoint_vec(loaded_app_t* app, uintptr_t* entry
         /* Get the entry */
         c_entry = ((dynamic_library_t*)c_liblist_node->data)->entry;
 
-        KLOG_DBG("Adding library %s\'s entry at: 0x%p\n", ((dynamic_library_t*)c_liblist_node->data)->name, c_entry);
-
         /* Only add if this library has an entry */
         if (c_entry)
             kaddr[lib_idx++] = c_entry;
@@ -151,7 +145,7 @@ static uintptr_t allocate_lib_entrypoint_vec(loaded_app_t* app, uintptr_t* entry
     *entrycount = lib_idx;
 
     /* Don't need the kernel address anymore */
-    kmem_kernel_dealloc((vaddr_t)kaddr, libarr_size);
+    kmem_unmap_range(nullptr, (vaddr_t)kaddr, GET_PAGECOUNT((vaddr_t)kaddr, libarr_size));
 
     return uaddr;
 }
@@ -172,14 +166,11 @@ loaded_sym_t* loaded_app_find_symbol_by_addr(loaded_app_t* app, void* addr)
         {
             c_sym = j->data;
 
-            if (!ret)
-                ret = c_sym;
-
             /* Address can't be part of this symbol */
             if ((void*)c_sym->uaddr > addr)
                 continue;
 
-            if (c_sym->uaddr > ret->uaddr)
+            if (c_sym->uaddr < (!ret ? 0 : ret->uaddr))
                 continue;
 
             ret = c_sym;
@@ -200,14 +191,11 @@ loaded_sym_t* loaded_app_find_symbol_by_addr(loaded_app_t* app, void* addr)
         {
             c_sym = j->data;
 
-            if (!ret)
-                ret = c_sym;
-
             /* Address can't be part of this symbol */
             if ((void*)c_sym->uaddr > addr)
                 continue;
 
-            if (c_sym->uaddr > ret->uaddr)
+            if (c_sym->uaddr < (!ret ? 0 : ret->uaddr))
                 continue;
 
             ret = c_sym;
@@ -315,15 +303,13 @@ kerror_t loaded_app_set_entry_tramp(loaded_app_t* app)
     lib_entrypoints_kaddr = proc_map_into_kernel(proc, lib_entrypoints_sym->uaddr, sizeof(uint64_t));
     lib_entrycount_kaddr = proc_map_into_kernel(proc, lib_entrycount_sym->uaddr, sizeof(uint64_t));
 
-    ASSERT(app_entrypoint_kaddr && lib_entrycount_kaddr && lib_entrypoints_kaddr);
-
     *app_entrypoint_kaddr = (uint64_t)app->entry;
     *lib_entrypoints_kaddr = allocate_lib_entrypoint_vec(app, lib_entrycount_kaddr);
 
     /* Unmap from the kernel (These addresses might just all be in the same page (highly likely)) */
-    kmem_kernel_dealloc((vaddr_t)app_entrypoint_kaddr, sizeof(u64));
-    kmem_kernel_dealloc((vaddr_t)lib_entrypoints_kaddr, sizeof(u64));
-    kmem_kernel_dealloc((vaddr_t)lib_entrycount_kaddr, sizeof(u64));
+    kmem_unmap_page(nullptr, (vaddr_t)app_entrypoint_kaddr);
+    kmem_unmap_page(nullptr, (vaddr_t)lib_entrypoints_kaddr);
+    kmem_unmap_page(nullptr, (vaddr_t)lib_entrycount_kaddr);
 
     /* Set the exit on the app */
     app->exit = (FuncPtr)quick_exit_sym->uaddr;

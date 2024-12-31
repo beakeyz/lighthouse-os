@@ -440,8 +440,6 @@ static inline void __proc_kill_threads(proc_t* proc)
  */
 void __destroy_proc(proc_t* proc)
 {
-    page_tracker_dump(&proc->m_virtual_tracker);
-
     /* Yeet threads */
     __proc_kill_threads(proc);
 

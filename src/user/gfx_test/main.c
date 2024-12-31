@@ -13,6 +13,8 @@ lightui_window_t* wnd;
 
 int main()
 {
+    return 0;
+
     wnd = lightui_request_window("gfxtest", 100, 100, LIGHTUI_WNDFLAG_NO_MIN_BTN);
 
     if (!wnd)

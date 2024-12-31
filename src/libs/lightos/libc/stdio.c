@@ -111,8 +111,6 @@ void __init_stdio(void)
     stdout->handle = open_handle(stdio_path, type, HNDL_FLAG_W, NULL);
     stdin->handle = open_handle(stdio_path, type, HNDL_FLAG_R, NULL);
     stderr->handle = open_handle(stdio_path, type, HNDL_FLAG_W, NULL);
-
-    printf("hello =)\n");
 }
 
 /*

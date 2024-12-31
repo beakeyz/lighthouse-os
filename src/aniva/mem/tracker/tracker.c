@@ -1,5 +1,6 @@
 #include "tracker.h"
 #include "libk/flow/error.h"
+#include "lightos/error.h"
 #include "logging/log.h"
 #include "mem/kmem.h"
 #include "mem/zalloc/zalloc.h"
@@ -514,104 +515,115 @@ static error_t __page_tracker_add_allocation(page_tracker_t* tracker, u64 page_i
     return error;
 }
 
-static inline error_t __page_tracker_find_range_with_gap_after(page_tracker_t* tracker, enum PAGE_TRACKER_ALLOC_MODE mode, page_allocation_t** palloc, page_range_t* this_range)
+static error_t __tracker_find_fitting_range(page_tracker_t* tracker, enum PAGE_TRACKER_ALLOC_MODE mode, u32 flags, size_t nr_pages, page_allocation_t*** palloc, page_range_t* prange)
 {
-    page_allocation_t* cur_range;
-    size_t page_delta;
+    page_allocation_t** a, **last;
+    u64 free_space_before;
+    u64 prev_range_terminating_page = 0;
 
-    /* ???? */
-    if (!this_range)
-        return -EINVAL;
+    /* TODO: Implement allocation modes */
+    (void)mode;
 
-    /* Find a base range */
-    if (__tracker_get_closest_range(tracker, this_range->page_idx, &cur_range, NULL))
-        return -ENOENT;
-
-    /* Skip any potential ranges that might come before us */
-    while ((cur_range->range.page_idx + cur_range->range.nr_pages - 1) < this_range->page_idx)
-        cur_range = cur_range->nx_link;
-
-    /* Loop over all the ranges to check if there is any space inbetween them */
-    for (; cur_range->nx_link != nullptr; cur_range = cur_range->nx_link) {
-        /* Calculate the page delta */
-        page_delta = cur_range->nx_link->range.page_idx - (cur_range->range.page_idx + cur_range->range.nr_pages);
-
-        /* If we found a delta that has space and we're trying to find the first
-         * fit, break */
-        if (page_delta >= this_range->nr_pages && mode == PAGE_TRACKER_FIRST_FIT)
-            break;
-    }
-
-    /* Couldn't find a range to stick this after */
-    if (!cur_range->nx_link && (cur_range->range.page_idx + cur_range->range.nr_pages + this_range->nr_pages - 1) > tracker->max_page)
-        return -ENOSPC;
-
-    /* Set the page index of this range */
-    this_range->page_idx = (cur_range->range.page_idx + cur_range->range.nr_pages);
-
-    /* Export the range we found */
-    *palloc = cur_range;
-
-    return 0;
-}
-
-
-/*!
- * @brief: Allocate any range
- */
-error_t page_tracker_alloc_any_from(page_tracker_t* tracker, enum PAGE_TRACKER_ALLOC_MODE mode, u64 base, size_t nr_pages, u32 flags, page_range_t* prange)
-{
-    error_t error = 0;
-    page_range_t this_range;
-    page_allocation_t* cur_range;
-
-    /* Check the parameters */
     if (!tracker || !nr_pages || !prange)
         return -EINVAL;
 
-    /* Init our page range */
-    init_page_range(&this_range, base, nr_pages, flags, 1);
+    last = a = &tracker->base;
 
-    /* Lock this fucker */
-    spinlock_lock(&tracker->lock);
+    /* Loop over the entire range */
+    while (*a) {
+        /* Compute how much space is in between this range and the previous */
+        free_space_before = (*a)->range.page_idx - prev_range_terminating_page;
 
-    /* If there is no base left, we can just yeet in this range anywhere */
-    if (!tracker->base) {
-        __page_allocation_append_in_slot(tracker, &tracker->base, &this_range);
+        /* Check if the free space is sufficient to fit our number of pages */
+        if (free_space_before >= nr_pages) {
+            /* Initialize a dummy range, spanning the entire free space */
+            init_page_range(prange, prev_range_terminating_page, free_space_before, flags, 1);
 
-        goto unlock_and_exit;
+            /* Maybe export the allocation */
+            if (palloc)
+                *palloc = last;
+
+            /* Yeet out of here */
+            return 0;
+        }
+
+        /* Compute the terminating page (the page after the ranges end-page) of the previous range */
+        prev_range_terminating_page = ((*a)->range.page_idx + (*a)->range.nr_pages);
+
+        /* Cache last */
+        last = a;
+        /* Set the next allocation */
+        a = &(*a)->nx_link;
     }
 
-    /* Try to find a range where our target range can fit after */
-    error = __page_tracker_find_range_with_gap_after(tracker, mode, &cur_range, &this_range);
+    /* Shit, check if we have some space left on the far end */
+    if (!(*a) && (tracker->max_page - prev_range_terminating_page) < nr_pages)
+        return -ENOENT;
 
-    if (error)
-        goto unlock_and_exit;
+    /* Alright, the range is still able to fit after the last range. No big deal */
+    init_page_range(prange, prev_range_terminating_page, (tracker->max_page - prev_range_terminating_page), flags, 1);
 
-    /* Check if we can just extend the current range */
-    if (__page_range_can_extend(&cur_range->range, &this_range))
-        /* Just extend this fucker if the ranges have the same attributes */
-        cur_range->range.nr_pages += nr_pages;
-    else
-        /* Append a range if they don't match */
-        __page_allocation_append(tracker, cur_range, &this_range);
+    /* Maybe export last allocation */
+    if (palloc && last)
+        *palloc = last;
 
-    /* Try to merge weird ranges */
-    __page_tracker_try_merge_ranges(tracker, tracker->base, nullptr);
+    /* Dip */
+    return 0;
+}
 
+/*!
+ * @brief: Finds a free range that can contain @nr_pages
+ */
+error_t page_tracker_find_fitting_range(page_tracker_t* tracker, enum PAGE_TRACKER_ALLOC_MODE mode, size_t nr_pages, page_range_t* prange)
+{
+    error_t error;
 
-unlock_and_exit:
+    spinlock_lock(&tracker->lock);
+
+    error = __tracker_find_fitting_range(tracker, mode, NULL, nr_pages, NULL, prange);
+
     spinlock_unlock(&tracker->lock);
-
-    /* Export the fucking range */
-    memcpy(prange, &this_range, sizeof(this_range));
 
     return error;
 }
 
+
 error_t page_tracker_alloc_any(page_tracker_t* tracker, enum PAGE_TRACKER_ALLOC_MODE mode, size_t nr_pages, u32 flags, page_range_t* prange)
 {
-    return page_tracker_alloc_any_from(tracker, mode, NULL, nr_pages, flags, prange);
+    error_t error;
+    page_allocation_t** last = nullptr;
+    page_range_t target_range = { 0 };
+
+    spinlock_lock(&tracker->lock);
+
+    /* Check error */
+    error = __tracker_find_fitting_range(tracker, mode, flags, nr_pages, &last, &target_range);
+
+    if (error || !last)
+        goto unlock_and_exit;
+
+    /* Reset the range, since __tracker_find_fitting_range maxes out the pagecount for the range it returns */
+    target_range.nr_pages = nr_pages;
+
+    /* Empty slot. We can just dump our range here */
+    if (!(*last))
+        __page_allocation_append_in_slot(tracker, last, &target_range);
+    else {
+        /* Check if we can extend the last range. Otherwise just append a new range */
+        if (__page_range_can_extend(&(*last)->range, &target_range))
+            (*last)->range.nr_pages += nr_pages; 
+        else
+            /* Need to append AFTER this boi */
+            __page_allocation_append(tracker, *last, &target_range);
+    }
+
+unlock_and_exit:
+    spinlock_unlock(&tracker->lock);
+
+    if (IS_OK(error))
+        memcpy(prange, &target_range, sizeof(target_range));
+
+    return error;
 }
 
 error_t page_tracker_alloc(page_tracker_t* tracker, u64 start_page, size_t nr_pages, u32 flags)

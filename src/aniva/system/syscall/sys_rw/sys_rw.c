@@ -3,7 +3,6 @@
 #include "lightos/fs/shared.h"
 #include "lightos/handle_def.h"
 #include "lightos/syscall.h"
-#include "logging/log.h"
 #include "mem/kmem.h"
 #include "oss/obj.h"
 #include "proc/handle.h"
@@ -25,8 +24,6 @@ error_t sys_write(HANDLE handle, void __user* buffer, size_t length)
 
     if (!buffer)
         return EINVAL;
-
-    KLOG_DBG("VERY UNSAFE, but we're writing: %s", buffer);
 
     current_proc = get_current_proc();
 

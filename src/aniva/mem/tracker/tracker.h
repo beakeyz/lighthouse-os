@@ -155,10 +155,10 @@ error_t page_tracker_dump(page_tracker_t* tracker);
  * page_tracker_alloc_any
  */
 enum PAGE_TRACKER_ALLOC_MODE {
-    PAGE_TRACKER_BEST_FIT,
-    PAGE_TRACKER_WORST_FIT,
     PAGE_TRACKER_FIRST_FIT,
     PAGE_TRACKER_LAST_FIT,
+    PAGE_TRACKER_BEST_FIT,
+    PAGE_TRACKER_WORST_FIT,
 };
 
 /*
@@ -168,7 +168,7 @@ enum PAGE_TRACKER_ALLOC_MODE {
  * represent an allocation. This way we stimulate clean allocation handling
  */
 error_t page_tracker_alloc_any(page_tracker_t* tracker, enum PAGE_TRACKER_ALLOC_MODE mode, size_t nr_pages, u32 flags, page_range_t* prange);
-error_t page_tracker_alloc_any_from(page_tracker_t* tracker, enum PAGE_TRACKER_ALLOC_MODE mode, u64 base, size_t nr_pages, u32 flags, page_range_t* prange);
+error_t page_tracker_find_fitting_range(page_tracker_t* tracker, enum PAGE_TRACKER_ALLOC_MODE mode, size_t nr_pages, page_range_t* prange);
 error_t page_tracker_alloc(page_tracker_t* tracker, u64 start_page, size_t nr_pages, u32 flags);
 error_t page_tracker_dealloc(page_tracker_t* tracker, page_range_t* range);
 error_t page_tracker_has_addr(page_tracker_t* tracker, u64 addr, bool* phas);
