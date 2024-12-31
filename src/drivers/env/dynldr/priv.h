@@ -34,7 +34,7 @@ typedef struct elf_image {
     struct elf64_dyn* elf_dyntbl;
 
     size_t elf_dyntbl_mapsize;
-    size_t elf_dynsym_count;
+    size_t elf_dynsym_tblsz;
     struct elf64_shdr* elf_symtbl_hdr;
     struct elf64_shdr* elf_lightentry_hdr;
     struct elf64_shdr* elf_lightexit_hdr;
@@ -99,7 +99,10 @@ typedef struct loaded_app {
     /* This list contains all the symbols we find throughout the load process of a single app.
      * The list also owns every single loaded_sym object. */
     list_t* symbol_list;
-    list_t* library_list;
+    /* Unordered list of libraries */
+    list_t* unordered_liblist;
+    /* List of libraries in the order that they where loaded */
+    list_t* ordered_liblist;
 } loaded_app_t;
 
 extern loaded_app_t* create_loaded_app(file_t* file, struct proc* proc);
@@ -113,7 +116,7 @@ extern kerror_t unregister_app(loaded_app_t* app);
 
 static inline uint32_t loaded_app_get_lib_count(loaded_app_t* app)
 {
-    return app->library_list->m_length;
+    return app->unordered_liblist->m_length;
 }
 
 extern struct loaded_sym* loaded_app_find_symbol(loaded_app_t* app, const char* symname);

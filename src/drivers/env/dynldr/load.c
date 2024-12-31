@@ -97,7 +97,12 @@ static kerror_t _dynlib_load_image(file_t* file, dynamic_library_t* lib)
     if (!KERR_OK(error))
         return error;
 
-    return _elf_do_relocations(&lib->image, lib->app);
+    error = _elf_do_relocations(&lib->image, lib->app);
+
+    if (!KERR_OK(error))
+        return error;
+
+    return 0;
 }
 
 static inline const char* _append_path_to_searchdir(const char* search_dir, const char* path)
@@ -124,17 +129,24 @@ static inline const char* _append_path_to_searchdir(const char* search_dir, cons
     return search_path;
 }
 
-static inline bool app_has_lib(loaded_app_t* app, const char* path)
+static inline bool app_check_lib(loaded_app_t* app, const char* path)
 {
     size_t pathlen;
     dynamic_library_t* lib;
 
+    /* Grab the paths length */
     pathlen = strlen(path);
 
-    FOREACH(i, app->library_list)
+    /* Apps never have libs with empty paths */
+    if (!pathlen)
+        return false;
+
+    /* Loop over all libraries in the app */
+    FOREACH(i, app->unordered_liblist)
     {
         lib = i->data;
 
+        /* Check if this library has a matching name */
         if (strncmp(path, lib->name, pathlen) == 0)
             return true;
     }
@@ -159,8 +171,8 @@ kerror_t load_dynamic_lib(const char* path, struct loaded_app* target_app, dynam
 
     //KLOG_DBG("Does app have lib...\n");
 
-    if (app_has_lib(target_app, path))
-        return KERR_INVAL;
+    if (app_check_lib(target_app, path))
+        return 0;
 
     profile_find_var(LIBSPATH_VARPATH, &libs_var);
     sysvar_get_str_value(libs_var, &search_dir);
@@ -184,9 +196,7 @@ kerror_t load_dynamic_lib(const char* path, struct loaded_app* target_app, dynam
         return -KERR_INVAL;
 
     /* Register ourselves preemptively to the app */
-    list_append(target_app->library_list, lib);
-
-    //KLOG_DBG("Trying to open file...\n");
+    list_append(target_app->unordered_liblist, lib);
 
     /* Then try to open the target file */
     lib_file = file_open(lib->path);
@@ -204,6 +214,9 @@ kerror_t load_dynamic_lib(const char* path, struct loaded_app* target_app, dynam
     if (error)
         goto dealloc_and_exit;
 
+    /* Register ourselves preemptively to the app */
+    list_append(target_app->ordered_liblist, lib);
+
     /* Set the entry */
     if (lib->image.elf_lightentry_hdr)
         lib->entry = (DYNLIB_ENTRY_t)lib->image.elf_lightentry_hdr->sh_addr;
@@ -217,7 +230,7 @@ kerror_t load_dynamic_lib(const char* path, struct loaded_app* target_app, dynam
     KLOG_DBG("Successfully loaded %s (entry=0x%p)\n", lib->name, lib->entry);
     return 0;
 dealloc_and_exit:
-    list_remove_ex(target_app->library_list, lib);
+    list_remove_ex(target_app->unordered_liblist, lib);
 
     if (lib)
         _destroy_dynamic_lib(lib);

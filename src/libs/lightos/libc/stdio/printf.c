@@ -9,7 +9,50 @@
 extern int __write_byte(FILE* stream, uint64_t* counter, char byte);
 extern int __write_bytes(FILE* stream, uint64_t* counter, char* bytes);
 
-static int __write_decimal(uint64_t* counter, FILE* stream, uint64_t value, int prec)
+/* Print callback for when we want to get an actual byte onto the stream */
+typedef int (*F_PRINT_CB)(char byte, char** out, size_t* p_cur_size, void* priv);
+
+/*!
+ * @brief: Print an unsigned number as a base-16 number
+ */
+static void _print_hex(uint64_t value, int prec, F_PRINT_CB output_cb, char** out, size_t* max_size, void* priv)
+{
+    uint32_t idx;
+    char tmp[128];
+    const char hex_chars[17] = "0123456789ABCDEF";
+    uint8_t len = 1;
+
+    memset(tmp, '0', sizeof(tmp));
+
+    uint64_t size_test = value;
+    while (size_test / 16 > 0) {
+        size_test /= 16;
+        len++;
+    }
+
+    if (len < prec && prec && prec != -1)
+        len = prec;
+
+    idx = 0;
+
+    while (value / 16 > 0) {
+        uint8_t remainder = value % 16;
+        value -= remainder;
+        tmp[len - 1 - idx] = hex_chars[remainder];
+        idx++;
+        value /= 16;
+    }
+    uint8_t last = value % 16;
+    tmp[len - 1 - idx] = hex_chars[last];
+
+    for (uint32_t i = 0; i < len; i++)
+        output_cb(tmp[i], out, max_size, priv);
+}
+
+/*!
+ * @brief: Print an unsigned number as a base-10 number
+ */
+static inline int _print_decimal(int64_t value, int prec, F_PRINT_CB output_cb, char** out, size_t* max_size, void* priv)
 {
     char tmp[128];
     uint8_t size = 1;
@@ -36,114 +79,147 @@ static int __write_decimal(uint64_t* counter, FILE* stream, uint64_t value, int 
     }
     uint8_t remain = value % 10;
     tmp[size - 1 - index] = remain + '0';
-    // tmp[size] = 0;
 
-    //__write_bytes(stream, counter, tmp);
-
-    /* NOTE: don't use __write_bytes here, since it simply goes until it finds a NULL-byte */
-    for (uint32_t i = 0; i < size; i++) {
-        __write_byte(stream, counter, tmp[i]);
-    }
+    for (uint32_t i = 0; i < size; i++)
+        output_cb(tmp[i], out, max_size, priv);
 
     return size;
 }
 
-int real_va_sprintf(uint8_t mode, FILE* stream, const char* fmt, va_list va)
+/*!
+ * @brief: Scaffolding function for raw printing onto byte buffers/streams
+ */
+static inline int _vprintf(const char* fmt, va_list args, F_PRINT_CB output_cb, char** out, size_t max_size, void* priv)
 {
     int prec;
-    uint64_t i = 0;
-    int64_t value;
-    uint32_t decimal_size;
+    uint32_t integer_width;
+    uint32_t max_length;
 
     for (const char* c = fmt; *c; c++) {
 
-        decimal_size = 0;
-        value = 0;
+        if (*c != '%')
+            goto kputch_cycle;
+
+        integer_width = 0;
+        max_length = 0;
         prec = -1;
-
-        if (*c != '%') {
-            __write_byte(stream, &i, *c);
-            continue;
-        }
-
-        /* We are dealing with a format character skip */
         c++;
 
-        /* TODO: support entire format */
+        if (*c == '-')
+            c++;
+
+        /* FIXME: Register digits at the start */
+        while (isdigit(*c)) {
+            max_length = (max_length * 10) + ((*c) - '0');
+            c++;
+        }
 
         if (*c == '.') {
             prec = 0;
             c++;
 
-            while (isdigit(*c)) {
+            while (*c >= '0' && *c <= '9') {
                 prec *= 10;
                 prec += *c - '0';
                 c++;
             }
         }
 
-        /* This is hilarious */
-        while (*c == 'l' && decimal_size < 2) {
-            decimal_size++;
+        /* Account for size */
+        while (*c == 'l' && integer_width < 2) {
+            integer_width++;
             c++;
         }
 
         switch (*c) {
-        case 'c':
-            __write_byte(stream, &i, va_arg(va, int));
-            break;
-        case 's':
-            /*
-             * This is our own version of __write_bytes, since we want to stop when we
-             * encounter a NULL-byte
-             */
-            for (char* c = va_arg(va, char*);; c++) {
-
-                if (!*c)
-                    break;
-
-                if (__write_byte(stream, &i, *c) < 0)
-                    break;
-            }
-            break;
         case 'i':
         case 'd': {
-            switch (decimal_size) {
+            int64_t value;
+            switch (integer_width) {
             case 0:
-                value = va_arg(va, int);
+                value = va_arg(args, int);
                 break;
             case 1:
-                value = va_arg(va, long);
+                value = va_arg(args, long);
                 break;
             case 2:
-                value = va_arg(va, long long);
+                value = va_arg(args, long long);
                 break;
+            default:
+                value = 0;
             }
 
             if (value < 0) {
                 value = -value;
-                __write_byte(stream, &i, '-');
+                output_cb('-', out, &max_size, priv);
             }
 
-            __write_decimal(&i, stream, value, prec);
+            _print_decimal(value, prec, output_cb, out, &max_size, priv);
             break;
         }
-        case 'X':
-        case 'x': {
-            __write_bytes(stream, &i, "TODO:hex =)");
+        case 'p':
+            integer_width = 2;
+        case 'x':
+        case 'X': {
+            uint64_t value;
+            switch (integer_width) {
+            case 0:
+                value = va_arg(args, int);
+                break;
+            case 1:
+                value = va_arg(args, long);
+                break;
+            case 2:
+                value = va_arg(args, long long);
+                break;
+            default:
+                value = 0;
+            }
+
+            _print_hex(value, prec, output_cb, out, &max_size, priv);
             break;
         }
-        case '%':
-            __write_byte(stream, &i, '%');
-            break;
-        default:
-            // exit_noimpl("real_va_sprintf: edgecase");
-            __write_byte(stream, &i, *c);
+        case 's': {
+            const char* str = va_arg(args, char*);
+
+            if (!max_length)
+                while (*str)
+                    output_cb(*str++, out, &max_size, priv);
+            else
+                while (max_length--)
+                    if (*str)
+                        output_cb(*str++, out, &max_size, priv);
+                    else
+                        output_cb(' ', out, &max_size, priv);
+
             break;
         }
+        default: {
+            output_cb(*c, out, &max_size, priv);
+            break;
+        }
+        }
+
+        continue;
+
+    kputch_cycle:
+        output_cb(*c, out, &max_size, priv);
     }
 
-    __write_byte(stream, NULL, NULL);
-    /* Return the length of everything we wrote */
-    return i;
+    /* End with a null-byte */
+    output_cb(NULL, out, &max_size, priv);
+
+    return max_size;
+}
+
+static int __sprintf_cb(char c, char** out, size_t* p_cur_size, void* priv)
+{
+    FILE* stream = priv;
+
+    return __write_byte(stream, p_cur_size, c);
+}
+
+int real_va_sprintf(uint8_t mode, FILE* stream, const char* fmt, va_list va)
+{
+    return _vprintf(fmt, va, __sprintf_cb, NULL, 0, stream);
 }

@@ -345,7 +345,7 @@ static uint64_t _loader_msg(aniva_driver_t* driver, dcc_t code, void* in_buf, si
         target_app = _get_app_from_proc(c_proc);
 
         /* Walk the library list to count the size of the exit vec */
-        FOREACH(i, target_app->library_list)
+        FOREACH(i, target_app->unordered_liblist)
         {
             c_library = (dynamic_library_t*)i->data;
 
@@ -361,7 +361,7 @@ static uint64_t _loader_msg(aniva_driver_t* driver, dcc_t code, void* in_buf, si
         (*vec)->nr_exits = sz_exit_vec;
 
         /* Fill the buffer */
-        FOREACH(i, target_app->library_list)
+        FOREACH(i, target_app->unordered_liblist)
         {
             c_library = (dynamic_library_t*)i->data;
 
@@ -426,7 +426,7 @@ static int __libinit_thread_eventhook(kevent_ctx_t* _ctx, void* param)
     if (!app)
         return 0;
 
-    FOREACH(i, app->library_list)
+    FOREACH(i, app->unordered_liblist)
     {
         lib = i->data;
 

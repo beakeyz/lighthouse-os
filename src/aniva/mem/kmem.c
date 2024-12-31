@@ -65,16 +65,16 @@ size_t kmem_get_early_map_size()
 
 static inline u32 generate_tracker_flags(u32 custom_flags, u32 page_flags)
 {
-    u32 ret = PAGE_RANGE_FLAG_EXEC;
+    u32 ret = 0;
 
     if (page_flags & KMEM_FLAG_KERNEL)
         ret |= PAGE_RANGE_FLAG_KERNEL; 
 
-    if (page_flags & KMEM_FLAG_NOEXECUTE)
-        ret &= ~PAGE_RANGE_FLAG_EXEC;
+    if ((page_flags & KMEM_FLAG_NOEXECUTE) != KMEM_FLAG_NOEXECUTE)
+        ret |= PAGE_RANGE_FLAG_EXEC;
 
     if (page_flags & KMEM_FLAG_WRITABLE)
-        ret &= PAGE_RANGE_FLAG_WRITABLE;
+        ret |= PAGE_RANGE_FLAG_WRITABLE;
 
     return ret;
 }
@@ -337,8 +337,9 @@ bool kmem_map_range(pml_entry_t* table, uintptr_t virt_base, uintptr_t phys_base
 {
     pml_entry_t* page;
 
-    virt_base = ALIGN_DOWN(virt_base, SMALL_PAGE_SIZE);
-    phys_base = ALIGN_DOWN(phys_base, SMALL_PAGE_SIZE);
+    /* Clear the low page bits from these addresses */
+    virt_base &= ~PAGE_LOW_MASK;
+    phys_base &= ~PAGE_LOW_MASK;
 
     /*
     if (!page_flags)

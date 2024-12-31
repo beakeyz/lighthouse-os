@@ -1,6 +1,7 @@
 #include "libk/flow/error.h"
 #include "lightos/memory/memflags.h"
 #include "lightos/syscall.h"
+#include "logging/log.h"
 #include "proc/proc.h"
 #include "sched/scheduler.h"
 #include <mem/kmem.h>
@@ -48,6 +49,8 @@ error_t sys_alloc_vmem(size_t size, u32 flags, vaddr_t* buffer)
 
     if (error)
         return ENOMEM;
+
+    KLOG_DBG(" ==> Alloced range: 0x%p(%lld)\n", result, size);
 
     /* Set the buffer hihi */
     *buffer = (vaddr_t)result;

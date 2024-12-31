@@ -2,6 +2,7 @@
 #include "libk/data/hashmap.h"
 #include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"
+#include "logging/log.h"
 #include "mem/heap.h"
 #include "mem/kmem.h"
 #include "mem/zalloc/zalloc.h"
@@ -28,7 +29,8 @@ loaded_app_t* create_loaded_app(file_t* file, proc_t* proc)
         goto dealloc_and_exit;
 
     ret->proc = proc;
-    ret->library_list = init_list();
+    ret->unordered_liblist = init_list();
+    ret->ordered_liblist = init_list();
     ret->symbol_list = init_list();
     /* Variable size hashmap for the exported symbols */
     ret->exported_symbols = create_hashmap(1 * Mib, HASHMAP_FLAG_SK);
@@ -49,7 +51,7 @@ dealloc_and_exit:
 void destroy_loaded_app(loaded_app_t* app)
 {
     /* Murder all libraries in this app */
-    FOREACH(i, app->library_list)
+    FOREACH(i, app->unordered_liblist)
     {
         dynamic_library_t* lib = i->data;
 
@@ -66,7 +68,8 @@ void destroy_loaded_app(loaded_app_t* app)
         kzfree(sym, sizeof(*sym));
     }
 
-    destroy_list(app->library_list);
+    destroy_list(app->unordered_liblist);
+    destroy_list(app->ordered_liblist);
     destroy_list(app->symbol_list);
     destroy_hashmap(app->exported_symbols);
 
@@ -77,27 +80,27 @@ void destroy_loaded_app(loaded_app_t* app)
 
 void* proc_map_into_kernel(proc_t* proc, vaddr_t uaddr, size_t size)
 {
-    paddr_t paddr;
+    paddr_t pbase;
 
     if (!proc)
         return nullptr;
 
-    paddr = kmem_to_phys(
+    pbase = kmem_to_phys_aligned(
         proc->m_root_pd.m_root,
         uaddr);
 
-    if (!paddr)
+    if (!pbase)
         return nullptr;
 
     ASSERT(kmem_map_range(
                 nullptr,
-                kmem_from_phys(paddr, KERNEL_MAP_BASE),
-                paddr,
-                GET_PAGECOUNT(0, size),
+                kmem_from_phys(pbase, KERNEL_MAP_BASE),
+                pbase,
+                GET_PAGECOUNT(uaddr, size),
                 KMEM_CUSTOMFLAG_GET_MAKE,
                 KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE));
 
-    return (void*)kmem_from_phys(paddr, KERNEL_MAP_BASE);
+    return (void*)(kmem_from_phys(pbase, KERNEL_MAP_BASE) + (uaddr - ALIGN_DOWN(uaddr, SMALL_PAGE_SIZE)));
 }
 
 static uintptr_t allocate_lib_entrypoint_vec(loaded_app_t* app, uintptr_t* entrycount)
@@ -127,18 +130,20 @@ static uintptr_t allocate_lib_entrypoint_vec(loaded_app_t* app, uintptr_t* entry
     memset(kaddr, 0, libarr_size);
 
     lib_idx = NULL;
-    c_liblist_node = app->library_list->end;
+    c_liblist_node = app->ordered_liblist->head;
 
     /* Cycle through the libraries in reverse */
     while (c_liblist_node) {
         /* Get the entry */
         c_entry = ((dynamic_library_t*)c_liblist_node->data)->entry;
 
+        KLOG_DBG("Adding entry 0x%p from library %s\n", c_entry, ((dynamic_library_t*)c_liblist_node->data)->name);
+
         /* Only add if this library has an entry */
         if (c_entry)
             kaddr[lib_idx++] = c_entry;
 
-        c_liblist_node = c_liblist_node->prev;
+        c_liblist_node = c_liblist_node->next;
     }
 
     /* NOTE: at this point lib_idx will represent the amount of libraries that have entries we need to call */
@@ -179,7 +184,7 @@ loaded_sym_t* loaded_app_find_symbol_by_addr(loaded_app_t* app, void* addr)
         return ret;
     }
 
-    FOREACH(i, app->library_list)
+    FOREACH(i, app->unordered_liblist)
     {
         c_lib = i->data;
 
@@ -212,7 +217,7 @@ loaded_sym_t* loaded_app_find_symbol(loaded_app_t* app, const char* symname)
     loaded_sym_t* ret;
     dynamic_library_t* c_lib;
 
-    FOREACH(i, app->library_list)
+    FOREACH(i, app->unordered_liblist)
     {
         c_lib = i->data;
 
@@ -316,5 +321,6 @@ kerror_t loaded_app_set_entry_tramp(loaded_app_t* app)
 
     /* FIXME: args? */
     proc_set_entry(proc, (FuncPtr)tramp_start_sym->uaddr, NULL, NULL);
+
     return 0;
 }

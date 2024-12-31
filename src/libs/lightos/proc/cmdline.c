@@ -30,12 +30,18 @@ int cmdline_get_raw(char* buffer, size_t bsize)
 
 int cmdline_get(CMDLINE* b_cmdline)
 {
+    printf("Trying to get cmdline...\n");
+
     if (!__this_cmdline.raw)
         return -1;
+
+    printf("Duping into 0x%p\n", b_cmdline);
 
     b_cmdline->raw = strdup(__this_cmdline.raw);
     b_cmdline->argv = malloc(sizeof(char*) * __this_cmdline.argc);
     b_cmdline->argc = __this_cmdline.argc;
+
+    printf("Got malloc: 0x%p\n", b_cmdline->argv);
 
     for (uint32_t i = 0; i < b_cmdline->argc; i++)
         b_cmdline->argv[i] = __this_cmdline.argv[i];

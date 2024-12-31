@@ -2,6 +2,7 @@
  * ELF routines (relocations, sym resolving, ect.)
  */
 #include "libk/bin/elf.h"
+#include <libk/math/math.h>
 #include "drivers/env/dynldr/priv.h"
 #include "fs/file.h"
 #include "libk/bin/elf_types.h"
@@ -13,6 +14,7 @@
 #include "mem/kmem.h"
 #include "mem/tracker/tracker.h"
 #include "mem/zalloc/zalloc.h"
+#include "proc/core.h"
 #include "proc/proc.h"
 #include <lightos/lightos.h>
 
@@ -107,6 +109,8 @@ kerror_t _elf_load_phdrs(elf_image_t* image)
     /* Get the pointer */
     image->user_base = (void*)page_range_to_ptr(&range);
 
+    //page_tracker_alloc(&image->proc->m_virtual_tracker, range.page_idx, image->user_image_size >> 12, PAGE_RANGE_FLAG_UNBACKED);
+
     KLOG_DBG("Found elf image user base: 0x%p (size=%lld bytes)\n", image->user_base, image->user_image_size);
 
     /* Now we can actually start to load the headers */
@@ -137,7 +141,7 @@ kerror_t _elf_load_phdrs(elf_image_t* image)
              */
             ASSERT(kmem_get_kernel_address(&v_kernel_phdr_start, v_user_phdr_start, proc->m_root_pd.m_root) == 0);
 
-            // printf("Allocated %lld bytes at 0x%llx (kernel_addr=%llx)\n", phdr_size, v_user_phdr_start, v_kernel_phdr_start);
+            KLOG_DBG("Allocated %lld bytes at 0x%llx (kernel_addr=%llx)\n", phdr_size, v_user_phdr_start, v_kernel_phdr_start);
 
             /* Then, zero the rest of the buffer */
             /* TODO: ??? */
@@ -147,7 +151,7 @@ kerror_t _elf_load_phdrs(elf_image_t* image)
              * Copy elf into the mapped area
              */
             memcpy((void*)v_kernel_phdr_start, image->kernel_image + c_phdr->p_offset,
-                c_phdr->p_filesz > c_phdr->p_memsz ? c_phdr->p_memsz : c_phdr->p_filesz);
+                MIN(phdr_size, c_phdr->p_filesz));
         } break;
         case PT_DYNAMIC:
             /* Remap to the kernel */
@@ -246,10 +250,11 @@ static inline kerror_t __elf_parse_symbol_table(loaded_app_t* app, list_t* symli
     /* Walk the table and resolve any symbols */
     for (uint32_t i = 0; i < sym_count; i++) {
         struct elf64_sym* current_symbol = &sym_table_start[i];
+        const u32 type = ELF64_ST_TYPE(current_symbol->st_info);
         const char* sym_name = (const char*)((uint64_t)strtab + current_symbol->st_name);
 
         /* Debug print lmao */
-        // printf("Found a symbol (\'%s\'). info=0x%x\n", sym_name, current_symbol->st_info);
+        KLOG_DBG("Found a symbol (\'%s\'). addr=0x%llx (user_base=0x%p)\n", sym_name, current_symbol->st_value, image->user_base);
 
         current_symbol->st_value += (vaddr_t)image->user_base;
 
@@ -274,6 +279,9 @@ static inline kerror_t __elf_parse_symbol_table(loaded_app_t* app, list_t* symli
             if (!strlen(sym_name))
                 break;
 
+            if (type >= STT_FILE)
+                break;
+
             /* Allocate the symbol manually. This gets freed when the loaded_app is destroyed */
             sym = kzalloc(sizeof(loaded_sym_t));
 
@@ -285,6 +293,11 @@ static inline kerror_t __elf_parse_symbol_table(loaded_app_t* app, list_t* symli
             sym->name = sym_name;
             sym->uaddr = current_symbol->st_value;
 
+            if (type == STT_FUNC)
+                sym->flags |= LDSYM_FLAG_EXPORT;
+
+            KLOG_DBG("Found symbol: %s (address=0x%llx)\n", sym_name, sym->uaddr);
+
             /* Add both to the symbol map for easy lookup and the list for easy cleanup */
             hashmap_put(symmap, (hashmap_key_t)sym_name, sym);
             list_append(symlist, sym);
@@ -292,41 +305,6 @@ static inline kerror_t __elf_parse_symbol_table(loaded_app_t* app, list_t* symli
         }
     }
     return 0;
-}
-
-static inline void _elf_mark_exported_symbols(loaded_app_t* app, elf_image_t* image)
-{
-    loaded_sym_t* sym;
-    size_t sym_count;
-    const char* strtab;
-    struct elf64_sym* sym_table_start;
-
-    if (!image->elf_dynsym || !image->elf_dynsym_count || !image->elf_dynstrtab)
-        return;
-
-    /* Grab the start of the symbol table */
-    sym_table_start = image->elf_dynsym;
-    sym_count = image->elf_dynsym_count;
-    strtab = image->elf_dynstrtab;
-
-    /* Walk the table and resolve any symbols */
-    for (uint32_t i = 0; i < sym_count; i++) {
-        struct elf64_sym* current_symbol = &sym_table_start[i];
-        const char* sym_name = (const char*)((uint64_t)strtab + current_symbol->st_name);
-
-        if (current_symbol->st_shndx == SHN_UNDEF)
-            continue;
-
-        /* Don't add weird symbols */
-        if (!strlen(sym_name))
-            continue;
-
-        sym = loaded_app_find_symbol(app, sym_name);
-
-        /* Mark this symbol as exported lololol */
-        if (sym)
-            sym->flags |= LDSYM_FLAG_EXPORT;
-    }
 }
 
 /*!
@@ -352,7 +330,13 @@ kerror_t _elf_do_symbols(list_t* symbol_list, hashmap_t* exported_symbol_map, lo
     if (__elf_parse_symbol_table(app, symbol_list, exported_symbol_map, image, syms, symcount, names))
         return -KERR_INVAL;
 
-    _elf_mark_exported_symbols(app, image);
+    names = image->elf_dynstrtab;
+    syms = image->elf_dynsym;
+    symcount = image->elf_dynsym_tblsz / sizeof(struct elf64_sym);
+
+    /* Parse dynamic symbol table */
+    if (syms && __elf_parse_symbol_table(app, symbol_list, exported_symbol_map, image, syms, symcount, names))
+        return -KERR_INVAL;
 
     /* Now grab copy relocations
        This loop looks ugly as hell, but just deal with it sucker */
@@ -381,6 +365,8 @@ kerror_t _elf_do_symbols(list_t* symbol_list, hashmap_t* exported_symbol_map, lo
                 sym = &image->elf_dynsym[symbol];
                 symname = (char*)((uintptr_t)image->elf_dynstrtab + sym->st_name);
 
+                KLOG_DBG("Thing: %s\n", symname);
+
                 loaded_sym = hashmap_get(exported_symbol_map, symname);
 
                 if (!loaded_sym)
@@ -403,6 +389,8 @@ kerror_t _elf_do_symbols(list_t* symbol_list, hashmap_t* exported_symbol_map, lo
                 symbol = ELF64_R_SYM(rela[i].r_info);
                 sym = &image->elf_dynsym[symbol];
                 symname = (char*)((uintptr_t)image->elf_dynstrtab + sym->st_name);
+
+                KLOG_DBG("RELA Thing: %s\n", symname);
 
                 loaded_sym = hashmap_get(exported_symbol_map, symname);
 
@@ -450,7 +438,7 @@ static kerror_t __elf_get_dynsect_info(elf_image_t* image)
             ASSERT(kmem_get_kernel_address((uint64_t*)&_elf_dynsym_count_p, (vaddr_t)image->user_base + dyns_entry->d_un.d_ptr, image->proc->m_root_pd.m_root) == 0);
 
             /* Yoink the value */
-            image->elf_dynsym_count = _elf_dynsym_count_p[1];
+            image->elf_dynsym_tblsz = _elf_dynsym_count_p[1];
             break;
         case DT_PLTGOT:
         case DT_PLTREL:
@@ -490,7 +478,7 @@ static kerror_t __elf_process_dynsect_info(elf_image_t* image, loaded_app_t* app
         /* Load the library */
         error = load_dynamic_lib((const char*)(image->elf_dynstrtab + dyns_entry->d_un.d_val), app, NULL);
 
-        if (!KERR_OK(error) && kerror_is_fatal(error))
+        if (!KERR_OK(error))
             return error;
 
     cycle:
@@ -583,7 +571,7 @@ kerror_t _elf_do_relocations(elf_image_t* image, loaded_app_t* app)
             if (c_ldsym)
                 val = c_ldsym->uaddr;
 
-            // printf("Need to relocate symbol %s\n", c_ldsym->name);
+            //KLOG_DBG("Need to relocate symbol %s (addr=0x%llx, found=%s)\n", symname, val, (c_ldsym == nullptr ? "false" : "true"));
 
             /* Copy is special snowflake lmao */
             if (ELF64_R_TYPE(current->r_info) == R_X86_64_COPY) {

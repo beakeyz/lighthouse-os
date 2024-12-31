@@ -70,7 +70,7 @@ static inline int __proc_init_page_tracker(proc_t* proc, size_t bsize)
         goto dealloc_and_exit;
 
     /* Pre-allocate the first 1 Mib of pages, so the NULL address can always stay un-allocated */
-    error = page_tracker_alloc(&proc->m_virtual_tracker, 0, 255, PAGE_RANGE_FLAG_UNBACKED);
+    error = page_tracker_alloc(&proc->m_virtual_tracker, 0, 256, PAGE_RANGE_FLAG_UNBACKED);
 
     if (HAS_ERROR(error))
         goto dealloc_and_exit;
@@ -440,6 +440,8 @@ static inline void __proc_kill_threads(proc_t* proc)
  */
 void __destroy_proc(proc_t* proc)
 {
+    /* Once again an amazing dump */
+    page_tracker_dump(&proc->m_virtual_tracker);
     /* Yeet threads */
     __proc_kill_threads(proc);
 
