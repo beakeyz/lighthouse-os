@@ -42,7 +42,10 @@ void lightapp_startup(MainEntry main)
     if (!main)
         exit(EINVAL);
 
+    /* Initialize LIBC */
     __init_libc();
+
+    /* Walk the dependencies list and initialize LIGHTENTRY functions */
 
     /* 2) pass appropriate arguments to the program and run it */
 

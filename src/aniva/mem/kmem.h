@@ -160,8 +160,12 @@ size_t kmem_get_early_map_size();
  */
 error_t init_kmem(uintptr_t* mb_addr);
 
-void kmem_load_page_dir(uintptr_t dir, bool __disable_interrupts);
-pml_entry_t* kmem_get_krnl_dir();
+error_t kmem_set_addrspace(page_dir_t* dir);
+error_t kmem_set_addrspace_ex(page_dir_t* dir, struct proc* proc);
+error_t kmem_get_addrspace(page_dir_t* dir);
+error_t kmem_get_kernel_addrspace(page_dir_t* dir);
+pml_entry_t* kmem_get_kernel_root_pd();
+paddr_t kmem_get_kernel_root_pd_phys();
 
 uintptr_t kmem_get_page_idx(uintptr_t page_addr);
 uintptr_t kmem_get_page_base(uintptr_t base);
@@ -250,8 +254,6 @@ int kmem_user_dealloc(struct proc* p, vaddr_t vaddr, size_t size);
 int kmem_get_kernel_address(vaddr_t* p_kaddr, vaddr_t virtual_address, pml_entry_t* from_map);
 int kmem_get_kernel_address_ex(vaddr_t* p_kaddr, vaddr_t virtual_address, vaddr_t map_base, pml_entry_t* from_map);
 int kmem_map_to_kernel(vaddr_t* p_kaddr, vaddr_t uaddr, size_t size, vaddr_t map_base, pml_entry_t* from_map, u32 custom_flags, u32 kmem_flags);
-
-int kmem_to_current_pagemap(vaddr_t vaddr, pml_entry_t* external_map);
 
 /*
  * Prepares a new pagemap that has virtual memory mapped from 0 -> initial_size

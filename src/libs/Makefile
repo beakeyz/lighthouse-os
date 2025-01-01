@@ -14,7 +14,7 @@ export LIBRARY_SHARED_FILE_EXT := .lib
 export LIBRARY_STATIC_FILE_EXT := .obj
 
 export LIBRARY_CFLAGS= -std=gnu11 -Wall -O2 -ffreestanding -fPIC -shared -D'LIBENV' $(USER_INCLUDE_CFLAGS)
-export LIBRARY_SHARED_LDFLAGS= -fPIC -shared -nostdlib -L$(SYSROOT_DIR)/System/Lib
+export LIBRARY_SHARED_LDFLAGS= -fPIC -shared -nostdlib -L$(SYSROOT_LIBRARY_DIR)
 export LIBRARY_STATIC_LDFLAGS= -nostdlib -static -r
 
 build: $(LIBRARY_PATHS)

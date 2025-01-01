@@ -11,6 +11,7 @@
 #include "mem/kmem.h"
 #include "oss/obj.h"
 #include "proc/proc.h"
+#include "sched/scheduler.h"
 #include "sys/types.h"
 #include "system/profile/profile.h"
 
@@ -178,6 +179,7 @@ static proc_t* __elf_exec_dynamic_64(file_t* file, bool kernel)
 proc_t* elf_exec_64(file_t* file, bool kernel)
 {
     proc_t* proc = NULL;
+    page_dir_t prev_pdir;
     struct elf64_phdr* phdrs = NULL;
     struct elf64_hdr header;
     struct proc_image image;
@@ -221,13 +223,17 @@ proc_t* elf_exec_64(file_t* file, bool kernel)
     image.m_lowest_addr = (vaddr_t)-1;
     image.m_highest_addr = 0;
 
+    /* Cache the current addressspace */
+    kmem_get_addrspace(&prev_pdir);
+    /* Temporarily switch to the processes addrspace */
+    kmem_set_addrspace_ex(&proc->m_root_pd, get_current_proc());
+
     for (uintptr_t i = 0; i < header.e_phnum; i++) {
         struct elf64_phdr phdr = phdrs[i];
 
         switch (phdr.p_type) {
         case PT_LOAD: {
             vaddr_t v_user_phdr_start;
-            vaddr_t v_kernel_phdr_start;
             vaddr_t virtual_phdr_base = phdr.p_vaddr;
             size_t phdr_size = phdr.p_memsz;
 
@@ -241,12 +247,9 @@ proc_t* elf_exec_64(file_t* file, bool kernel)
                            page_flags),
                 "elf.c: Failed to alloc range");
 
-            /* Grab the kernel phdr */
-            ASSERT_MSG(!kmem_get_kernel_address(&v_kernel_phdr_start, v_user_phdr_start, proc->m_root_pd.m_root), "elf.c: Failed to get kernel address");
-
             /* Then, zero the rest of the buffer */
             /* TODO: ??? */
-            memset((void*)(v_kernel_phdr_start), 0, phdr_size);
+            memset((void*)(v_user_phdr_start), 0, phdr_size);
 
             /*
              * Copy elf into the mapped area
@@ -254,7 +257,7 @@ proc_t* elf_exec_64(file_t* file, bool kernel)
              */
             elf_read(
                 file,
-                (void*)v_kernel_phdr_start,
+                (void*)v_user_phdr_start,
                 phdr.p_filesz > phdr.p_memsz ? &phdr.p_memsz : &phdr.p_filesz,
                 phdr.p_offset);
 
@@ -272,6 +275,9 @@ proc_t* elf_exec_64(file_t* file, bool kernel)
 
     /* Copy over the image object */
     proc->m_image = image;
+
+    /* Switch back to the kernel page */
+    kmem_set_addrspace_ex(&prev_pdir, get_current_proc());
 
     return proc;
 

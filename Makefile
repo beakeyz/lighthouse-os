@@ -19,6 +19,7 @@ export SRC=$(WORKING_DIR)/src
 export PROJECT_DIR=$(WORKING_DIR)/project
 export TOOLS_DIR=$(WORKING_DIR)/tools
 export SYSROOT_DIR=$(WORKING_DIR)/system
+export SYSROOT_LIBRARY_DIR=$(SYSROOT_DIR)/System/Lib
 
 export LIBRARY_BIN_PATH=$(WORKING_DIR)/out/libs
 

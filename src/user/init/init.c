@@ -97,6 +97,8 @@ int main()
     CMDLINE cmd;
     HANDLE sysvar;
 
+    return 0;
+
     if (cmdline_get(&cmd))
         return -EINVAL;
 

@@ -1,7 +1,7 @@
 
 PROCESS_NAME=doom
 LINK_TYPE=dynamic
-LIBRARIES := -l:libgfx.lib \
-			 -l:lightui.lib
+LIBRARIES := libgfx \
+			 lightui
 
 include ../user.mk

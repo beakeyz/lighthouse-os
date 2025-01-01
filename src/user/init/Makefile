@@ -1,6 +1,5 @@
 PROCESS_NAME=init
-
 LINK_TYPE=dynamic
-LIBRARIES :=
+LIBRARIES:=
 
 include ../user.mk

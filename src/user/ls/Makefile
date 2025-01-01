@@ -1,5 +1,5 @@
 PROCESS_NAME=ls
 LINK_TYPE=dynamic
-LIBRARIES := -l:kterm.lib
+LIBRARIES := kterm
 
 include ../user.mk

@@ -1,5 +1,6 @@
 #include "kmem.h"
 #include "entry/entry.h"
+#include "irq/interrupts.h"
 #include "libk/flow/error.h"
 #include "libk/multiboot.h"
 #include "logging/log.h"
@@ -9,6 +10,7 @@
 #include "phys.h"
 #include "proc/core.h"
 #include "proc/proc.h"
+#include "sched/scheduler.h"
 #include "sync/mutex.h"
 #include "system/processor/processor.h"
 #include <dev/core.h>
@@ -51,7 +53,9 @@ static struct {
      */
     vaddr_t m_high_page_base;
 
-    pml_entry_t* m_kernel_base_pd;
+    page_dir_t kernel_pdir;
+
+    //pml_entry_t* m_kernel_base_pd;
 } KMEM_DATA;
 
 /* Variable from boot.asm */
@@ -204,13 +208,43 @@ int kmem_alloc_phys_page(paddr_t* p_addr)
     return 0;
 }
 
+pml_entry_t* kmem_get_kernel_root_pd()
+{
+    return KMEM_DATA.kernel_pdir.m_root;
+}
+
+paddr_t kmem_get_kernel_root_pd_phys()
+{
+    return KMEM_DATA.kernel_pdir.m_phys_root;
+}
+
 /*
  * Find the kernel root page directory
  */
-pml_entry_t* kmem_get_krnl_dir(void)
+error_t kmem_get_kernel_addrspace(page_dir_t* dir)
 {
-    /* NOTE: this is a physical address :clown: */
-    return KMEM_DATA.m_kernel_base_pd;
+    if (!dir)
+        return -EINVAL;
+
+    /* Copy our our glorious kernel page directory */
+    memcpy(dir, &KMEM_DATA.kernel_pdir, sizeof(*dir));
+
+    return 0;
+}
+
+error_t kmem_get_addrspace(page_dir_t* dir)
+{
+    /* Check if we're in a processes addresspace */
+    proc_t* c_proc = get_current_proc();
+
+    /* No process, just return the kernel addresspace */
+    if (!c_proc)
+        return kmem_get_kernel_addrspace(dir);
+
+    /* Copy out the directory */
+    memcpy(dir, &c_proc->m_root_pd, sizeof(*dir));
+
+    return 0;
 }
 
 static inline kerror_t _allocate_pde(pml_entry_t* pde, uint32_t custom_flags, uint32_t page_flags)
@@ -274,7 +308,7 @@ kerror_t kmem_get_page(pml_entry_t** bentry, pml_entry_t* root, uintptr_t addr, 
     const uint16_t pd_idx = (addr >> 21) & ENTRY_MASK;
     const uint16_t pt_idx = (addr >> 12) & ENTRY_MASK;
 
-    pml4 = (root == nullptr) ? (pml_entry_t*)kmem_from_phys((uintptr_t)kmem_get_krnl_dir(), KMEM_DATA.m_high_page_base) : root;
+    pml4 = (root == nullptr) ? (pml_entry_t*)kmem_from_phys((uintptr_t)KMEM_DATA.kernel_pdir.m_phys_root, KMEM_DATA.m_high_page_base) : root;
     error = _allocate_pde(&pml4[pml4_idx], kmem_flags, page_flags);
 
     if (error)
@@ -322,10 +356,10 @@ void kmem_invalidate_tlb_cache_range(uintptr_t vaddr, size_t size)
 void kmem_refresh_tlb(void)
 {
     /* FIXME: is this always up to date? */
-    pml_entry_t* current = get_current_processor()->m_page_dir;
+    page_dir_t* current = get_current_processor()->m_page_dir;
 
     /* Reloading CR3 will clear the tlb */
-    kmem_load_page_dir((uintptr_t)current, false);
+    kmem_set_addrspace(current);
 }
 
 bool kmem_map_page(pml_entry_t* table, vaddr_t virt, paddr_t phys, uint32_t kmem_flags, uint32_t page_flags)
@@ -398,7 +432,7 @@ static bool __kmem_do_recursive_unmap(pml_entry_t* table, uintptr_t virt)
     const uintptr_t pdp_idx = (virt >> 30) & ENTRY_MASK;
     const uintptr_t pd_idx = (virt >> 21) & ENTRY_MASK;
 
-    pml_entry_t* pml4 = (table == nullptr) ? (pml_entry_t*)kmem_ensure_high_mapping((uintptr_t)kmem_get_krnl_dir()) : table;
+    pml_entry_t* pml4 = (table == nullptr) ? (pml_entry_t*)kmem_ensure_high_mapping(kmem_get_kernel_root_pd_phys()) : table;
     entry_exists = (pml_entry_is_bit_set(&pml4[pml4_idx], PDE_PRESENT));
 
     if (!entry_exists)
@@ -937,21 +971,27 @@ static void _init_kmem_page_layout(void)
     /* Grab the page for our pagemap root */
     ASSERT_MSG(kmem_alloc_phys_page(&map) == 0, "Failed to get kmem kernel root page");
 
-    /* Set the managers data */
-    KMEM_DATA.m_kernel_base_pd = (pml_entry_t*)map;
+    /* Set the page dir */
+    KMEM_DATA.kernel_pdir = (page_dir_t) {
+        .m_root = (pml_entry_t*)kmem_from_phys(map, HIGH_MAP_BASE),
+        .m_phys_root = (u64)map,
+    };
     KMEM_DATA.m_high_page_base = HIGH_MAP_BASE;
 
     /* NOTE: boot.asm also mapped identity */
     memset((void*)map, 0x00, SMALL_PAGE_SIZE);
 
     /* Assert that we got valid shit =) */
-    ASSERT_MSG(kmem_get_krnl_dir(), "Tried to init kmem_page_layout without a present krnl dir");
+    ASSERT_MSG(kmem_get_kernel_root_pd_phys(), "Tried to init kmem_page_layout without a present krnl dir");
 
     /* Mimic boot.asm */
     __kmem_map_kernel_range_to_map((pml_entry_t*)map);
 
+    /* Ensure interrupts are disabled */
+    disable_interrupts();
+
     /* Load the new pagemap baby */
-    kmem_load_page_dir(map, true);
+    kmem_set_addrspace(&KMEM_DATA.kernel_pdir);
 
     /* Return the old pagemap to the physical pool */
     __kmem_free_old_pagemaps();
@@ -1096,15 +1136,6 @@ void kmem_copy_bytes_into_map(vaddr_t vbase, void* buffer, size_t size, pml_entr
     kernel_panic("TODO: implement kmem_copy_bytes_into_map");
 }
 
-int kmem_to_current_pagemap(vaddr_t vaddr, pml_entry_t* external_map)
-{
-
-    kernel_panic("TODO: implement kmem_to_current_pagemap");
-
-    /* TODO: */
-    return -1;
-}
-
 /*!
  * @brief Copy the high half of pml4 into the page directory root @new_table
  *
@@ -1117,7 +1148,7 @@ int kmem_copy_kernel_mapping(pml_entry_t* new_table)
     const uintptr_t kernel_pml4_idx = 256;
     const uintptr_t end_idx = 511;
 
-    kernel_root = (void*)kmem_from_phys((uintptr_t)kmem_get_krnl_dir(), KMEM_DATA.m_high_page_base);
+    kernel_root = (void*)kmem_from_phys(kmem_get_kernel_root_pd_phys(), KMEM_DATA.m_high_page_base);
 
     for (uintptr_t i = kernel_pml4_idx; i <= end_idx; i++)
         new_table[i].raw_bits = kernel_root[i].raw_bits;
@@ -1244,27 +1275,34 @@ int kmem_destroy_page_dir(pml_entry_t* dir)
     return (0);
 }
 
+error_t kmem_set_addrspace_ex(page_dir_t* dir, struct proc* proc)
+{
+    /* Load the kernel map if there was no map specified */
+    if (!dir)
+        dir = &KMEM_DATA.kernel_pdir;
+
+    /* If there whas a thread specified, update it's current active page directory */
+    if (proc)
+        memcpy(&proc->m_root_pd, dir, sizeof(*dir));
+
+    ASSERT(get_current_processor() != nullptr);
+    get_current_processor()->m_page_dir = dir;
+
+    asm volatile("" : : : "memory");
+    asm volatile("movq %0, %%cr3" ::"r"(dir->m_phys_root));
+    asm volatile("" : : : "memory");
+
+    return 0;
+}
+
 /*
  * NOTE: caller needs to ensure that they pass a physical address
  * as page map. CR3 only takes physical addresses
  */
-void kmem_load_page_dir(paddr_t dir, bool __disable_interrupts)
+error_t kmem_set_addrspace(page_dir_t* dir)
 {
-    if (__disable_interrupts)
-        disable_interrupts();
-
-    pml_entry_t* page_map = (pml_entry_t*)dir;
-
-    /* Load the kernel map if there was no map specified */
-    if (!page_map)
-        page_map = KMEM_DATA.m_kernel_base_pd;
-
-    ASSERT(get_current_processor() != nullptr);
-    get_current_processor()->m_page_dir = page_map;
-
-    asm volatile("" : : : "memory");
-    asm volatile("movq %0, %%cr3" ::"r"(dir));
-    asm volatile("" : : : "memory");
+    /* Don't specify a thread */
+    return kmem_set_addrspace_ex(dir, nullptr);
 }
 
 int kmem_get_kernel_address(vaddr_t* p_kaddr, vaddr_t virtual_address, pml_entry_t* map)

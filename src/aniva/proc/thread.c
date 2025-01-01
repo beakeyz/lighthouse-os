@@ -284,7 +284,9 @@ extern void thread_enter_context(thread_t* to)
 
     // Only switch pagetables if we actually need to interchange between
     // them, otherwise thats just wasted tlb
-    if (prev_thread->m_context.cr3 == to->m_context.cr3)
+    // Since all threads in a single thread always share a single addressspace
+    // we can simply check if the two threads share a parent process (TODO: Check IDs)
+    if (prev_thread->m_parent_proc == to->m_parent_proc)
         return;
 
     /*
@@ -302,7 +304,7 @@ extern void thread_enter_context(thread_t* to)
         );
         */
 
-    kmem_load_page_dir(to->m_context.cr3, false);
+    kmem_set_addrspace(&to->m_parent_proc->m_root_pd);
 }
 
 /*!

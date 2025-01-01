@@ -39,7 +39,7 @@ enum FAULT_RESULT pagefault_handler(const aniva_fault_t* fault, registers_t* reg
     printf(" Total memory size: 0x%llx\n", kmem_info.total_pages << PAGE_SHIFT);
     printf(" Free pages: %lld\n", kmem_info.total_pages - kmem_info.used_pages);
     printf(" Used pages: %lld\n", kmem_info.used_pages);
-    printf(" Kernel CR3: %p\n", kmem_get_krnl_dir());
+    printf(" Kernel CR3: %p\n", kmem_get_kernel_root_pd_phys());
 
     if (current_proc && current_thread) {
         printf("fault occured in: %s:%s (cr3: 0x%llx)\n",

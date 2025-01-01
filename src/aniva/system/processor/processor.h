@@ -4,7 +4,7 @@
 #include "gdt.h"
 #include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"
-#include "mem/pg.h"
+#include "mem/page_dir.h"
 #include "proc/thread.h"
 #include "processor_info.h"
 #include "sched/scheduler.h"
@@ -41,7 +41,7 @@ typedef struct processor {
 
     void* m_user_stack;
 
-    pml_entry_t* m_page_dir;
+    page_dir_t* m_page_dir;
     // TODO: cpu info (features, bitwidth, vendorID, ect.)
     struct processor_info m_info;
 

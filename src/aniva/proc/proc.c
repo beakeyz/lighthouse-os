@@ -1,7 +1,6 @@
 #include "proc.h"
 #include "core.h"
 #include "dev/core.h"
-#include "entry/entry.h"
 #include "fs/file.h"
 #include "kevent/event.h"
 #include "kevent/types/proc.h"
@@ -45,11 +44,7 @@ static int _proc_init_pagemap(proc_t* proc)
         return kmem_create_page_dir(&proc->m_root_pd, KMEM_CUSTOMFLAG_CREATE_USER, 0);
     }
 
-    proc->m_root_pd.m_root = nullptr;
-    proc->m_root_pd.m_phys_root = (paddr_t)kmem_get_krnl_dir();
-    proc->m_root_pd.m_kernel_high = (uintptr_t)&_kernel_end;
-    proc->m_root_pd.m_kernel_low = (uintptr_t)&_kernel_start;
-    return 0;
+    return kmem_get_kernel_addrspace(&proc->m_root_pd);
 }
 
 static inline int __proc_init_page_tracker(proc_t* proc, size_t bsize)
@@ -465,7 +460,7 @@ void __destroy_proc(proc_t* proc)
      * you never know... For that we simply allow every page directory to be
      * killed as long as we are not currently using it :clown:
      */
-    if (proc->m_root_pd.m_root != get_current_processor()->m_page_dir)
+    if (get_current_processor()->m_page_dir != &proc->m_root_pd)
         kmem_destroy_page_dir(proc->m_root_pd.m_root);
 
     KLOG_DBG("Doing penv\n");
