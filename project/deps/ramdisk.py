@@ -2,6 +2,7 @@ import tarfile
 import os
 import consts
 import build.manifest as m
+from build.sourcefiles import SourceFile
 from tarfile import TarInfo, TarFile
 
 
@@ -34,6 +35,14 @@ class RamdiskManager(object):
     ADMIN_CORE_PATH: str = ADMIN_USR_PATH + "/Core"
 
     CFG_PATH: str = SYSROOT_PATH + "/kcfg.ini"
+
+    CRT_OBJS: list[str] = [
+        "crt0.o",
+        "crti.o",
+        "crtbegin.o",
+        "crtend.o",
+        "crtn.o",
+    ]
 
     c: consts.Consts = None
     gathered_headers: list[Header]
@@ -106,33 +115,11 @@ class RamdiskManager(object):
 
         self.__ensure_existance(self.c.SYSROOT_HEADERS_DIR)
 
-        libcManifest: m.BuildManifest = None
-
-        for manifest in self.c.LIBRARY_MANIFESTS:
-            # FIXME: Name of libc should be easily changeable
-            if manifest.manifested_name == "libc":
-                libcManifest = manifest
-                break
-
-        if libcManifest is None:
-            return False
-
-        path: str = libcManifest.path.replace(
-            "/src/libs",
-            "/out/libs"
-        )
-
-        path = path.replace("manifest.json", "")
-
-        components: list[str] = [
-            "crt0.o",
-            "crti.o",
-            "crtn.o",
-        ]
-
         # Copy over the components
-        for c in components:
-            os.system(f"cp {path}/x86/{c} {self.c.SYSROOT_HEADERS_DIR}")
+        for c in self.c.CRT_FILES:
+            c: SourceFile = c
+
+            os.system(f"cp {c.outputPath} {self.c.SYSROOT_LIB_DIR}")
 
         return True
 

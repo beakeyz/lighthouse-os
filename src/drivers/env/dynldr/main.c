@@ -75,7 +75,7 @@ static loaded_app_t* _get_app_from_proc(proc_t* proc)
     {
         ret = i->data;
 
-        if (ret->proc == proc)
+        if (loaded_app_get_proc(ret) == proc)
             return ret;
     }
 
@@ -463,7 +463,7 @@ kerror_t await_lib_init(dynamic_library_t* lib)
     vaddr_t libtramp_uvirt;
     vaddr_t libtramp_kvirt;
 
-    target_proc = lib->app->proc;
+    target_proc = loaded_app_get_proc(lib->app);
     lib_wait_thread = get_current_scheduling_thread();
 
     if (!target_proc)

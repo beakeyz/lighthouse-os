@@ -2,11 +2,14 @@
 #include "libk/data/hashmap.h"
 #include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"
+#include "lightos/handle_def.h"
+#include "lightos/lightos.h"
 #include "logging/log.h"
 #include "mem/heap.h"
 #include "mem/kmem.h"
 #include "mem/zalloc/zalloc.h"
 #include "priv.h"
+#include "proc/handle.h"
 #include "proc/proc.h"
 #include <libk/string.h>
 
@@ -28,13 +31,12 @@ loaded_app_t* create_loaded_app(file_t* file, proc_t* proc)
     if (!KERR_OK(load_elf_image(&ret->image, proc, file)))
         goto dealloc_and_exit;
 
-    ret->proc = proc;
     ret->unordered_liblist = init_list();
     ret->ordered_liblist = init_list();
     ret->symbol_list = init_list();
     /* Variable size hashmap for the exported symbols */
     ret->exported_symbols = create_hashmap(1 * Mib, HASHMAP_FLAG_SK);
-    ret->entry = (DYNAPP_ENTRY_t)ret->image.elf_hdr->e_entry;
+    ret->entry = NULL;
 
     return ret;
 
@@ -73,86 +75,78 @@ void destroy_loaded_app(loaded_app_t* app)
     destroy_list(app->symbol_list);
     destroy_hashmap(app->exported_symbols);
 
-    app->proc = nullptr;
-
     kfree(app);
 }
 
-void* proc_map_into_kernel(proc_t* proc, vaddr_t uaddr, size_t size)
+static inline error_t lightos_ctx_bind_proc_handle(lightos_appctx_t* ctx, loaded_app_t* app)
 {
-    paddr_t pbase;
+    khandle_t handle;
 
-    if (!proc)
-        return nullptr;
+    if (!app || !app->image.proc)
+        return -EINVAL;
 
-    pbase = kmem_to_phys_aligned(
-        proc->m_root_pd.m_root,
-        uaddr);
+    /* Initialize the handle */
+    init_khandle_ex(&handle, HNDL_TYPE_PROC, HNDL_FLAG_R, app->image.proc);
 
-    if (!pbase)
-        return nullptr;
-
-    ASSERT(kmem_map_range(
-                nullptr,
-                kmem_from_phys(pbase, KERNEL_MAP_BASE),
-                pbase,
-                GET_PAGECOUNT(uaddr, size),
-                KMEM_CUSTOMFLAG_GET_MAKE,
-                KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE));
-
-    return (void*)(kmem_from_phys(pbase, KERNEL_MAP_BASE) + (uaddr - ALIGN_DOWN(uaddr, SMALL_PAGE_SIZE)));
+    /* Bind the thing */
+    return bind_khandle(&app->image.proc->m_handle_map, &handle, (u32*)&ctx->self);
 }
 
-static uintptr_t allocate_lib_entrypoint_vec(loaded_app_t* app, uintptr_t* entrycount)
+static error_t allocate_lightos_appctx(loaded_app_t* app, lightos_appctx_t** p_ctx)
 {
+    error_t error;
     size_t libcount;
-    size_t lib_idx;
-    size_t libarr_size;
-    uintptr_t uaddr;
-    node_t* c_liblist_node;
-    DYNLIB_ENTRY_t c_entry;
-    DYNLIB_ENTRY_t* kaddr;
+    size_t lightctx_size;
+    f_libinit c_entry;
+    lightos_appctx_t* ctx = NULL;
 
-    *entrycount = NULL;
+    if (!p_ctx)
+        return -EINVAL;
+
+    /* Count the libraries */
     libcount = loaded_app_get_lib_count(app);
-    libarr_size = ALIGN_UP(libcount * sizeof(uintptr_t), SMALL_PAGE_SIZE);
+    /* Calculate how many pages we need for this shit */
+    lightctx_size = ALIGN_UP(sizeof(lightos_appctx_t) + libcount * sizeof(uintptr_t), SMALL_PAGE_SIZE);
 
-    if (!libcount)
-        return NULL;
+    /* Allocate a bit of space here */
+    error = kmem_user_alloc_range((void**)&ctx, app->image.proc, lightctx_size, NULL, KMEM_FLAG_WRITABLE);
 
-    /* This has to be readonly */
-    ASSERT(!kmem_user_alloc_range((void**)&uaddr, app->proc, libarr_size, NULL, NULL));
-    kaddr = proc_map_into_kernel(app->proc, uaddr, libarr_size);
+    if (error)
+        return error;
 
-    if (!kaddr)
-        return NULL;
+    /* What */
+    if (!ctx)
+        return -ENULL;
 
-    memset(kaddr, 0, libarr_size);
-
-    lib_idx = NULL;
-    c_liblist_node = app->ordered_liblist->head;
+    /* Zero the buffer */
+    memset(ctx, 0, lightctx_size);
 
     /* Cycle through the libraries in reverse */
-    while (c_liblist_node) {
+    FOREACH(i, app->ordered_liblist)
+    {
         /* Get the entry */
-        c_entry = ((dynamic_library_t*)c_liblist_node->data)->entry;
+        c_entry = ((dynamic_library_t*)i->data)->entry;
 
-        KLOG_DBG("Adding entry 0x%p from library %s\n", c_entry, ((dynamic_library_t*)c_liblist_node->data)->name);
+        KLOG_DBG("Adding entry 0x%p from library %s\n", c_entry, ((dynamic_library_t*)i->data)->name);
 
         /* Only add if this library has an entry */
         if (c_entry)
-            kaddr[lib_idx++] = c_entry;
-
-        c_liblist_node = c_liblist_node->next;
+            ctx->init_vec[ctx->nr_libentries++] = c_entry;
     }
 
-    /* NOTE: at this point lib_idx will represent the amount of libraries that have entries we need to call */
-    *entrycount = lib_idx;
+    /* Set the entry */
+    ctx->entry = app->entry;
 
-    /* Don't need the kernel address anymore */
-    kmem_unmap_range(nullptr, (vaddr_t)kaddr, GET_PAGECOUNT((vaddr_t)kaddr, libarr_size));
+    /* Try to bind a handle to the process here */
+    error = lightos_ctx_bind_proc_handle(ctx, app);
 
-    return uaddr;
+    if (error)
+        return error;
+
+    /* Export the pointer to the app context */
+    *p_ctx = ctx;
+
+    return 0;
 }
 
 loaded_sym_t* loaded_app_find_symbol_by_addr(loaded_app_t* app, void* addr)
@@ -217,12 +211,6 @@ loaded_sym_t* loaded_app_find_symbol(loaded_app_t* app, const char* symname)
     loaded_sym_t* ret;
     dynamic_library_t* c_lib;
 
-    if (strcmp(symname, "lines") == 0)
-        KLOG_DBG("loaded_app_find_symbol: lines!\n");
-
-    if (strcmp(symname, "no_pipes") == 0)
-        KLOG_DBG("loaded_app_find_symbol: no_pipes!\n");
-
     FOREACH(i, app->unordered_liblist)
     {
         c_lib = i->data;
@@ -237,96 +225,28 @@ loaded_sym_t* loaded_app_find_symbol(loaded_app_t* app, const char* symname)
 }
 
 /*!
- * @brief: Dirty routine to get the hardcoded symbols we need to install the app trampoline
- */
-static inline kerror_t _get_librt_symbols(dynamic_library_t* librt, loaded_sym_t** appentry, loaded_sym_t** libentries, loaded_sym_t** libcount, loaded_sym_t** apptramp, loaded_sym_t** quick_exit)
-{
-    *appentry = (loaded_sym_t*)hashmap_get(librt->symbol_map, RUNTIMELIB_APP_ENTRY_SYMNAME);
-
-    if (!(*appentry))
-        return -KERR_NULL;
-
-    *libentries = (loaded_sym_t*)hashmap_get(librt->symbol_map, RUNTIMELIB_LIB_ENTRIES_SYMNAME);
-
-    if (!(*libentries))
-        return -KERR_NULL;
-
-    *libcount = (loaded_sym_t*)hashmap_get(librt->symbol_map, RUNTIMELIB_LIB_ENTRYCOUNT_SYMNAME);
-
-    if (!(*libcount))
-        return -KERR_NULL;
-
-    *apptramp = (loaded_sym_t*)hashmap_get(librt->symbol_map, RUNTIMELIB_APP_TRAMP_SYMNAME);
-
-    if (!(*apptramp))
-        return -KERR_NULL;
-
-    *quick_exit = (loaded_sym_t*)hashmap_get(librt->symbol_map, RUNTIMELIB_QUICK_EXIT_SYMNAME);
-
-    if (!(*quick_exit))
-        return -KERR_NULL;
-
-    return 0;
-}
-
-/*!
  * @brief: Copy the app entry trampoline code into the apps userspace
  *
  * Also sets the processes entry to the newly allocated address
  */
 kerror_t loaded_app_set_entry_tramp(loaded_app_t* app)
 {
-    /* Kernel addresses */
-    uint64_t* app_entrypoint_kaddr;
-    uint64_t* lib_entrypoints_kaddr;
-    uint64_t* lib_entrycount_kaddr;
-    /* Internal symbols of the app */
-    loaded_sym_t* app_entrypoint_sym;
-    loaded_sym_t* lib_entrypoints_sym;
-    loaded_sym_t* lib_entrycount_sym;
-    loaded_sym_t* tramp_start_sym;
-    loaded_sym_t* quick_exit_sym;
+    error_t error;
     proc_t* proc;
-    dynamic_library_t* librt;
+    /* Context struct we need to build */
+    lightos_appctx_t* ctx;
 
-    proc = app->proc;
+    /* Set the target process */
+    proc = loaded_app_get_proc(app);
 
-    /*
-     * Try to load the runtime library for this app
-     * FIXME: Did we want the name of the runtime lib inside a profile variable? Hardcoding
-     * the name of the library here seems kind of fucked...
-     */
-    if (!KERR_OK(load_dynamic_lib(RUNTIMELIB_NAME, app, &librt)))
-        return -KERR_INVAL;
+    /* Allocate a context block for this app */
+    error = allocate_lightos_appctx(app, &ctx);
 
-    /* Get the symbols we need to prepare the trampoline */
-    if (!KERR_OK(_get_librt_symbols(librt,
-            &app_entrypoint_sym,
-            &lib_entrypoints_sym,
-            &lib_entrycount_sym,
-            &tramp_start_sym,
-            &quick_exit_sym))) {
-        return -KERR_INVAL;
-    }
-
-    /* We got the symbols, let's find map them into the kernel and place the correct values */
-    app_entrypoint_kaddr = proc_map_into_kernel(proc, app_entrypoint_sym->uaddr, sizeof(uint64_t));
-    lib_entrypoints_kaddr = proc_map_into_kernel(proc, lib_entrypoints_sym->uaddr, sizeof(uint64_t));
-    lib_entrycount_kaddr = proc_map_into_kernel(proc, lib_entrycount_sym->uaddr, sizeof(uint64_t));
-
-    *app_entrypoint_kaddr = (uint64_t)app->entry;
-    *lib_entrypoints_kaddr = allocate_lib_entrypoint_vec(app, lib_entrycount_kaddr);
-
-    /* Unmap from the kernel (These addresses might just all be in the same page (highly likely)) */
-    kmem_unmap_page(nullptr, (vaddr_t)app_entrypoint_kaddr);
-    kmem_unmap_page(nullptr, (vaddr_t)lib_entrypoints_kaddr);
-    kmem_unmap_page(nullptr, (vaddr_t)lib_entrycount_kaddr);
-
-    /* Set the exit on the app */
-    app->exit = (FuncPtr)quick_exit_sym->uaddr;
+    /* TODO: Error handling */
+    ASSERT(!error);
 
     /* FIXME: args? */
-    proc_set_entry(proc, (FuncPtr)tramp_start_sym->uaddr, NULL, NULL);
+    proc_set_entry(proc, (FuncPtr)app->entry, (u64)ctx, NULL);
 
     return 0;
 }

@@ -2,6 +2,7 @@
 #define __LIGHTOS_TYPES_H__
 
 #include <lightos/error.h>
+#include <lightos/handle_def.h>
 #include <sys/types.h>
 
 /* Our beautiful error type */

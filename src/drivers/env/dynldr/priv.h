@@ -6,6 +6,7 @@
 #include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"
 #include "lightos/driver/loader.h"
+#include "lightos/lightos.h"
 #include "proc/core.h"
 #include <fs/file.h>
 #include <libk/stddef.h>
@@ -14,16 +15,7 @@ struct proc;
 struct loaded_app;
 struct loaded_sym;
 
-#define RUNTIMELIB_NAME "librt.lib"
-#define RUNTIMELIB_APP_ENTRY_SYMNAME "__app_entrypoint"
-#define RUNTIMELIB_APP_TRAMP_SYMNAME "___app_trampoline"
-#define RUNTIMELIB_LIB_ENTRIES_SYMNAME "__lib_entrypoints"
-#define RUNTIMELIB_LIB_ENTRYCOUNT_SYMNAME "__lib_entrycount"
-#define RUNTIMELIB_QUICK_EXIT_SYMNAME "__quick_exit"
-
-typedef int (*APP_ENTRY_TRAMPOLINE_t)(DYNAPP_ENTRY_t main_entry, DYNLIB_ENTRY_t* lib_entries, uint32_t lib_entry_count);
-
-extern void __lib_trampoline(FuncPtr realentry);
+extern void __lib_trampoline(f_libinit linit);
 
 typedef struct elf_image {
     struct proc* proc;
@@ -70,8 +62,8 @@ typedef struct dynamic_library {
     list_t* symbol_list;
     thread_t* lib_wait_thread;
     thread_t* lib_init_thread;
-    DYNLIB_ENTRY_t entry;
-    DYNLIB_EXIT_t exit;
+    f_libinit entry;
+    f_libexit exit;
 } dynamic_library_t;
 
 extern kerror_t load_dynamic_lib(const char* path, struct loaded_app* target_app, dynamic_library_t** blib);
@@ -87,12 +79,10 @@ extern kerror_t await_lib_init(dynamic_library_t* lib);
  * A dynamically linked app which we have loaded through this driver.
  */
 typedef struct loaded_app {
-    struct proc* proc;
-
     /* ELF stuff */
     elf_image_t image;
 
-    DYNAPP_ENTRY_t entry;
+    f_light_entry entry;
     FuncPtr exit;
 
     hashmap_t* exported_symbols;
@@ -104,6 +94,11 @@ typedef struct loaded_app {
     /* List of libraries in the order that they where loaded */
     list_t* ordered_liblist;
 } loaded_app_t;
+
+static inline struct proc* loaded_app_get_proc(loaded_app_t* app)
+{
+    return app->image.proc;
+}
 
 extern loaded_app_t* create_loaded_app(file_t* file, struct proc* proc);
 extern void destroy_loaded_app(loaded_app_t* app);
@@ -122,7 +117,6 @@ static inline uint32_t loaded_app_get_lib_count(loaded_app_t* app)
 extern struct loaded_sym* loaded_app_find_symbol(loaded_app_t* app, const char* symname);
 extern struct loaded_sym* loaded_app_find_symbol_by_addr(loaded_app_t* app, void* addr);
 
-extern void* proc_map_into_kernel(struct proc* proc, vaddr_t uaddr, size_t size);
 extern kerror_t loaded_app_set_entry_tramp(loaded_app_t* app);
 
 extern kerror_t _elf_load_phdrs(elf_image_t* image);

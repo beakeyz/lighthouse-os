@@ -1,8 +1,8 @@
 #include "fs/file.h"
-#include "libk/bin/elf_types.h"
 #include "libk/data/hashmap.h"
 #include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"
+#include "lightos/lightos.h"
 #include "logging/log.h"
 #include "mem/heap.h"
 #include "mem/kmem.h"
@@ -71,21 +71,26 @@ static void _destroy_dynamic_lib(dynamic_library_t* lib)
  */
 static kerror_t _dynlib_load_image(file_t* file, dynamic_library_t* lib)
 {
-    proc_t* c_proc;
+    proc_t* c_proc, *app_proc;
     page_dir_t prev_pdir;
     kerror_t error;
 
     /* Grab the current process */
     c_proc = get_current_proc();
+    app_proc = loaded_app_get_proc(lib->app);
+
+    /* This would be really weird */
+    if (!app_proc)
+        return -EINVAL;
 
     /* Cache the current addresspace */
     kmem_get_addrspace(&prev_pdir);
 
     /* Switch to the addresspace of our target */
-    kmem_set_addrspace_ex(&lib->app->proc->m_root_pd, c_proc);
+    kmem_set_addrspace_ex(&app_proc->m_root_pd, c_proc);
 
     /* Bring the image into memory */
-    error = load_elf_image(&lib->image, lib->app->proc, file);
+    error = load_elf_image(&lib->image, app_proc, file);
 
     if (!KERR_OK(error))
         goto switch_back_and_exit;
@@ -236,10 +241,10 @@ kerror_t load_dynamic_lib(const char* path, struct loaded_app* target_app, dynam
 
     /* Set the entry */
     if (lib->image.elf_lightentry_hdr)
-        lib->entry = (DYNLIB_ENTRY_t)lib->image.elf_lightentry_hdr->sh_addr;
+        lib->entry = (f_libinit)lib->image.elf_lightentry_hdr->sh_addr;
 
     if (lib->image.elf_lightexit_hdr)
-        lib->exit = (DYNLIB_EXIT_t)lib->image.elf_lightexit_hdr->sh_addr;
+        lib->exit = (f_libexit)lib->image.elf_lightexit_hdr->sh_addr;
 
     if (blib)
         *blib = lib;
@@ -304,7 +309,7 @@ static inline kerror_t load_app_dyn_sections(loaded_app_t* app)
  */
 static inline void _finalise_load(loaded_app_t* app)
 {
-    app->entry = (DYNAPP_ENTRY_t)((vaddr_t)app->image.elf_hdr->e_entry + (vaddr_t)app->image.user_base);
+    app->entry = (f_light_entry)((vaddr_t)app->image.elf_hdr->e_entry + (vaddr_t)app->image.user_base);
 
     loaded_app_set_entry_tramp(app);
 }
