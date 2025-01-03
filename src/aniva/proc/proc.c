@@ -65,10 +65,10 @@ static inline int __proc_init_page_tracker(proc_t* proc, size_t bsize)
         goto dealloc_and_exit;
 
     /* Pre-allocate the first 1 Mib of pages, so the NULL address can always stay un-allocated */
-    error = page_tracker_alloc(&proc->m_virtual_tracker, 0, 256, PAGE_RANGE_FLAG_UNBACKED);
+//    error = page_tracker_alloc(&proc->m_virtual_tracker, 0, 256, PAGE_RANGE_FLAG_UNBACKED);
 
-    if (HAS_ERROR(error))
-        goto dealloc_and_exit;
+ //   if (HAS_ERROR(error))
+        //goto dealloc_and_exit;
 
     /* Algood, let's exit */
     return error;
