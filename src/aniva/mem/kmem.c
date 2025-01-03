@@ -1,4 +1,4 @@
-#include "kmem.h"
+9#include "kmem.h"
 #include "entry/entry.h"
 #include "irq/interrupts.h"
 #include "libk/flow/error.h"
@@ -897,7 +897,7 @@ int kmem_user_alloc(void** result, struct proc* p, paddr_t addr, size_t size, ui
         p->m_root_pd.m_root,
         nullptr,
         addr,
-        kmem_get_page_base(range.page_idx),
+        kmem_get_page_addr(range.page_idx),
         size,
         custom_flags | KMEM_CUSTOMFLAG_CREATE_USER,
         page_flags);
