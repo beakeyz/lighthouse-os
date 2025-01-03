@@ -240,8 +240,8 @@ int kmem_kernel_dealloc(uintptr_t virt_base, size_t size);
 
 int kmem_alloc_scattered(void** result, pml_entry_t* map, struct page_tracker* tracker, vaddr_t vbase, size_t size, uint32_t custom_flags, uint32_t page_flags);
 
-int kmem_user_alloc_range(void** p_result, struct proc* p, size_t size, uint32_t custom_flags, uint32_t page_flags);
 int kmem_user_alloc(void** p_result, struct proc* p, paddr_t addr, size_t size, uint32_t custom_flags, uint32_t page_flags);
+int kmem_user_alloc_range(void** p_result, struct proc* p, size_t size, uint32_t custom_flags, uint32_t page_flags);
 int kmem_user_alloc_scattered(void** p_result, struct proc* p, vaddr_t addr, size_t size, uint32_t custom_flags, uint32_t page_flags);
 int kmem_user_dealloc(struct proc* p, vaddr_t vaddr, size_t size);
 

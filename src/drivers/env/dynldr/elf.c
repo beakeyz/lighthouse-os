@@ -1,5 +1,8 @@
 /*
  * ELF routines (relocations, sym resolving, ect.)
+ *
+ * NOTE: Most ELF loading procedures in this files will be run inside the addresspace of the proc inside elf_image_t. This
+ * means we don't need to do weird kernel address lookups
  */
 #include "libk/bin/elf.h"
 #include <libk/math/math.h>
@@ -77,6 +80,7 @@ kerror_t _elf_load_phdrs(elf_image_t* image)
 {
     proc_t* proc;
     size_t user_high;
+    size_t user_low;
     page_range_t range;
     struct elf64_hdr* hdr;
     struct elf64_phdr* phdr_list;
@@ -87,6 +91,7 @@ kerror_t _elf_load_phdrs(elf_image_t* image)
     phdr_list = image->elf_phdrs;
 
     user_high = NULL;
+    user_low = (u64)-1;
 
     /* First, we calculate the size of this image */
     for (uint32_t i = 0; i < hdr->e_phnum; i++) {
@@ -94,6 +99,8 @@ kerror_t _elf_load_phdrs(elf_image_t* image)
 
         switch (c_phdr->p_type) {
         case PT_LOAD:
+            if (c_phdr->p_vaddr < user_low)
+                user_low = c_phdr->p_vaddr;
             /* Find the high end */
             if (c_phdr->p_memsz + c_phdr->p_vaddr > user_high)
                 user_high = c_phdr->p_memsz + c_phdr->p_vaddr;
@@ -101,8 +108,12 @@ kerror_t _elf_load_phdrs(elf_image_t* image)
         }
     }
 
+    /* Would be weird if we have a reverse image or sm like that? */
+    ASSERT(user_high > user_low);
+
     /* Simple delta */
-    image->user_image_size = ALIGN_UP(user_high, SMALL_PAGE_SIZE);
+    image->user_image_size = ALIGN_UP(user_high - user_low, SMALL_PAGE_SIZE);
+
     /* With this we can find the user base */
     ASSERT(page_tracker_find_fitting_range(&image->proc->m_virtual_tracker, NULL, kmem_get_page_idx(image->user_image_size), &range) == 0);
 
@@ -120,43 +131,35 @@ kerror_t _elf_load_phdrs(elf_image_t* image)
         switch (c_phdr->p_type) {
         case PT_LOAD: {
             vaddr_t v_user_phdr_start;
-            vaddr_t v_kernel_phdr_start;
             vaddr_t virtual_phdr_base = (vaddr_t)image->user_base + c_phdr->p_vaddr;
             size_t phdr_size = c_phdr->p_memsz;
 
-            ASSERT(kmem_alloc_range(
+            ASSERT(kmem_user_alloc_scattered(
                        (void**)&v_user_phdr_start,
-                       proc->m_root_pd.m_root,
-                       &proc->m_virtual_tracker,
+                       proc,
                        virtual_phdr_base,
                        phdr_size,
                        KMEM_CUSTOMFLAG_GET_MAKE | KMEM_CUSTOMFLAG_CREATE_USER | KMEM_CUSTOMFLAG_NO_REMAP,
                        KMEM_FLAG_WRITABLE)
                 == 0);
 
-            /* NOTE: This gives us a memory range in HIGH_MAP_BASE, which might just fuck us over if we start
-             * to allocate over 2 Gib. When we get fucked, it might be nice to try this the other way around
-             * (meaning we first allocate in the kernel (With KERNEL_MAP_BASE) and then transfer the mapping to userspace)
-             * or use proc_map_into_kernel. This does use a little bit more physical RAM though
-             */
-            ASSERT(kmem_get_kernel_address(&v_kernel_phdr_start, v_user_phdr_start, proc->m_root_pd.m_root) == 0);
-
-            KLOG_DBG("Allocated %lld bytes at 0x%llx (kernel_addr=%llx)\n", phdr_size, v_user_phdr_start, v_kernel_phdr_start);
+            KLOG_DBG("Allocated %lld bytes at 0x%llx (base=0x%llx)\n", phdr_size, v_user_phdr_start, c_phdr->p_vaddr);
 
             /* Then, zero the rest of the buffer */
             /* TODO: ??? */
-            memset((void*)(v_kernel_phdr_start), 0, phdr_size);
+            memset((void*)(v_user_phdr_start), 0, phdr_size);
 
             /*
              * Copy elf into the mapped area
              */
-            memcpy((void*)v_kernel_phdr_start, image->kernel_image + c_phdr->p_offset,
+            memcpy((void*)v_user_phdr_start, image->kernel_image + c_phdr->p_offset,
                 MIN(phdr_size, c_phdr->p_filesz));
         } break;
         case PT_DYNAMIC:
             /* Remap to the kernel */
             image->elf_dyntbl_mapsize = ALIGN_UP(c_phdr->p_memsz, SMALL_PAGE_SIZE);
-            ASSERT(kmem_get_kernel_address((vaddr_t*)&image->elf_dyntbl, (vaddr_t)image->user_base + c_phdr->p_vaddr, proc->m_root_pd.m_root) == 0);
+            image->elf_dyntbl = image->user_base + c_phdr->p_vaddr;
+            //ASSERT(kmem_get_kernel_address((vaddr_t*)&image->elf_dyntbl, (vaddr_t)image->user_base + c_phdr->p_vaddr, proc->m_root_pd.m_root) == 0);
 
             // printf("Setting PT_DYNAMIC addr=0x%p size=0x%llx\n", image->elf_dyntbl, image->elf_dyntbl_mapsize);
             break;
@@ -175,35 +178,32 @@ kerror_t _elf_load_phdrs(elf_image_t* image)
  */
 kerror_t _elf_do_headers(elf_image_t* image)
 {
-    void* kaddr;
+    //void* kaddr;
     struct elf64_shdr* shdr;
 
     /* First pass: Fix all the addresses of the section headers */
     for (uint32_t i = 0; i < image->elf_hdr->e_shnum; i++) {
         shdr = elf_get_shdr(image->elf_hdr, i);
 
+        if (!shdr->sh_addr)
+            continue;
+
+        /* Add this thing */
+        shdr->sh_addr += (uint64_t)image->user_base;
+
         switch (shdr->sh_type) {
         case SHT_NOBITS:
             if (!shdr->sh_size)
                 break;
 
-            /* Just give any NOBITS sections a bit of memory */
-            ASSERT(kmem_user_alloc_range((void**)&shdr->sh_addr, image->proc, shdr->sh_size, NULL, KMEM_FLAG_WRITABLE) == 0);
-
-            /* Zero the scattered range (FIXME: How do we assure that we don't reach memory we haven't mapped to the kernel?) */
-            for (uint64_t i = 0; i < GET_PAGECOUNT(shdr->sh_addr, shdr->sh_size); i++) {
-                ASSERT(kmem_get_kernel_address((vaddr_t*)&kaddr, shdr->sh_addr + kmem_get_page_addr(i), image->proc->m_root_pd.m_root) == 0);
-
-                memset(kaddr, 0, SMALL_PAGE_SIZE);
-            }
-            break;
-        default:
-            shdr->sh_addr += (uint64_t)image->user_base;
+            /* NOBITS sections should be included in the pheaders. Just clear them */
+            memset((void*)shdr->sh_addr, 0, shdr->sh_size);
             break;
         }
     }
 
     image->elf_symtbl_hdr = nullptr;
+    image->elf_strtbl_hdr = nullptr;
     /* Cache the section string table */
     image->elf_shstrtab = _elf_get_shdr_kaddr(image, elf_get_shdr(image->elf_hdr, image->elf_hdr->e_shstrndx));
 
@@ -220,7 +220,7 @@ kerror_t _elf_do_headers(elf_image_t* image)
             break;
         case SHT_STRTAB:
             if (strncmp(".strtab", image->elf_shstrtab + shdr->sh_name, strlen(".strtab")) == 0)
-                image->elf_strtab = _elf_get_shdr_kaddr(image, shdr);
+                image->elf_strtbl_hdr = shdr;
 
             break;
         case SHT_PROGBITS:
@@ -235,7 +235,7 @@ kerror_t _elf_do_headers(elf_image_t* image)
     }
 
     /* There must be at least a generic '.strtab' shdr in every ELF file */
-    ASSERT_MSG(image->elf_strtab, "dynldr: Could not find .strtab");
+    ASSERT_MSG(image->elf_strtbl_hdr, "dynldr: Could not find .strtab");
 
     return 0;
 }
@@ -254,7 +254,7 @@ static inline kerror_t __elf_parse_symbol_table(loaded_app_t* app, list_t* symli
         const char* sym_name = (const char*)((uint64_t)strtab + current_symbol->st_name);
 
         /* Debug print lmao */
-        KLOG_DBG("Found a symbol (\'%s\'). addr=0x%llx (user_base=0x%p)\n", sym_name, current_symbol->st_value, image->user_base);
+        //KLOG_DBG("Found a symbol (\'%s\'). addr=0x%llx (user_base=0x%p)\n", sym_name, current_symbol->st_value, image->user_base);
 
         current_symbol->st_value += (vaddr_t)image->user_base;
 
@@ -296,7 +296,7 @@ static inline kerror_t __elf_parse_symbol_table(loaded_app_t* app, list_t* symli
             if (type == STT_FUNC)
                 sym->flags |= LDSYM_FLAG_EXPORT;
 
-            KLOG_DBG("Found symbol: %s (address=0x%llx)\n", sym_name, sym->uaddr);
+            //KLOG_DBG("Found symbol: %s (address=0x%llx)\n", sym_name, sym->uaddr);
 
             /* Add both to the symbol map for easy lookup and the list for easy cleanup */
             hashmap_put(symmap, (hashmap_key_t)sym_name, sym);
@@ -320,14 +320,11 @@ kerror_t _elf_do_symbols(list_t* symbol_list, hashmap_t* exported_symbol_map, lo
 
     /* NOTE: Since we're working with the global symbol table (And not the dynamic symbol table)
        we need to use the coresponding GLOBAL string table */
-    names = image->elf_strtab;
     symcount = image->elf_symtbl_hdr->sh_size / sizeof(struct elf64_sym);
     syms = (struct elf64_sym*)_elf_get_shdr_kaddr(image, image->elf_symtbl_hdr);
+    names = (const char*)_elf_get_shdr_kaddr(image, image->elf_strtbl_hdr);
 
-    if (!syms)
-        return -KERR_INVAL;
-
-    if (__elf_parse_symbol_table(app, symbol_list, exported_symbol_map, image, syms, symcount, names))
+    if (syms && __elf_parse_symbol_table(app, symbol_list, exported_symbol_map, image, syms, symcount, names))
         return -KERR_INVAL;
 
     names = image->elf_dynstrtab;
@@ -352,7 +349,7 @@ kerror_t _elf_do_symbols(list_t* symbol_list, hashmap_t* exported_symbol_map, lo
 
         switch (shdr->sh_type) {
         case SHT_REL:
-            rel = (struct elf64_rel*)_elf_get_shdr_kaddr(image, shdr);
+            rel = (struct elf64_rel*)shdr->sh_addr;
 
             /* Calculate the table size */
             entry_count = shdr->sh_size / sizeof(*rel);
@@ -365,8 +362,6 @@ kerror_t _elf_do_symbols(list_t* symbol_list, hashmap_t* exported_symbol_map, lo
                 sym = &image->elf_dynsym[symbol];
                 symname = (char*)((uintptr_t)image->elf_dynstrtab + sym->st_name);
 
-                KLOG_DBG("Thing: %s\n", symname);
-
                 loaded_sym = hashmap_get(exported_symbol_map, symname);
 
                 if (!loaded_sym)
@@ -377,7 +372,7 @@ kerror_t _elf_do_symbols(list_t* symbol_list, hashmap_t* exported_symbol_map, lo
             }
             break;
         case SHT_RELA:
-            rela = (struct elf64_rela*)_elf_get_shdr_kaddr(image, shdr);
+            rela = (struct elf64_rela*)shdr->sh_addr;
 
             /* Calculate the table size */
             entry_count = shdr->sh_size / sizeof(*rela);
@@ -389,8 +384,6 @@ kerror_t _elf_do_symbols(list_t* symbol_list, hashmap_t* exported_symbol_map, lo
                 symbol = ELF64_R_SYM(rela[i].r_info);
                 sym = &image->elf_dynsym[symbol];
                 symname = (char*)((uintptr_t)image->elf_dynstrtab + sym->st_name);
-
-                KLOG_DBG("RELA Thing: %s\n", symname);
 
                 loaded_sym = hashmap_get(exported_symbol_map, symname);
 
@@ -427,15 +420,18 @@ static kerror_t __elf_get_dynsect_info(elf_image_t* image)
         switch (dyns_entry->d_tag) {
         case DT_STRTAB:
             /* We can do this, since we have assured a kernel mapping through loading this pheader beforehand */
-            ASSERT(kmem_get_kernel_address((vaddr_t*)&strtab, (vaddr_t)image->user_base + dyns_entry->d_un.d_ptr, image->proc->m_root_pd.m_root) == 0);
+            //ASSERT(kmem_get_kernel_address((vaddr_t*)&strtab, (vaddr_t)image->user_base + dyns_entry->d_un.d_ptr, image->proc->m_root_pd.m_root) == 0);
+            strtab = image->user_base + dyns_entry->d_un.d_ptr;
             break;
         case DT_SYMTAB:
-            ASSERT(kmem_get_kernel_address((vaddr_t*)&dyn_syms, (vaddr_t)image->user_base + dyns_entry->d_un.d_ptr, image->proc->m_root_pd.m_root) == 0);
+            //ASSERT(kmem_get_kernel_address((vaddr_t*)&dyn_syms, (vaddr_t)image->user_base + dyns_entry->d_un.d_ptr, image->proc->m_root_pd.m_root) == 0);
+            dyn_syms = image->user_base + dyns_entry->d_un.d_ptr;
             break;
         case DT_HASH:
             // image->elf_dynsym_count = ((Elf64_Word*)(Must(kmem_get_kernel_address((vaddr_t)image->user_base + dyns_entry->d_un.d_ptr, image->proc->m_root_pd.m_root))))[1];
             /* Get the address */
-            ASSERT(kmem_get_kernel_address((uint64_t*)&_elf_dynsym_count_p, (vaddr_t)image->user_base + dyns_entry->d_un.d_ptr, image->proc->m_root_pd.m_root) == 0);
+            //ASSERT(kmem_get_kernel_address((uint64_t*)&_elf_dynsym_count_p, (vaddr_t)image->user_base + dyns_entry->d_un.d_ptr, image->proc->m_root_pd.m_root) == 0);
+            _elf_dynsym_count_p = image->user_base + dyns_entry->d_un.d_ptr;
 
             /* Yoink the value */
             image->elf_dynsym_tblsz = _elf_dynsym_count_p[1];
@@ -554,10 +550,10 @@ kerror_t _elf_do_relocations(elf_image_t* image, loaded_app_t* app)
             const char* symname = image->elf_dynstrtab + sym->st_name;
 
             /* Where we are going to change stuff */
-            vaddr_t P;
+            vaddr_t P = (vaddr_t)image->user_base + current->r_offset;
 
             /* Yoink it from the kernel address */
-            ASSERT(kmem_get_kernel_address(&P, (vaddr_t)image->user_base + current->r_offset, image->proc->m_root_pd.m_root) == 0);
+            //ASSERT(kmem_get_kernel_address(&P, (vaddr_t)image->user_base + current->r_offset, image->proc->m_root_pd.m_root) == 0);
 
             /* The value of the symbol we are referring to */
             vaddr_t A = current->r_addend;

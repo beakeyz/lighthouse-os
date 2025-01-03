@@ -217,6 +217,12 @@ loaded_sym_t* loaded_app_find_symbol(loaded_app_t* app, const char* symname)
     loaded_sym_t* ret;
     dynamic_library_t* c_lib;
 
+    if (strcmp(symname, "lines") == 0)
+        KLOG_DBG("loaded_app_find_symbol: lines!\n");
+
+    if (strcmp(symname, "no_pipes") == 0)
+        KLOG_DBG("loaded_app_find_symbol: no_pipes!\n");
+
     FOREACH(i, app->unordered_liblist)
     {
         c_lib = i->data;

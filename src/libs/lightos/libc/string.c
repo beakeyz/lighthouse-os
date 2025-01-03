@@ -170,6 +170,41 @@ void* memcpy(void* restrict dest, const void* restrict src, size_t length)
     return d;
 }
 
+/*!
+ * TODO: Implement memmove without malloc
+ */
+void* memmove(void* dest, const void* src, size_t n)
+{
+    void* tmp;
+
+    if (!n || !dest || !src)
+        return nullptr;
+
+    if (dest == src)
+        return dest;
+
+    /* Areas don't overlap. Just do a memcpy */
+    if ((src + n) <= dest || (dest + n) <= src)
+        return memcpy(dest, src, n);
+
+    /* Areas might overlap. Create temporary buffer for src */
+    tmp = malloc(n);
+
+    if (!tmp)
+        return nullptr;
+
+    /* Copy into temporary buffer */
+    memcpy(tmp, src, n);
+
+    /* Now copy tmp to dest */
+    memcpy(dest, tmp, n);
+
+    /* Free tmp */
+    free(tmp);
+
+    return dest;
+}
+
 void* memset(void* dest, int c, size_t n)
 {
     size_t i = 0;

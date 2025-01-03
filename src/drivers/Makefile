@@ -39,7 +39,7 @@ DRIVER_PATHS := \
 build: $(DRIVER_PATHS)
 
 $(DRIVER_PATHS):
-	@make build \
+	@make -j$(nproc) build \
 		DRIVER_NAME=$(lastword $(subst /, ,$@)) \
 		THIS_OUT=$(DRIVER_OUT)/$@ \
 		THIS_SRC=$(DRIVER_SRC)/$@ \

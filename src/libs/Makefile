@@ -14,13 +14,13 @@ export LIBRARY_SHARED_FILE_EXT := .lib
 export LIBRARY_STATIC_FILE_EXT := .obj
 
 export LIBRARY_CFLAGS= -std=gnu11 -Wall -O2 -ffreestanding -fPIC -shared -D'LIBENV' $(USER_INCLUDE_CFLAGS)
-export LIBRARY_SHARED_LDFLAGS= -fPIC -shared -nostdlib -L$(SYSROOT_LIBRARY_DIR)
-export LIBRARY_STATIC_LDFLAGS= -nostdlib -static -r
+export LIBRARY_SHARED_LDFLAGS= -fPIC -shared -L$(SYSROOT_LIBRARY_DIR)
+export LIBRARY_STATIC_LDFLAGS= -static -r
 
 build: $(LIBRARY_PATHS)
 
 $(LIBRARY_PATHS):
-	@make -C $@ build \
+	@make -j$(nproc) -C $@ build \
 		THIS_SRC=$(LIBRARY_SRC)/$@ \
 		THIS_OUT=$(LIBRARY_OUT)/$@
 

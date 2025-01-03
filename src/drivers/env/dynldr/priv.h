@@ -36,11 +36,11 @@ typedef struct elf_image {
     size_t elf_dyntbl_mapsize;
     size_t elf_dynsym_tblsz;
     struct elf64_shdr* elf_symtbl_hdr;
+    struct elf64_shdr* elf_strtbl_hdr;
     struct elf64_shdr* elf_lightentry_hdr;
     struct elf64_shdr* elf_lightexit_hdr;
     struct elf64_sym* elf_dynsym;
 
-    const char* elf_strtab;
     const char* elf_shstrtab;
     const char* elf_dynstrtab;
 

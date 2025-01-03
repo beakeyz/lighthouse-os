@@ -5,6 +5,8 @@
 #include "libk/flow/error.h"
 #include "logging/log.h"
 #include "mem/heap.h"
+#include "mem/kmem.h"
+#include "mem/page_dir.h"
 #include "mem/zalloc/zalloc.h"
 #include "priv.h"
 #include "proc/proc.h"
@@ -20,8 +22,6 @@
  * the order in which the things are actually loaded is different, but how it's done under the hood is the same. Our
  * internal API should reflect this. Routines to do with handling ELF components, like relocating, resolving symbols, ect.
  * should be independent of wether the ELF stuff is part of the loaded app or simply a supporting library.
- *
- * TODO: Should we make a elf_object struct that is shared between the loaded_app and dynamic_library structs?
  */
 
 static dynamic_library_t* _create_dynamic_lib(loaded_app_t* parent, const char* name, const char* path)
@@ -65,44 +65,59 @@ static void _destroy_dynamic_lib(dynamic_library_t* lib)
 
 /*!
  * @brief: Load the complete image of a dynamic library
+ *
+ * NOTE: This may be called from some process A as an affector on some other process B. This 
+ * means we need to temporarily switch to the addresspace of process B in order to load this library
  */
 static kerror_t _dynlib_load_image(file_t* file, dynamic_library_t* lib)
 {
+    proc_t* c_proc;
+    page_dir_t prev_pdir;
     kerror_t error;
+
+    /* Grab the current process */
+    c_proc = get_current_proc();
+
+    /* Cache the current addresspace */
+    kmem_get_addrspace(&prev_pdir);
+
+    /* Switch to the addresspace of our target */
+    kmem_set_addrspace_ex(&lib->app->proc->m_root_pd, c_proc);
 
     /* Bring the image into memory */
     error = load_elf_image(&lib->image, lib->app->proc, file);
 
     if (!KERR_OK(error))
-        return error;
+        goto switch_back_and_exit;
 
     error = _elf_load_phdrs(&lib->image);
 
     if (!KERR_OK(error))
-        return error;
+        goto switch_back_and_exit;
 
     error = _elf_do_headers(&lib->image);
 
     if (!KERR_OK(error))
-        return error;
+        goto switch_back_and_exit;
 
     /* Might load more libraries */
     error = _elf_load_dyn_sections(&lib->image, lib->app);
 
     if (!KERR_OK(error))
-        return error;
+        goto switch_back_and_exit;
 
     error = _elf_do_symbols(lib->symbol_list, lib->symbol_map, lib->app, &lib->image);
 
     if (!KERR_OK(error))
-        return error;
+        goto switch_back_and_exit;
 
     error = _elf_do_relocations(&lib->image, lib->app);
 
-    if (!KERR_OK(error))
-        return error;
+switch_back_and_exit:
+    kmem_set_addrspace_ex(&prev_pdir, c_proc);
 
-    return 0;
+    return error;
+
 }
 
 static inline const char* _append_path_to_searchdir(const char* search_dir, const char* path)
@@ -177,7 +192,7 @@ kerror_t load_dynamic_lib(const char* path, struct loaded_app* target_app, dynam
     profile_find_var(LIBSPATH_VARPATH, &libs_var);
     sysvar_get_str_value(libs_var, &search_dir);
 
-    //KLOG_DBG("Trying to find search dir...\n");
+    KLOG_DBG("Trying to find search dir...\n");
 
     lib = nullptr;
     search_path = _append_path_to_searchdir(search_dir, path);
@@ -185,7 +200,7 @@ kerror_t load_dynamic_lib(const char* path, struct loaded_app* target_app, dynam
     if (!search_path)
         return -KERR_NOMEM;
 
-    //KLOG_DBG("Creating lib structure...\n");
+    KLOG_DBG("Creating lib structure...\n");
 
     /* First, try to create a library object */
     lib = _create_dynamic_lib(target_app, path, search_path);
@@ -194,6 +209,8 @@ kerror_t load_dynamic_lib(const char* path, struct loaded_app* target_app, dynam
 
     if (!lib)
         return -KERR_INVAL;
+
+    KLOG_DBG("Adding and opening %s...\n", lib->path);
 
     /* Register ourselves preemptively to the app */
     list_append(target_app->unordered_liblist, lib);
@@ -322,18 +339,25 @@ static kerror_t _do_load(file_t* file, loaded_app_t* app)
  *
  * This will result in a new process wrapped inside a loaded_app struct when
  * the returnvalue is KERR_NONE
+ *
+ * When loading an app, we will temporarily switch into the addresspace of the process
+ * we're trying to create, as to make our lives with memory handling much easier
  */
 kerror_t load_app(file_t* file, loaded_app_t** out_app, proc_t** p_proc)
 {
     kerror_t error;
     proc_t* proc;
     proc_t* parent_proc;
+    page_dir_t prev_pdir;
     loaded_app_t* app;
 
     if (!out_app || !file)
         return -KERR_INVAL;
 
     *out_app = NULL;
+
+    /* Cache the previous addresspace */
+    kmem_get_addrspace(&prev_pdir);
 
     /*
      * Grab the current process as a parent
@@ -342,11 +366,8 @@ kerror_t load_app(file_t* file, loaded_app_t** out_app, proc_t** p_proc)
      */
     parent_proc = get_current_proc();
 
-    if (is_kernel_proc(parent_proc))
-        parent_proc = nullptr;
-
     /* Create an addressspsace for this bitch */
-    proc = create_proc(parent_proc, nullptr, (char*)file->m_obj->name, NULL, NULL, NULL);
+    proc = create_proc(is_kernel_proc(parent_proc) ? nullptr : parent_proc, nullptr, (char*)file->m_obj->name, NULL, NULL, NULL);
 
     if (!proc)
         return -KERR_NULL;
@@ -358,6 +379,9 @@ kerror_t load_app(file_t* file, loaded_app_t** out_app, proc_t** p_proc)
     if (!app)
         return -KERR_NOMEM;
 
+    /* Switch the addresspace of the parent process */
+    kmem_set_addrspace_ex(&proc->m_root_pd, parent_proc);
+
     /*
      * We've loaded the main object. Now, let's:
      * 0) Find a place to actually load this shit :clown:
@@ -366,7 +390,11 @@ kerror_t load_app(file_t* file, loaded_app_t** out_app, proc_t** p_proc)
      * 3) Execute the process
      */
 
+    /* Do the load */
     error = _do_load(file, app);
+
+    /* Reset the addresspace of the parent process */
+    kmem_set_addrspace_ex(&prev_pdir, parent_proc);
 
     /* TODO: Do actual cleanup here */
     ASSERT_MSG(KERR_OK(error), "FUCK: Failed to do a dynamic app load =(");

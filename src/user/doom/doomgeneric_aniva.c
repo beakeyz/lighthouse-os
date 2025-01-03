@@ -162,9 +162,10 @@ static int _main(int argc, char** argv)
     return 0;
 }
 
+CMDLINE line;
+
 int main()
 {
-    CMDLINE line;
 
     /* Try to grab the commandline for this process */
     if (cmdline_get(&line))

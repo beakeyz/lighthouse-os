@@ -100,19 +100,19 @@ aniva: ## Build the kernel binary
 	@make -j$(nproc) -C ./src/aniva build
 
 drivers: ## Build on-disk drivers
-	@make -j$(nproc) -C ./src/drivers build
+	@make -C ./src/drivers build
 
 libs: ## Build system libraries
-	@make -j$(nproc) -C ./src/libs build
+	@make -C ./src/libs build
 
 user: ## Build userspace stuff
-	@make -j$(nproc) -C ./src/user build
+	@make -C ./src/user build
 
 modules: ## Build the shared system modules (modules.obj)
-	@make -j$(nproc) -C ./src/modules build
+	@make -C ./src/modules build
 
 loader: ## Build the bootloader sources
-	@make -j$(nproc) -C ./src/lightloader build
+	@make -C ./src/lightloader build
 
 ramdisk: ## Create the system ramdisk
 	@echo -e "TODO: create ramdisk"
