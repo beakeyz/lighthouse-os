@@ -271,6 +271,9 @@ proc_t* elf_exec_64(file_t* file, bool kernel)
         }
     }
 
+    /* TODO: Create a list of init functions */
+    //__elf_init_appctx(proc, file, &header);
+
     kfree(phdrs);
 
     /* Copy over the image object */

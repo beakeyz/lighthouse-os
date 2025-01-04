@@ -1,5 +1,5 @@
 LIBRARY_NAME=libgfx
 LINKTYPE=dynamic
-DEPS=
+LIBRARIES=
 
 include ../library.mk

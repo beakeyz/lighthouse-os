@@ -1,5 +1,5 @@
 LIBRARY_NAME=lightui
 LINKTYPE=dynamic
-DEPS= -l:libgfx.lib
+LIBRARIES=libgfx
 
 include ../library.mk

@@ -1,5 +1,5 @@
 LIBRARY_NAME=kterm
 LINKTYPE=shared
-DEPS=
+LIBRARIES=
 
 include ../library.mk

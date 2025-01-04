@@ -357,7 +357,7 @@ static int __init_physical_tracker()
     ASSERT_MSG(init_page_tracker(&g_phys_data.m_physical_tracker, (void*)cache_start_addr, needed_range_cache_size, max_page) == 0, "Failed to initialize the page tracker");
 
     /* Pre-allocate all physical memory */
-    page_tracker_alloc(&g_phys_data.m_physical_tracker, 0, physical_pages, PAGE_RANGE_FLAG_KERNEL | PAGE_RANGE_FLAG_PHYSICAL);
+    page_tracker_alloc(&g_phys_data.m_physical_tracker, 0, physical_pages, PAGE_RANGE_FLAG_KERNEL);
 
     // Mark the contiguous 'free' ranges as free in our bitmap
     FOREACH(i, g_phys_data.m_phys_ranges)
@@ -454,7 +454,7 @@ error_t kmem_phys_reserve_range(u64 page_idx, u32 nr_pages)
     spinlock_lock(&g_phys_data.m_allocator_lock);
 
     /* Mark the entry used */
-    error = page_tracker_alloc(&g_phys_data.m_physical_tracker, page_idx, nr_pages, PAGE_RANGE_FLAG_KERNEL | PAGE_RANGE_FLAG_PHYSICAL);
+    error = page_tracker_alloc(&g_phys_data.m_physical_tracker, page_idx, nr_pages, PAGE_RANGE_FLAG_KERNEL);
 
     // page_tracker_dump(&g_phys_data.m_physical_tracker);
 
@@ -477,7 +477,7 @@ error_t kmem_phys_alloc_range(u32 nr_pages, u64* p_page_idx)
     spinlock_lock(&g_phys_data.m_allocator_lock);
 
     /* Try to allocate any range */
-    error = page_tracker_alloc_any(&g_phys_data.m_physical_tracker, PAGE_TRACKER_FIRST_FIT, nr_pages, PAGE_RANGE_FLAG_PHYSICAL | PAGE_RANGE_FLAG_KERNEL, &range);
+    error = page_tracker_alloc_any(&g_phys_data.m_physical_tracker, PAGE_TRACKER_FIRST_FIT, nr_pages, PAGE_RANGE_FLAG_KERNEL, &range);
 
     // page_tracker_dump(&g_phys_data.m_physical_tracker);
 

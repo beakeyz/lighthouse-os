@@ -61,7 +61,7 @@ new file mode 100644
 index 000000000..e9fb8ab0d
 --- /dev/null
 +++ b/gcc/config/lightos.h
-@@ -0,0 +1,37 @@
+@@ -0,0 +1,40 @@
 +/* Useful if you wish to make target-specific GCC changes. */
 +#undef TARGET_lightos
 +#define TARGET_lightos 1
@@ -78,6 +78,9 @@ index 000000000..e9fb8ab0d
 +   i686-lightos-gcc/x86_64-lightos-gcc toolchain */
 +#undef LIB_SPEC
 +#define LIB_SPEC "-l:lightos.lib" /* link against c library */
++
++#undef LINK_SPEC
++#define LINK_SPEC "%{shared:-shared} %{static:-static} %{!shared: %{!static: %{rdynamic:-export-dynamic}}}"
 +
 +/* Files that are linked before user code.
 +   The %s tells GCC to look for these files in the library directory. */

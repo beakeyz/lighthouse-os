@@ -20,7 +20,7 @@ typedef long off_t;
 typedef int pid_t;
 typedef int time_t;
 
-typedef u8 U8;
+#define U8 u8
 #define U16 u16
 #define U32 u32
 #define U64 u64

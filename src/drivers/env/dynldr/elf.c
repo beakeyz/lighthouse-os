@@ -143,7 +143,7 @@ kerror_t _elf_load_phdrs(elf_image_t* image)
                        KMEM_FLAG_WRITABLE)
                 == 0);
 
-            KLOG_DBG("Allocated %lld bytes at 0x%llx (base=0x%llx)\n", phdr_size, v_user_phdr_start, c_phdr->p_vaddr);
+            //KLOG_DBG("Allocated %lld bytes at 0x%llx (base=0x%llx)\n", phdr_size, v_user_phdr_start, c_phdr->p_vaddr);
 
             /* Then, zero the rest of the buffer */
             /* TODO: ??? */
@@ -178,7 +178,6 @@ kerror_t _elf_load_phdrs(elf_image_t* image)
  */
 kerror_t _elf_do_headers(elf_image_t* image)
 {
-    //void* kaddr;
     struct elf64_shdr* shdr;
 
     /* First pass: Fix all the addresses of the section headers */

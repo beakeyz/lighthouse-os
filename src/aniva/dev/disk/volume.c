@@ -663,7 +663,7 @@ static int _set_bootdevice(volume_t* device)
 
         error = -KERR_INVAL;
 
-        if (!sysvar_write(sysvar, sysvar_values[i]))
+        if (sysvar_write(sysvar, sysvar_values[i]))
             goto free_and_exit;
     }
 

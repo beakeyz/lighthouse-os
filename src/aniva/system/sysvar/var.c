@@ -1,4 +1,5 @@
 #include "var.h"
+#include <libk/math/math.h>
 #include "libk/flow/error.h"
 #include "lightos/sysvar/shared.h"
 #include "mem/heap.h"
@@ -31,6 +32,8 @@ static uint32_t profile_var_get_size_for_type(sysvar_t* var)
             return 0;
 
         return strlen(var->str_value) + 1;
+    case SYSVAR_TYPE_MEM_RANGE:
+        return sizeof(page_range_t);
     default:
         break;
     }
@@ -54,9 +57,20 @@ static void destroy_sysvar(sysvar_t* var)
     /* Release strduped key */
     kfree((void*)var->key);
 
-    /* Just in case this was allocated on the heap (by strdup) */
-    if (var->type == SYSVAR_TYPE_STRING && var->str_value)
-        kfree((void*)var->str_value);
+    switch (var->type) {
+        case SYSVAR_TYPE_STRING:
+            if (var->str_value)
+                /* Just in case this was allocated on the heap (by strdup) */
+                kfree((void*)var->str_value);
+            break;
+        case SYSVAR_TYPE_MEM_RANGE:
+            if (var->range_value)
+                /* We own this memory */
+                kfree(var->range_value);
+            break;
+        default:
+            break;
+    }
 
     destroy_atomic_ptr(var->refc);
     zfree_fixed(&__var_allocator, var);
@@ -76,14 +90,55 @@ static const char* __sysvar_fmt_key(char* str)
     return str;
 }
 
+static error_t __sysvar_allocate_value(sysvar_t* var, enum SYSVAR_TYPE type, void* buffer, size_t bsize, void** pvalue)
+{
+    void* ret;
+
+    ASSERT(pvalue);
+
+    if (sysvar_is_integer(type))
+        memcpy(&ret, buffer, MIN(var->len, bsize));
+    else {
+        switch (type) {
+            case SYSVAR_TYPE_STRING:
+                ret = kmalloc(bsize);
+
+                if (!ret)
+                    return -ENOMEM;
+
+                memcpy(ret, buffer, bsize);
+                break;
+            case SYSVAR_TYPE_MEM_RANGE:
+                ret = kmalloc(sizeof(page_range_t));
+
+                if (!ret)
+                    return -ENOMEM;
+
+                memcpy(ret, buffer, MIN(sizeof(page_range_t), bsize));
+                break;
+            default:
+                return -ENOTSUP;
+        }
+    }
+
+    *pvalue = ret;
+
+    return 0;
+}
+
 /*!
  * @brief: Creates a profile variable
  *
- * This allocates the variable inside the variable zone allocator and sets its interlan value
- * equal to @value.
- * NOTE: this does not copy strings and allocate them on the heap!
+ * @buffer: Contains the value for this sysvar of type @type and with size @bsize
+ *          if bsize does not match the expected size of @type, the value is either
+ *          truncated or only partially copied over. every sysvar owns their own
+ *          buffer, which they also never give away. Values are always copied out
+ *          of the buffer and mutated by mutate calls. This means we need notifiers
+ *          (kevents) for sysvar changes, in case there are certain processes that
+ *          require the most up-to-date value of any sysvar
+ * @bsize: The size of @buffer
  */
-sysvar_t* create_sysvar(const char* key, enum PROFILE_TYPE ptype, enum SYSVAR_TYPE type, uint8_t flags, uintptr_t value)
+sysvar_t* create_sysvar(const char* key, enum PROFILE_TYPE ptype, enum SYSVAR_TYPE type, uint8_t flags, void* buffer, size_t bsize)
 {
     sysvar_t* var;
 
@@ -94,20 +149,26 @@ sysvar_t* create_sysvar(const char* key, enum PROFILE_TYPE ptype, enum SYSVAR_TY
 
     memset(var, 0, sizeof *var);
 
-    var->key = __sysvar_fmt_key(strdup(key));
+    /* Make sure type and value are already set */
+    var->len = profile_var_get_size_for_type(var);
     var->type = type;
     var->flags = flags;
 
     /* Placeholder value set */
-    var->value = (type == SYSVAR_TYPE_STRING) ? strdup((const char*)value) : (void*)value;
+    if (HAS_ERROR(__sysvar_allocate_value(var, type, buffer, bsize, &var->value))) {
+        /* Free the var */
+        zfree_fixed(&__var_allocator, var);
+        return nullptr;
+    }
+
+    /* Allocate the rest */
+    var->key = __sysvar_fmt_key(strdup(key));
 
     /*
      * Set the refcount to one in order to preserve the variable for multiple gets
      * and releases
      */
     var->refc = create_atomic_ptr_ex(1);
-    /* Make sure type and value are already set */
-    var->len = profile_var_get_size_for_type(var);
     var->obj = create_oss_obj_ex(key, ptype, NULL);
 
     /* Register this sysvar to its object */
@@ -138,49 +199,39 @@ void release_sysvar(sysvar_t* var)
         destroy_sysvar(var);
 }
 
-bool sysvar_get_str_value(sysvar_t* var, const char** buffer)
+/*!
+ * @brief: Simply read the most basic integer values from a sysvar
+ */
+u64 sysvar_read_u64(sysvar_t* var)
 {
-    if (!buffer || !var || var->type != SYSVAR_TYPE_STRING)
-        return false;
+    if (!var || var->type != SYSVAR_TYPE_QWORD)
+        return 0;
 
-    *buffer = var->str_value;
-    return true;
+    return var->qword_value;
 }
 
-bool sysvar_get_qword_value(sysvar_t* var, uint64_t* buffer)
+u32 sysvar_read_u32(sysvar_t* var)
 {
-    if (!buffer || !var || var->type != SYSVAR_TYPE_QWORD)
-        return false;
+    if (!var || var->type != SYSVAR_TYPE_DWORD)
+        return 0;
 
-    *buffer = var->qword_value;
-    return true;
+    return var->dword_value;
 }
 
-bool sysvar_get_dword_value(sysvar_t* var, uint32_t* buffer)
+u16 sysvar_read_u16(sysvar_t* var)
 {
-    if (!buffer || !var || var->type != SYSVAR_TYPE_DWORD)
-        return false;
+    if (!var || var->type != SYSVAR_TYPE_WORD)
+        return 0;
 
-    *buffer = var->dword_value;
-    return true;
+    return var->word_value;
 }
 
-bool sysvar_get_word_value(sysvar_t* var, uint16_t* buffer)
+u8 sysvar_read_u8(sysvar_t* var)
 {
-    if (!buffer || !var || var->type != SYSVAR_TYPE_WORD)
-        return false;
+    if (!var || var->type != SYSVAR_TYPE_BYTE)
+        return 0;
 
-    *buffer = var->word_value;
-    return true;
-}
-
-bool sysvar_get_byte_value(sysvar_t* var, uint8_t* buffer)
-{
-    if (!buffer || !var || var->type != SYSVAR_TYPE_BYTE)
-        return false;
-
-    *buffer = var->byte_value;
-    return true;
+    return var->byte_value;
 }
 
 /*!
@@ -192,53 +243,55 @@ bool sysvar_get_byte_value(sysvar_t* var, uint8_t* buffer)
  * anything like that, the caller MUST free it before changing the profile var value,
  * otherwise this malloced string is lost to the void =/
  */
-bool sysvar_write(sysvar_t* var, uint64_t value)
+error_t sysvar_write(sysvar_t* var, u8* buffer, size_t length)
 {
+    size_t write_sz;
+
     if (!var)
-        return false;
+        return -EINVAL;
 
     /* Yikes */
     if ((var->flags & SYSVAR_FLAG_CONSTANT) == SYSVAR_FLAG_CONSTANT)
-        return false;
+        return ECONST;
 
     /* FIXME: can we infer a type here? */
     if (var->type == SYSVAR_TYPE_UNSET) {
         kernel_panic("FIXME: tried to write to an unset variable");
-        return false;
+        return -EINVAL;
     }
 
-    switch (var->type) {
-    case SYSVAR_TYPE_STRING:
+    /* Get the smallest of the two */
+    write_sz = MIN(var->len, length);
 
-        /*
-         * Just in case the old value was strdupd
-         * If this does not point to a valid heap object, this call is harmless
-         */
-        if (var->str_value)
-            kfree((void*)var->str_value);
+    /* If this fucer is a basic type, we can just copy into the sysvars buffer itself */
+    if (sysvar_is_integer(var->type))
+        memcpy(&var->value, buffer, write_sz);
+    else {
+        /* Non-basic type.. we need to do fancy shit */
+        switch (var->type) {
+            case SYSVAR_TYPE_MEM_RANGE:
+                /* Allocate our own page range if we don't have one yet */
+                if (!var->range_value)
+                    var->range_value = kmalloc(sizeof(page_range_t));
 
-        var->str_value = strdup((const char*)value);
-        break;
-    case SYSVAR_TYPE_QWORD:
-        var->qword_value = value;
-        break;
-    case SYSVAR_TYPE_DWORD:
-        var->dword_value = (uint32_t)value;
-        break;
-    case SYSVAR_TYPE_WORD:
-        var->word_value = (uint16_t)value;
-        break;
-    case SYSVAR_TYPE_BYTE:
-        var->byte_value = (uint8_t)value;
-        break;
-    default:
-        break;
+                /* Could not allocate =( sadge */
+                if (!var->range_value)
+                    return -ENOMEM;
+
+                /* Copy, but make sure we don't overshoot the page range size */
+                memcpy(var->range_value, buffer, MIN(write_sz, sizeof(page_range_t)));
+                break;
+            case SYSVAR_TYPE_STRING:
+                // Forgor
+            default:
+                return -ENOTSUP;
+        }
     }
 
-    return true;
+    return 0;
 }
 
-int sysvar_read(sysvar_t* var, u8* buffer, size_t length)
+error_t sysvar_read(sysvar_t* var, u8* buffer, size_t length)
 {
     proc_t* current_proc;
     size_t data_size = NULL;
@@ -294,6 +347,17 @@ int sysvar_read(sysvar_t* var, u8* buffer, size_t length)
         buffer[length - 1] = '\0';
     } else
         memcpy(buffer, &var->value, data_size);
+
+    return 0;
+}
+
+error_t sysvar_sizeof(sysvar_t* var, size_t* psize)
+{
+    if (!var || !psize)
+        return -EINVAL;
+
+    /* Export the size */
+    *psize = var->len;
 
     return 0;
 }

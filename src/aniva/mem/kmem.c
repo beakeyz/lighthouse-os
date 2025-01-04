@@ -71,14 +71,17 @@ static inline u32 generate_tracker_flags(u32 custom_flags, u32 page_flags)
 {
     u32 ret = 0;
 
-    if (page_flags & KMEM_FLAG_KERNEL)
+    if ((page_flags & KMEM_FLAG_KERNEL) == KMEM_FLAG_KERNEL)
         ret |= PAGE_RANGE_FLAG_KERNEL; 
 
     if ((page_flags & KMEM_FLAG_NOEXECUTE) != KMEM_FLAG_NOEXECUTE)
         ret |= PAGE_RANGE_FLAG_EXEC;
 
-    if (page_flags & KMEM_FLAG_WRITABLE)
+    if ((page_flags & KMEM_FLAG_WRITABLE) == KMEM_FLAG_WRITABLE)
         ret |= PAGE_RANGE_FLAG_WRITABLE;
+
+    if ((page_flags & KMEM_FLAG_EXPORTED) == KMEM_FLAG_EXPORTED)
+        ret |= PAGE_RANGE_FLAG_EXPORTED;
 
     return ret;
 }
@@ -813,14 +816,15 @@ int kmem_user_alloc_range(void** result, struct proc* p, size_t size, uint32_t c
     nr_pages = GET_PAGECOUNT(0, size);
     tracker_flags = generate_tracker_flags(custom_flags, page_flags);
 
-    /* FIXME: this is not very safe, we need to randomize the start of process data probably lmaoo */
-    //error = resource_find_usable_range(p->m_resource_bundle, KRES_TYPE_MEM, size, &first_usable_base);
+    /*
+     * Allocate a vit of virtual space (TODO: Don't find and map any backing memory for this yet, and
+     * let the pages be moved in incrementally when a pagefault occurs)
+     */
     error = page_tracker_alloc_any(&p->m_virtual_tracker, PAGE_TRACKER_FIRST_FIT, nr_pages, tracker_flags, &range);
 
     if (error)
         return error;
 
-    /* TODO: Must calls in syscalls that fail may kill the process with the internal error flags set */
     return kmem_alloc_scattered(
         result,
         p->m_root_pd.m_root,

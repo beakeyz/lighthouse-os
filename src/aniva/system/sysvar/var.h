@@ -1,10 +1,11 @@
 #ifndef __ANIVA_VARIABLE__
 #define __ANIVA_VARIABLE__
 
-#include "system/profile/attr.h"
 #include <libk/stddef.h>
-#include <lightos/sysvar/shared.h>
 #include <sync/atomic_ptr.h>
+#include <system/profile/attr.h>
+#include <mem/tracker/tracker.h>
+#include <lightos/sysvar/shared.h>
 
 struct user_profile;
 struct oss_obj;
@@ -30,16 +31,19 @@ typedef struct sysvar {
     struct oss_obj* obj;
     const char* key;
     union {
+        /* Most basic values of a sysvar. These can be read almost directly, without having to do weird buffer shit */
+        uint64_t qword_value;
+        uint32_t dword_value;
+        uint16_t word_value;
+        uint8_t byte_value;
         /*
          * NOTE: when passing a string to a profile variable, the ownership of the string memory
          * is passed to this variable object. This means that on a value-change or variable destruction,
          * the memory gets freed if it was allocated on the heap.
          */
         const char* str_value;
-        uint64_t qword_value;
-        uint32_t dword_value;
-        uint16_t word_value;
-        uint8_t byte_value;
+        /* Range object owned by us */
+        page_range_t* range_value;
         void* value;
     };
     enum SYSVAR_TYPE type;
@@ -50,18 +54,21 @@ typedef struct sysvar {
 
 void init_sysvars(void);
 
-sysvar_t* create_sysvar(const char* key, enum PROFILE_TYPE ptype, enum SYSVAR_TYPE type, uint8_t flags, uintptr_t value);
+sysvar_t* create_sysvar(const char* key, enum PROFILE_TYPE ptype, enum SYSVAR_TYPE type, uint8_t flags, void* buffer, size_t bsize);
 
 sysvar_t* get_sysvar(sysvar_t* var);
 void release_sysvar(sysvar_t* var);
 
-bool sysvar_get_str_value(sysvar_t* var, const char** buffer);
-bool sysvar_get_qword_value(sysvar_t* var, uint64_t* buffer);
-bool sysvar_get_dword_value(sysvar_t* var, uint32_t* buffer);
-bool sysvar_get_word_value(sysvar_t* var, uint16_t* buffer);
-bool sysvar_get_byte_value(sysvar_t* var, uint8_t* buffer);
+/* Integer read functions */
+u64 sysvar_read_u64(sysvar_t* var);
+u32 sysvar_read_u32(sysvar_t* var);
+u16 sysvar_read_u16(sysvar_t* var);
+u8 sysvar_read_u8(sysvar_t* var);
 
-bool sysvar_write(sysvar_t* var, uint64_t value);
-int sysvar_read(sysvar_t* var, u8* buffer, size_t length);
+/* These routines enable anyone to read/write anything to a sysvar, as long as it's inside the bounds of its size */
+error_t sysvar_write(sysvar_t* var, u8* buffer, size_t length);
+error_t sysvar_read(sysvar_t* var, u8* buffer, size_t length);
+error_t sysvar_sizeof(sysvar_t* var, size_t* psize);
+
 
 #endif // !__ANIVA_VARIABLE__

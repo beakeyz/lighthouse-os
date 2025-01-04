@@ -44,13 +44,9 @@ SHARED_BIN_OUT := $(THIS_OUT)/$(SHARED_BIN)
 
 build-shared: $(ASM_OBJ) $(C_OBJ)
 ifeq ($(LIBRARY_NAME), lightos)
-	@$(LD) $(LIBRARY_SHARED_LDFLAGS) $^ -o $(SHARED_BIN_OUT) 
+	@$(CC) $(LIBRARY_SHARED_LDFLAGS) $^ -o $(SHARED_BIN_OUT) 
 else
-ifeq ($(LIBRARY_NAME), librt)
-	@$(LD) $(LIBRARY_SHARED_LDFLAGS) $^ -o $(SHARED_BIN_OUT) 
-else
-	@$(LD) $(LIBRARY_SHARED_LDFLAGS) -l:lightos.lib $(DEPS) $^ -o $(SHARED_BIN_OUT)
-endif
+	@$(CC) $(LIBRARY_SHARED_LDFLAGS) $(patsubst %,-l:%.lib,$(LIBRARIES)) -l:lightos.lib $^ -o $(SHARED_BIN_OUT)
 endif
 
 build-static: $(ASM_OBJ) $(C_OBJ) $(S_OBJ)

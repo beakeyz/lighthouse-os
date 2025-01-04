@@ -14,10 +14,8 @@
 #define PAGE_RANGE_FLAG_EXPORTED 0x004
 /* This range may contain executable code */
 #define PAGE_RANGE_FLAG_EXEC 0x008
-/* This range describes a chunk of physical memory */
-#define PAGE_RANGE_FLAG_PHYSICAL 0x010
 /* This range isn't backed by anything */
-#define PAGE_RANGE_FLAG_UNBACKED 0x020
+#define PAGE_RANGE_FLAG_UNBACKED 0x010
 
 /* Masks for page index and flags */
 #define PAGE_RANGE_PGE_IDX_MASK 0xfffffffffffff000ULL

@@ -6,16 +6,19 @@
 #include "sched/scheduler.h"
 #include <mem/kmem.h>
 
-static inline void _apply_memory_flags(uint32_t userflags, uint32_t* customflags, uint32_t* kmem_flags)
+static void _apply_memory_flags(uint32_t userflags, uint32_t* customflags, uint32_t* kmem_flags)
 {
-    *customflags = NULL;
-    *kmem_flags = NULL;
+    u32 kmem = 0;
 
-    //if ((userflags & VMEM_FLAG_WRITE) == VMEM_FLAG_WRITE)
-    *kmem_flags |= KMEM_FLAG_WRITABLE;
+    if ((userflags & VMEM_FLAG_WRITE) == VMEM_FLAG_WRITE)
+        kmem |= KMEM_FLAG_WRITABLE;
 
+    /* This flag gives us shit for some reason */
     //if ((userflags & VMEM_FLAG_EXEC) != VMEM_FLAG_EXEC)
-        //*kmem_flags |= KMEM_FLAG_NOEXECUTE;
+        //kmem |= KMEM_FLAG_NOEXECUTE;
+
+    *customflags = NULL;
+    *kmem_flags = kmem;
 }
 
 /*
@@ -49,8 +52,6 @@ error_t sys_alloc_vmem(size_t size, u32 flags, vaddr_t* buffer)
 
     if (error)
         return ENOMEM;
-
-    KLOG_DBG(" ==> Alloced range: 0x%p(%lld)\n", result, size);
 
     /* Set the buffer hihi */
     *buffer = (vaddr_t)result;
