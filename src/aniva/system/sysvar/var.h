@@ -49,7 +49,7 @@ typedef struct sysvar {
     enum SYSVAR_TYPE type;
     uint32_t flags;
     uint32_t len;
-    atomic_ptr_t* refc;
+    uint32_t refc;
 } sysvar_t;
 
 void init_sysvars(void);
@@ -58,6 +58,8 @@ sysvar_t* create_sysvar(const char* key, enum PROFILE_TYPE ptype, enum SYSVAR_TY
 
 sysvar_t* get_sysvar(sysvar_t* var);
 void release_sysvar(sysvar_t* var);
+void sysvar_lock(sysvar_t* var);
+void sysvar_unlock(sysvar_t* var);
 
 /* Integer read functions */
 u64 sysvar_read_u64(sysvar_t* var);
@@ -65,10 +67,11 @@ u32 sysvar_read_u32(sysvar_t* var);
 u16 sysvar_read_u16(sysvar_t* var);
 u8 sysvar_read_u8(sysvar_t* var);
 
-/* These routines enable anyone to read/write anything to a sysvar, as long as it's inside the bounds of its size */
-error_t sysvar_write(sysvar_t* var, u8* buffer, size_t length);
-error_t sysvar_read(sysvar_t* var, u8* buffer, size_t length);
-error_t sysvar_sizeof(sysvar_t* var, size_t* psize);
+const char* sysvar_read_str(sysvar_t* var);
 
+/* These routines enable anyone to read/write anything to a sysvar, as long as it's inside the bounds of its size */
+error_t sysvar_write(sysvar_t* var, void* buffer, size_t length);
+error_t sysvar_read(sysvar_t* var, void* buffer, size_t length);
+error_t sysvar_sizeof(sysvar_t* var, size_t* psize);
 
 #endif // !__ANIVA_VARIABLE__

@@ -2,23 +2,21 @@
 #include <libk/math/math.h>
 #include "libk/flow/error.h"
 #include "lightos/sysvar/shared.h"
+#include "logging/log.h"
 #include "mem/heap.h"
 #include "mem/zalloc/zalloc.h"
 #include "oss/obj.h"
 #include "proc/proc.h"
 #include "sched/scheduler.h"
-#include "sync/atomic_ptr.h"
+#include "sync/mutex.h"
 #include "system/profile/attr.h"
 #include <libk/string.h>
 
 static zone_allocator_t __var_allocator;
 
-static uint32_t profile_var_get_size_for_type(sysvar_t* var)
+static uint32_t sysvar_get_size_for_type(enum SYSVAR_TYPE type, size_t bsize)
 {
-    if (!var)
-        return 0;
-
-    switch (var->type) {
+    switch (type) {
     case SYSVAR_TYPE_BYTE:
         return sizeof(uint8_t);
     case SYSVAR_TYPE_WORD:
@@ -27,17 +25,38 @@ static uint32_t profile_var_get_size_for_type(sysvar_t* var)
         return sizeof(uint32_t);
     case SYSVAR_TYPE_QWORD:
         return sizeof(uint64_t);
-    case SYSVAR_TYPE_STRING:
-        if (!var->str_value)
-            return 0;
-
-        return strlen(var->str_value) + 1;
     case SYSVAR_TYPE_MEM_RANGE:
         return sizeof(page_range_t);
+    case SYSVAR_TYPE_STRING:
+        return bsize + 1;
     default:
         break;
     }
     return 0;
+}
+
+static inline bool sysvar_is_valid_len(size_t len)
+{
+    return (len <= SYSVAR_MAX_LEN);
+}
+
+static inline error_t sysvar_set_len(sysvar_t* var, size_t len)
+{
+    if (!sysvar_is_valid_len(len))
+        return -EINVAL;
+
+    var->len = len;
+    return 0;
+}
+
+void sysvar_lock(sysvar_t* var)
+{
+    mutex_lock(var->obj->lock);
+}
+
+void sysvar_unlock(sysvar_t* var)
+{
+    mutex_unlock(var->obj->lock);
 }
 
 /*!
@@ -72,7 +91,6 @@ static void destroy_sysvar(sysvar_t* var)
             break;
     }
 
-    destroy_atomic_ptr(var->refc);
     zfree_fixed(&__var_allocator, var);
 }
 
@@ -92,21 +110,27 @@ static const char* __sysvar_fmt_key(char* str)
 
 static error_t __sysvar_allocate_value(sysvar_t* var, enum SYSVAR_TYPE type, void* buffer, size_t bsize, void** pvalue)
 {
-    void* ret;
+    void* ret = NULL;
+    size_t write_sz;
+
+    if (!bsize)
+        return 0;
 
     ASSERT(pvalue);
 
+    write_sz = MIN(var->len, bsize);
+
     if (sysvar_is_integer(type))
-        memcpy(&ret, buffer, MIN(var->len, bsize));
+        memcpy(&ret, buffer, write_sz);
     else {
         switch (type) {
             case SYSVAR_TYPE_STRING:
-                ret = kmalloc(bsize);
+                ret = kmalloc(var->len);
 
                 if (!ret)
                     return -ENOMEM;
 
-                memcpy(ret, buffer, bsize);
+                memcpy(ret, buffer, write_sz);
                 break;
             case SYSVAR_TYPE_MEM_RANGE:
                 ret = kmalloc(sizeof(page_range_t));
@@ -114,7 +138,7 @@ static error_t __sysvar_allocate_value(sysvar_t* var, enum SYSVAR_TYPE type, voi
                 if (!ret)
                     return -ENOMEM;
 
-                memcpy(ret, buffer, MIN(sizeof(page_range_t), bsize));
+                memcpy(ret, buffer, write_sz);
                 break;
             default:
                 return -ENOTSUP;
@@ -142,6 +166,9 @@ sysvar_t* create_sysvar(const char* key, enum PROFILE_TYPE ptype, enum SYSVAR_TY
 {
     sysvar_t* var;
 
+    if (!key || !buffer || !sysvar_is_valid_len(bsize))
+        return nullptr;
+
     var = zalloc_fixed(&__var_allocator);
 
     if (!var)
@@ -150,7 +177,7 @@ sysvar_t* create_sysvar(const char* key, enum PROFILE_TYPE ptype, enum SYSVAR_TY
     memset(var, 0, sizeof *var);
 
     /* Make sure type and value are already set */
-    var->len = profile_var_get_size_for_type(var);
+    var->len = sysvar_get_size_for_type(type, bsize);
     var->type = type;
     var->flags = flags;
 
@@ -164,11 +191,13 @@ sysvar_t* create_sysvar(const char* key, enum PROFILE_TYPE ptype, enum SYSVAR_TY
     /* Allocate the rest */
     var->key = __sysvar_fmt_key(strdup(key));
 
+    KLOG_DBG("Creating sysvar: %s\n", var->key);
+
     /*
      * Set the refcount to one in order to preserve the variable for multiple gets
      * and releases
      */
-    var->refc = create_atomic_ptr_ex(1);
+    var->refc = 1;
     var->obj = create_oss_obj_ex(key, ptype, NULL);
 
     /* Register this sysvar to its object */
@@ -182,21 +211,32 @@ sysvar_t* get_sysvar(sysvar_t* var)
     if (!var)
         return nullptr;
 
-    uint64_t current_count = atomic_ptr_read(var->refc);
-    atomic_ptr_write(var->refc, current_count + 1);
+    sysvar_lock(var);
+
+    var->refc++;
+
+    sysvar_unlock(var);
 
     return var;
 }
 
 void release_sysvar(sysvar_t* var)
 {
-    uint64_t current_count = atomic_ptr_read(var->refc);
+    u32 c_refc;
 
-    if (current_count--)
-        atomic_ptr_write(var->refc, current_count);
+    sysvar_lock(var);
 
-    if (!current_count)
-        destroy_sysvar(var);
+    c_refc = var->refc;
+
+    if (c_refc)
+        c_refc = c_refc - 1;
+
+    if (!c_refc)
+        return destroy_sysvar(var);
+
+    var->refc = c_refc;
+
+    sysvar_unlock(var);
 }
 
 /*!
@@ -235,6 +275,19 @@ u8 sysvar_read_u8(sysvar_t* var)
 }
 
 /*!
+ * @brief: Export the string reference of this variable
+ *
+ * Pretty fucking dangerous, which is why we require the sysvar to be locked when this is called
+ */
+const char* sysvar_read_str(sysvar_t* var)
+{
+    if (var->type != SYSVAR_TYPE_STRING || !mutex_is_locked_by_current_thread(var->obj->lock))
+        return nullptr;
+
+    return var->str_value;
+}
+
+/*!
  * @brief Write to the variables internal value
  *
  * NOTE: when dealing with strings in profile variables, we simply store a pointer
@@ -243,12 +296,17 @@ u8 sysvar_read_u8(sysvar_t* var)
  * anything like that, the caller MUST free it before changing the profile var value,
  * otherwise this malloced string is lost to the void =/
  */
-error_t sysvar_write(sysvar_t* var, u8* buffer, size_t length)
+error_t sysvar_write(sysvar_t* var, void* buffer, size_t length)
 {
+    error_t error;
     size_t write_sz;
+    size_t old_sz;
+
 
     if (!var)
         return -EINVAL;
+
+    KLOG_DBG("Writing to sysvar: %s\n", var->key);
 
     /* Yikes */
     if ((var->flags & SYSVAR_FLAG_CONSTANT) == SYSVAR_FLAG_CONSTANT)
@@ -260,8 +318,12 @@ error_t sysvar_write(sysvar_t* var, u8* buffer, size_t length)
         return -EINVAL;
     }
 
+    sysvar_lock(var);
+
+    error = 0;
     /* Get the smallest of the two */
     write_sz = MIN(var->len, length);
+    old_sz = var->len;
 
     /* If this fucer is a basic type, we can just copy into the sysvars buffer itself */
     if (sysvar_is_integer(var->type))
@@ -274,28 +336,70 @@ error_t sysvar_write(sysvar_t* var, u8* buffer, size_t length)
                 if (!var->range_value)
                     var->range_value = kmalloc(sizeof(page_range_t));
 
+                /* Pre-set error */
+                error = -ENOMEM;
+
                 /* Could not allocate =( sadge */
                 if (!var->range_value)
-                    return -ENOMEM;
-
-                /* Copy, but make sure we don't overshoot the page range size */
-                memcpy(var->range_value, buffer, MIN(write_sz, sizeof(page_range_t)));
+                    goto unlock_and_exit;
                 break;
             case SYSVAR_TYPE_STRING:
-                // Forgor
+                error =  -EINVAL;
+
+                /* First, try to set the new length */
+                if (sysvar_set_len(var, length + 1))
+                    goto unlock_and_exit;
+
+                /*
+                 * Update write size.
+                 */
+                write_sz = var->len;
+
+                if (var->len > old_sz) {
+                    /* Free the previous buffer, if it exists and wasn't big enough */
+                    if (var->str_value)
+                        kfree((void*)var->str_value);
+                    /* Allocate a new buffer */
+                    var->str_value = kmalloc(write_sz);
+                }
+
+                /* Pre-set error */
+                error = -ENOMEM;
+
+                /* FAILEDDD */
+                if (!var->str_value)
+                    goto unlock_and_exit;
+
+                /* Clear the entire range out */
+                memset(var->value, 0, length + 1);
             default:
-                return -ENOTSUP;
+                error = -ENOTSUP;
+                goto unlock_and_exit;
         }
+
+        /* Copy, but make sure we don't overshoot size */
+        memcpy(var->value, buffer, write_sz);
     }
 
-    return 0;
+    /* Reset the error */
+    error = 0;
+
+unlock_and_exit:
+    sysvar_unlock(var);
+
+    return error;
 }
 
-error_t sysvar_read(sysvar_t* var, u8* buffer, size_t length)
+error_t sysvar_read(sysvar_t* var, void* buffer, size_t length)
 {
     proc_t* current_proc;
     size_t data_size = NULL;
     size_t minimal_buffersize = 1;
+
+    if (!var)
+        return -EINVAL;
+
+    KLOG_DBG("Reading from sysvar: %s\n", var->key);
 
     /* Get the current process */
     current_proc = get_current_proc();
@@ -303,11 +407,16 @@ error_t sysvar_read(sysvar_t* var, u8* buffer, size_t length)
     if (!current_proc)
         return -KERR_INVAL;
 
+    sysvar_lock(var);
+
     switch (var->type) {
     case SYSVAR_TYPE_STRING:
         /* We need at least the null-byte */
         minimal_buffersize = 1;
-        data_size = strlen(var->str_value) + 1;
+        data_size = var->len;
+        break;
+    case SYSVAR_TYPE_MEM_RANGE:
+        data_size = minimal_buffersize = sizeof(page_range_t);
         break;
     case SYSVAR_TYPE_QWORD:
         data_size = minimal_buffersize = sizeof(uint64_t);
@@ -326,8 +435,10 @@ error_t sysvar_read(sysvar_t* var, u8* buffer, size_t length)
     }
 
     /* Check if we have enough space to store the value */
-    if (!data_size || length < minimal_buffersize)
-        return NULL;
+    if (!data_size || length < minimal_buffersize) {
+        sysvar_unlock(var);
+        return -EINVAL;
+    }
 
     /* Make sure we are not going to copy too much into the user buffer */
     if (data_size > length)
@@ -339,14 +450,14 @@ error_t sysvar_read(sysvar_t* var, u8* buffer, size_t length)
      * 'memsets' into userspace
      */
 
-    if (var->type == SYSVAR_TYPE_STRING) {
-        /* Copy the string */
-        memcpy(buffer, var->str_value, data_size);
-
-        /* Make sure it's legal */
-        buffer[length - 1] = '\0';
+    /* Check how we need to copy shit */
+    if (!sysvar_is_integer(var->type)) {
+        /* Copy the object from value */
+        memcpy(buffer, var->value, data_size);
     } else
         memcpy(buffer, &var->value, data_size);
+
+    sysvar_unlock(var);
 
     return 0;
 }
@@ -356,8 +467,12 @@ error_t sysvar_sizeof(sysvar_t* var, size_t* psize)
     if (!var || !psize)
         return -EINVAL;
 
+    sysvar_lock(var);
+
     /* Export the size */
     *psize = var->len;
+
+    sysvar_unlock(var);
 
     return 0;
 }

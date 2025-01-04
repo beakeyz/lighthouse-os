@@ -4,7 +4,6 @@
 #include "fs/file.h"
 #include "kevent/types/profile.h"
 #include "libk/flow/error.h"
-#include "libk/stddef.h"
 #include "lightos/sysvar/shared.h"
 #include "mem/heap.h"
 #include "oss/core.h"
@@ -463,16 +462,16 @@ bool profile_has_password(user_profile_t* profile)
  */
 static void __apply_admin_variables()
 {
-    sysvar_attach(_admin_profile.node, "KTERM_LOC", PROFILE_TYPE_ADMIN, SYSVAR_TYPE_STRING, SYSVAR_FLAG_VOLATILE, PROFILE_STR("Root/System/kterm.drv"));
-    sysvar_attach(_admin_profile.node, DRIVERS_LOC_VARKEY, PROFILE_TYPE_ADMIN, SYSVAR_TYPE_STRING, SYSVAR_FLAG_VOLATILE, PROFILE_STR("Root/System/"));
+    sysvar_attach_ex(_admin_profile.node, "KTERM_LOC", PROFILE_TYPE_ADMIN, SYSVAR_TYPE_STRING, SYSVAR_FLAG_VOLATILE, PROFILE_STR("Root/System/kterm.drv"), 22);
+    sysvar_attach_ex(_admin_profile.node, DRIVERS_LOC_VARKEY, PROFILE_TYPE_ADMIN, SYSVAR_TYPE_STRING, SYSVAR_FLAG_VOLATILE, PROFILE_STR("Root/System/"), 13);
 
     /* Core drivers which perform high level scanning and load low level drivers */
-    sysvar_attach(_admin_profile.node, USBCORE_DRV_VARKEY, PROFILE_TYPE_ADMIN, SYSVAR_TYPE_STRING, SYSVAR_FLAG_VOLATILE, PROFILE_STR("usbcore.drv"));
-    sysvar_attach(_admin_profile.node, "DISK_CORE_DRV", PROFILE_TYPE_ADMIN, SYSVAR_TYPE_STRING, SYSVAR_FLAG_VOLATILE, PROFILE_STR("diskcore.drv"));
-    sysvar_attach(_admin_profile.node, "INPUT_CORE_DRV", PROFILE_TYPE_ADMIN, SYSVAR_TYPE_STRING, SYSVAR_FLAG_VOLATILE, PROFILE_STR("inptcore.drv"));
-    sysvar_attach(_admin_profile.node, "VIDEO_CORE_DRV", PROFILE_TYPE_ADMIN, SYSVAR_TYPE_STRING, SYSVAR_FLAG_VOLATILE, PROFILE_STR("vidcore.drv"));
-    sysvar_attach(_admin_profile.node, ACPICORE_DRV_VARKEY, PROFILE_TYPE_ADMIN, SYSVAR_TYPE_STRING, SYSVAR_FLAG_VOLATILE, PROFILE_STR("acpicore.drv"));
-    sysvar_attach(_admin_profile.node, DYNLOADER_DRV_VARKEY, PROFILE_TYPE_ADMIN, SYSVAR_TYPE_STRING, SYSVAR_FLAG_VOLATILE, PROFILE_STR("dynldr.drv"));
+    sysvar_attach_ex(_admin_profile.node, USBCORE_DRV_VARKEY, PROFILE_TYPE_ADMIN, SYSVAR_TYPE_STRING, SYSVAR_FLAG_VOLATILE, PROFILE_STR("usbcore.drv"), 12);
+    sysvar_attach_ex(_admin_profile.node, "DISK_CORE_DRV", PROFILE_TYPE_ADMIN, SYSVAR_TYPE_STRING, SYSVAR_FLAG_VOLATILE, PROFILE_STR("diskcore.drv"), 13);
+    sysvar_attach_ex(_admin_profile.node, "INPUT_CORE_DRV", PROFILE_TYPE_ADMIN, SYSVAR_TYPE_STRING, SYSVAR_FLAG_VOLATILE, PROFILE_STR("inptcore.drv"), 13);
+    sysvar_attach_ex(_admin_profile.node, "VIDEO_CORE_DRV", PROFILE_TYPE_ADMIN, SYSVAR_TYPE_STRING, SYSVAR_FLAG_VOLATILE, PROFILE_STR("vidcore.drv"), 12);
+    sysvar_attach_ex(_admin_profile.node, ACPICORE_DRV_VARKEY, PROFILE_TYPE_ADMIN, SYSVAR_TYPE_STRING, SYSVAR_FLAG_VOLATILE, PROFILE_STR("acpicore.drv"), 13);
+    sysvar_attach_ex(_admin_profile.node, DYNLOADER_DRV_VARKEY, PROFILE_TYPE_ADMIN, SYSVAR_TYPE_STRING, SYSVAR_FLAG_VOLATILE, PROFILE_STR("dynldr.drv"), 11);
 
     /*
      * These variables are to store the boot parameters. When we've initialized all devices we need and we're
@@ -480,9 +479,9 @@ static void __apply_admin_variables()
      * which we will verify that it has remained unchanged by checking if "BASE/BOOT_DEVICE_NAME" and "BASE/BOOT_DEVICE_SIZE"
      * are still valid.
      */
-    sysvar_attach(_admin_profile.node, BOOT_DEVICE_VARKEY, PROFILE_TYPE_ADMIN, SYSVAR_TYPE_STRING, SYSVAR_FLAG_VOLATILE, PROFILE_STR(NULL));
-    sysvar_attach(_admin_profile.node, BOOT_DEVICE_SIZE_VARKEY, PROFILE_TYPE_ADMIN, SYSVAR_TYPE_QWORD, SYSVAR_FLAG_VOLATILE, NULL);
-    sysvar_attach(_admin_profile.node, BOOT_DEVICE_NAME_VARKEY, PROFILE_TYPE_ADMIN, SYSVAR_TYPE_STRING, SYSVAR_FLAG_VOLATILE, PROFILE_STR(NULL));
+    sysvar_attach_ex(_admin_profile.node, BOOT_DEVICE_VARKEY, PROFILE_TYPE_ADMIN, SYSVAR_TYPE_STRING, SYSVAR_FLAG_VOLATILE, PROFILE_STR(NULL), 0);
+    sysvar_attach_ex(_admin_profile.node, BOOT_DEVICE_SIZE_VARKEY, PROFILE_TYPE_ADMIN, SYSVAR_TYPE_QWORD, SYSVAR_FLAG_VOLATILE, NULL, 0);
+    sysvar_attach_ex(_admin_profile.node, BOOT_DEVICE_NAME_VARKEY, PROFILE_TYPE_ADMIN, SYSVAR_TYPE_STRING, SYSVAR_FLAG_VOLATILE, PROFILE_STR(NULL), 0);
 }
 
 /*!
@@ -499,26 +498,26 @@ static void __apply_admin_variables()
 static void __apply_user_variables()
 {
     /* System name: Codename of the kernel that it present in the system */
-    sysvar_attach(_user_profile.node, "SYSTEM_NAME", PROFILE_TYPE_USER, SYSVAR_TYPE_STRING, SYSVAR_FLAG_CONSTANT | SYSVAR_FLAG_GLOBAL, PROFILE_STR("Aniva"));
+    sysvar_attach_ex(_user_profile.node, "SYSTEM_NAME", PROFILE_TYPE_USER, SYSVAR_TYPE_STRING, SYSVAR_FLAG_CONSTANT | SYSVAR_FLAG_GLOBAL, ("Aniva"), 6);
     /* Major version number of the kernel */
-    sysvar_attach(_user_profile.node, "VERSION_MAJ", PROFILE_TYPE_USER, SYSVAR_TYPE_BYTE, SYSVAR_FLAG_CONSTANT | SYSVAR_FLAG_GLOBAL, kernel_version.maj);
+    sysvar_attach_ex(_user_profile.node, "VERSION_MAJ", PROFILE_TYPE_USER, SYSVAR_TYPE_BYTE, SYSVAR_FLAG_CONSTANT | SYSVAR_FLAG_GLOBAL, &kernel_version.maj, 1);
     /* Minor version number of the kernel */
-    sysvar_attach(_user_profile.node, "VERSION_MIN", PROFILE_TYPE_USER, SYSVAR_TYPE_BYTE, SYSVAR_FLAG_CONSTANT | SYSVAR_FLAG_GLOBAL, kernel_version.min);
+    sysvar_attach_ex(_user_profile.node, "VERSION_MIN", PROFILE_TYPE_USER, SYSVAR_TYPE_BYTE, SYSVAR_FLAG_CONSTANT | SYSVAR_FLAG_GLOBAL, &kernel_version.min, 1);
     /* Bump version number of the kernel. This is used to indicate small changes in between different builds of the kernel */
-    sysvar_attach(_user_profile.node, "VERSION_BUMP", PROFILE_TYPE_USER, SYSVAR_TYPE_WORD, SYSVAR_FLAG_CONSTANT | SYSVAR_FLAG_GLOBAL, kernel_version.bump);
+    sysvar_attach_ex(_user_profile.node, "VERSION_BUMP", PROFILE_TYPE_USER, SYSVAR_TYPE_WORD, SYSVAR_FLAG_CONSTANT | SYSVAR_FLAG_GLOBAL, &kernel_version.bump, 1);
 
     /* Default provider for lwnd services */
-    sysvar_attach(_user_profile.node, "DFLT_LWND_PATH", PROFILE_TYPE_USER, SYSVAR_TYPE_STRING, SYSVAR_FLAG_GLOBAL, PROFILE_STR("service/lwnd"));
+    sysvar_attach_ex(_user_profile.node, "DFLT_LWND_PATH", PROFILE_TYPE_USER, SYSVAR_TYPE_STRING, SYSVAR_FLAG_GLOBAL, PROFILE_STR("service/lwnd"), 13);
     /* Path variable to indicate default locations for executables */
-    sysvar_attach(_user_profile.node, "PATH", PROFILE_TYPE_USER, SYSVAR_TYPE_STRING, SYSVAR_FLAG_GLOBAL, PROFILE_STR("Root/Apps:Root/Users/User/Apps"));
-    sysvar_attach(_user_profile.node, LIBSPATH_VAR, PROFILE_TYPE_USER, SYSVAR_TYPE_STRING, SYSVAR_FLAG_GLOBAL, PROFILE_STR("Root/System/Lib"));
+    sysvar_attach_ex(_user_profile.node, "PATH", PROFILE_TYPE_USER, SYSVAR_TYPE_STRING, SYSVAR_FLAG_GLOBAL, PROFILE_STR("Root/Apps:Root/Users/User/Apps"), 31);
+    sysvar_attach_ex(_user_profile.node, LIBSPATH_VAR, PROFILE_TYPE_USER, SYSVAR_TYPE_STRING, SYSVAR_FLAG_GLOBAL, PROFILE_STR("Root/System/Lib"), 16);
     /* Name of the runtime library */
-    sysvar_attach(_user_profile.node, "LIBRT_NAME", PROFILE_TYPE_USER, SYSVAR_TYPE_STRING, SYSVAR_FLAG_GLOBAL, PROFILE_STR("librt.lib"));
+    sysvar_attach_ex(_user_profile.node, "LIBRT_NAME", PROFILE_TYPE_USER, SYSVAR_TYPE_STRING, SYSVAR_FLAG_GLOBAL, PROFILE_STR("librt.lib"), 10);
 }
 
 static void __apply_runtime_variables()
 {
-    sysvar_attach(_runtime_node, RUNTIME_VARNAME_PROC_COUNT, PROFILE_TYPE_USER, SYSVAR_TYPE_DWORD, SYSVAR_FLAG_GLOBAL | SYSVAR_FLAG_STATIC, 0);
+    sysvar_attach_ex(_runtime_node, RUNTIME_VARNAME_PROC_COUNT, PROFILE_TYPE_USER, SYSVAR_TYPE_DWORD, SYSVAR_FLAG_GLOBAL | SYSVAR_FLAG_STATIC, 0, 0);
 }
 
 uint32_t runtime_get_proccount()
@@ -534,8 +533,7 @@ uint32_t runtime_get_proccount()
         return 0;
 
     /* Read the value */
-    if (!sysvar_get_dword_value(var, &count))
-        return 0;
+    count = sysvar_read_u32(var);
 
     /* Release our reference */
     release_sysvar(var);
@@ -556,13 +554,12 @@ static inline void runtime_add_proccount_delta(int32_t delta)
         return;
 
     /* Read the value */
-    if (!sysvar_get_dword_value(var, (uint32_t*)&count))
-        return;
+    count = (i32)sysvar_read_u32(var) + delta;
 
     ASSERT_MSG((count + delta) >= 0, "runtime_add_proccount_delta -> Can't have a negative proc count!");
 
     /* Write delta to the sysvar */
-    sysvar_write(var, count + delta);
+    sysvar_write(var, (void*)&count, sizeof(u32));
 
     /* Release our reference */
     release_sysvar(var);

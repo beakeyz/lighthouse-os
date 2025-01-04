@@ -16,7 +16,8 @@ bool oss_node_can_contain_sysvar(struct oss_node* node);
 
 struct sysvar* sysvar_get(struct oss_node* node, const char* key);
 int sysvar_dump(struct oss_node* node, struct sysvar*** barr, size_t* bsize);
-int sysvar_attach(struct oss_node* node, const char* key, enum PROFILE_TYPE ptype, enum SYSVAR_TYPE type, uint8_t flags, uintptr_t value);
+int sysvar_attach(struct oss_node* node, struct sysvar* var);
+int sysvar_attach_ex(struct oss_node* node, const char* key, enum PROFILE_TYPE ptype, enum SYSVAR_TYPE type, uint8_t flags, void* value, size_t bsize);
 int sysvar_detach(struct oss_node* node, const char* key, struct sysvar** var);
 
 #endif // !__ANIVA_SYSVAR_MAP__

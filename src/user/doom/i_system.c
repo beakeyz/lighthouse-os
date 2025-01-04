@@ -16,7 +16,7 @@
 //
 
 #include "lightos/memory/alloc.h"
-#include "lightos/memory/memflags.h"
+#include "lightos/memory/memory.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

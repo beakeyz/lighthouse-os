@@ -39,7 +39,7 @@ static inline int get_strlen(struct file* file, pvr_file_header_t* hdr, uint32_t
     return 0;
 }
 
-static inline const char* get_str(struct file* file, pvr_file_header_t* hdr, uint32_t strtab_entry_off)
+static inline const char* get_str(struct file* file, pvr_file_header_t* hdr, uint32_t strtab_entry_off, size_t* p_len)
 {
     uintptr_t abs_offset;
     char* key_buffer;
@@ -63,6 +63,9 @@ static inline const char* get_str(struct file* file, pvr_file_header_t* hdr, uin
         return nullptr;
     }
 
+    if (p_len)
+        *p_len = c_strlen + 1;
+
     return key_buffer;
 }
 
@@ -78,6 +81,7 @@ int sysvarldr_load_variables(struct oss_node* node, enum PROFILE_TYPE ptype, str
     const char* key_buffer;
     void* val_buffer;
     uintptr_t c_value;
+    size_t c_size;
 
     file_read(file, &hdr, sizeof(hdr), 0);
 
@@ -107,12 +111,14 @@ int sysvarldr_load_variables(struct oss_node* node, enum PROFILE_TYPE ptype, str
         loaded_var = nullptr;
 
         /* Get the variable key */
-        key_buffer = get_str(file, &hdr, c_var.key_off);
+        key_buffer = get_str(file, &hdr, c_var.key_off, NULL);
 
         /* Copy the correct value */
         if (c_var.var_type == SYSVAR_TYPE_STRING)
-            val_buffer = (void*)get_str(file, &hdr, c_var.var_value);
+            val_buffer = (void*)get_str(file, &hdr, c_var.var_value, &c_size);
         else {
+            c_size = sizeof(uintptr_t);
+            /* Allocate a tmp buffer here, so we can recycle the kfree call */
             val_buffer = kmalloc(sizeof(uintptr_t));
 
             memcpy((void*)val_buffer, &c_var.var_value, sizeof(uintptr_t));
@@ -122,19 +128,14 @@ int sysvarldr_load_variables(struct oss_node* node, enum PROFILE_TYPE ptype, str
         loaded_var = sysvar_get(node, key_buffer);
 
         /* Ik this is very confusing, future me, but trust me on this one (Gr. past you) */
-        c_value = ((c_var.var_type == SYSVAR_TYPE_STRING) ?
-                                                          /* sysvar_write expects a pointer to a string (which it can strdup) when a variable is a string */
-                (uintptr_t)val_buffer
-                                                          :
-                                                          /* Otherwise it will just put in the raw integer value we pass into 'value' */
-                *(uintptr_t*)val_buffer);
+        c_value = (uintptr_t)val_buffer;
 
         /* Do we already have this variable? */
         if (loaded_var != nullptr) {
             /* Overrride */
             sysvar_write(
                 loaded_var,
-                c_value);
+                (void*)c_value, c_size);
 
             /* Release the reference made by sysvar_map_get */
             release_sysvar(loaded_var);
@@ -142,12 +143,12 @@ int sysvarldr_load_variables(struct oss_node* node, enum PROFILE_TYPE ptype, str
         }
 
         /* Put the variable */
-        (void)sysvar_attach(node,
+        (void)sysvar_attach_ex(node,
             key_buffer,
             ptype,
             c_var.var_type,
             c_var.var_flags,
-            c_value);
+            (void*)c_value, c_size);
 
     cycle:
         /* Found a variable */

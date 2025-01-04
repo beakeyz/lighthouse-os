@@ -11,6 +11,9 @@
 #define SYSVAR_STDIO "STDIO"
 #define SYSVAR_IO_DUMP SYSVAR_STDIO
 
+/* A single sysvar may hold a buffer of max 4 Kib */
+#define SYSVAR_MAX_LEN 0x1000
+
 /*
  * The different types that a profile variable can hold
  *
@@ -36,6 +39,7 @@ static inline bool sysvar_is_integer(enum SYSVAR_TYPE type)
 {
     return (type >= SYSVAR_TYPE_BYTE && type <= SYSVAR_TYPE_QWORD);
 }
+
 
 /*
  * Template struct for building a sysvar

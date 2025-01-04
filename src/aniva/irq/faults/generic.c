@@ -1,7 +1,6 @@
 #include "faults.h"
 #include "libk/bin/ksyms.h"
 #include "libk/flow/error.h"
-#include "libk/stddef.h"
 #include "proc/proc.h"
 #include "sched/scheduler.h"
 #include <logging/log.h>

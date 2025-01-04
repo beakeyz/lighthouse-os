@@ -5,11 +5,13 @@
 #include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"
 #include "lightos/dev/shared.h"
+#include "logging/log.h"
 #include "mem/kmem.h"
 #include "mem/phys.h"
 #include "mem/tracker/tracker.h"
 #include "oss/obj.h"
 #include "sync/mutex.h"
+#include "system/sysvar/var.h"
 #include <libk/string.h>
 #include <mem/heap.h>
 
@@ -356,16 +358,26 @@ static driver_t* _get_dependency_from_path(drv_dependency_t* dep)
     if (error)
         return nullptr;
 
-    /* NOTE: This is suddenly a bool :clown: */
-    if (!sysvar_get_str_value(drv_root, &relative_path))
-        return nullptr;
+    /* We only need to read the pointer of this str, so lock the var */
+    sysvar_lock(drv_root);
 
+    /* Read the relative path by leaking the reference of the vars string */
+    relative_path = sysvar_read_str(drv_root);
+
+    /* Calculate a new length */
     abs_path_len = strlen(relative_path) + strlen(dep->location) + 1;
+    /* Allocate a region for this */
     abs_path = kmalloc(abs_path_len);
 
-    /* Construct the full path */
     memset(abs_path, 0, abs_path_len);
-    concat((char*)relative_path, (char*)dep->location, abs_path);
+    /* Construct the full path */
+    sfmt_sz(abs_path, abs_path_len, "%s%s", relative_path, dep->location);
+
+    /* Unlock it again */
+    sysvar_unlock(drv_root);
+
+    /* Release the reference to this sysvar */
+    release_sysvar(drv_root);
 
     /* Try to find the driver */
     ret = install_external_driver(abs_path);

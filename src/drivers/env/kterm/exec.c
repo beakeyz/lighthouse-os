@@ -3,8 +3,6 @@
 #include "libk/bin/elf.h"
 #include "libk/flow/error.h"
 #include "lightos/handle_def.h"
-#include "lightos/proc/cmdline.h"
-#include "lightos/sysvar/shared.h"
 #include "logging/log.h"
 #include "mem/heap.h"
 #include "oss/core.h"
@@ -12,13 +10,13 @@
 #include "proc/proc.h"
 #include "sched/scheduler.h"
 #include "system/profile/profile.h"
-#include "system/sysvar/map.h"
+#include "system/sysvar/var.h"
 #include <proc/env.h>
 
 static int _kterm_exec_find_obj(const char* path, oss_obj_t** bobj)
 {
     int error;
-    char* fullpath_buf;
+    char* fullpath_buf = nullptr;
     char* c_path;
     char* full_buffer;
     size_t fullpath_len;
@@ -46,13 +44,29 @@ static int _kterm_exec_find_obj(const char* path, oss_obj_t** bobj)
     if (profile_get_var(logged_profile, "PATH", &path_var))
         return -1;
 
-    /* Get the string value here */
-    if (!sysvar_get_str_value(path_var, (const char**)&fullpath_buf))
-        return -1;
+    /* Get this size */
+    error = sysvar_sizeof(path_var, &fullpath_len);
+
+    /* ALlocate a buffer for this */
+    fullpath_buf = kmalloc(fullpath_len);
+
+    /* Read this shit */
+    if (fullpath_buf)
+        error = sysvar_read(path_var, (void*)fullpath_buf, fullpath_len);
+    else
+        error = -ENOMEM;
+
+    /* Release this reference */
+    release_sysvar(path_var);
+
+    /* If there is an error at this point, we've released our sysvar */
+    if (error) {
+        if (fullpath_buf)
+            kfree((void*)fullpath_buf);
+        return error;
+    }
 
     /* Duplicate the string */
-    fullpath_buf = strdup(fullpath_buf);
-    fullpath_len = strlen(fullpath_buf);
     c_path = fullpath_buf;
     path_len = strlen(path);
 

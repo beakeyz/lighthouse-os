@@ -10,6 +10,7 @@
 
 #include <lightos/types.h>
 #include "lightos/handle_def.h"
+#include "lightos/memory/memory.h"
 
 /*
  * Map a section of physical memory to a virtual range
@@ -18,9 +19,13 @@
  *
  * Let @handle be HNDL_INVAL in order to map inside our own address space
  */
-error_t map_vmem(HANDLE handle, void** presult, void* addr, size_t len, u32 flags);
-error_t unmap_vmem(void* addr, size_t len);
+error_t vmem_map(HANDLE handle, void** presult, void* addr, size_t len, u32 flags);
+error_t vmem_unmap(void* addr, size_t len);
+error_t vmem_protect(void* addr, size_t len, u32 flags);
+error_t vmem_get_mapping(HANDLE handle, page_range_t* prange);
 
-error_t protect_vmem(void* addr, size_t len, u32 flags);
+HANDLE vmem_open(const char* path, u32 flags, enum HNDL_MODE mode);
+HANDLE vmem_open_rel(HANDLE handle, const char* path, u32 flags);
+error_t vmem_close(HANDLE handle);
 
 #endif // !__LIGHTENV_MEMMAP__

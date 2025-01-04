@@ -12,6 +12,7 @@
 #include "proc/proc.h"
 #include "sched/scheduler.h"
 #include "system/profile/profile.h"
+#include "system/sysvar/var.h"
 #include <oss/obj.h>
 
 /*
@@ -195,12 +196,20 @@ kerror_t load_dynamic_lib(const char* path, struct loaded_app* target_app, dynam
         return 0;
 
     profile_find_var(LIBSPATH_VARPATH, &libs_var);
-    sysvar_get_str_value(libs_var, &search_dir);
+
+    /* Lock the var */
+    sysvar_lock(libs_var);
+
+    search_dir = sysvar_read_str(libs_var);
 
     KLOG_DBG("Trying to find search dir...\n");
 
     lib = nullptr;
+    /* Try to prepend the search path */
     search_path = _append_path_to_searchdir(search_dir, path);
+
+    /* Unlock the var */
+    sysvar_unlock(libs_var);
 
     if (!search_path)
         return -KERR_NOMEM;

@@ -68,18 +68,36 @@ void destroy_penv(penv_t* env)
     kfree(env);
 }
 
+static size_t __sysvar_template_get_size(struct sysvar_template* tmp)
+{
+    if (sysvar_template_get_type(tmp) == SYSVAR_TYPE_STRING)
+        return strlen(tmp->str_val);
+
+    /* Return the default size of a qword */
+    return sizeof(u64);
+}
+
 int penv_add_vector(penv_t* env, sysvar_vector_t vec)
 {
     int error;
     u32 i = 0;
+    enum SYSVAR_TYPE c_type;
+    bool is_int;
 
     if (!env || !vec)
         return -KERR_INVAL;
 
     /* Loop over all sysvar templates in the vector */
     for (struct sysvar_template* var = &vec[0]; var->key != nullptr; var = &vec[i]) {
+        c_type = sysvar_template_get_type(var);
+        /* Skip weird types */
+        if (c_type == SYSVAR_TYPE_UNSET)
+            continue;
+
+        is_int = sysvar_is_integer(c_type);
+
         /* Construct a sysvar and add it to the env */
-        if ((error = sysvar_attach(env->node, &var->key[1], env->profile->attr.ptype, sysvar_template_get_type(var), NULL, var->qwrd_val)))
+        if ((error = sysvar_attach_ex(env->node, &var->key[1], env->profile->attr.ptype, sysvar_template_get_type(var), NULL, is_int ? &var->p_val : var->p_val, __sysvar_template_get_size(var))))
             break;
 
         i++;

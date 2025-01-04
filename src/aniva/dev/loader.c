@@ -637,57 +637,77 @@ fail_and_deallocate:
 /*!
  * @brief: Read the driver base path from the BASE profile
  *
- * TODO: cache this value and register a profile_var change kevent
  */
-static const char* _get_driver_path()
+static const char* _get_driver_path(const char* varpath)
 {
-    const char* ret;
-    sysvar_t* var;
+    char* ret = nullptr;
+    size_t driver_root_sz; 
+    size_t driver_name_sz;
+    sysvar_t* driver_root_var = nullptr;
+    sysvar_t* driver_name_var = nullptr;
 
-    if (profile_find_var(DRIVERS_LOC_VAR_PATH, &var))
+    /* Find var one */
+    if (profile_find_var(DRIVERS_LOC_VAR_PATH, &driver_root_var))
         return nullptr;
 
-    if (!sysvar_get_str_value(var, &ret))
-        return nullptr;
+    /* Find var two */
+    if (profile_find_var(varpath, &driver_name_var))
+        goto dealloc_and_error;
+
+    /* Get size one */
+    if (sysvar_sizeof(driver_root_var, &driver_root_sz))
+        goto dealloc_and_error;
+
+    /* Get size two */
+    if (sysvar_sizeof(driver_name_var, &driver_name_sz))
+        goto dealloc_and_error;
+
+    /* Allocate the buffers */
+    ret = kmalloc(driver_root_sz + driver_name_sz);
+
+    /* Clear the entire thing */
+    memset(ret, 0, driver_root_sz + driver_name_sz);
+
+    /* First read the root path into the buffer */
+    if (sysvar_read(driver_root_var, (void*)ret, driver_root_sz))
+        goto dealloc_and_error;
+    
+    /* Check if it ends with a slash */
+    if (ret[strlen(ret) - 1] != '/')
+        goto dealloc_and_error;
+
+    /* Read the rest of the  */
+    if (sysvar_read(driver_name_var, (void*)&ret[strlen(ret)], driver_name_sz))
+        goto dealloc_and_error;
 
     /* Release the reference made by profile_find_var */
-    release_sysvar(var);
+    release_sysvar(driver_root_var);
+    release_sysvar(driver_name_var);
 
     return ret;
+
+dealloc_and_error:
+
+    if (driver_root_var)
+        release_sysvar(driver_root_var);
+
+    if (driver_name_var)
+        release_sysvar(driver_name_var);
+
+    if (ret)
+        kfree((void*)ret);
+    return nullptr;
 }
 
 driver_t* load_external_driver_from_var(const char* varpath)
 {
-    kerror_t error;
-    const char* driver_filename;
-    const char* driver_rootpath;
-    char* driver_path;
-    size_t driver_path_len;
-    sysvar_t* var;
     driver_t* ret;
+    const char* driver_path;
 
-    error = profile_find_var(varpath, &var);
-    if (error)
-        return nullptr;
-
-    if (!sysvar_get_str_value(var, &driver_filename))
-        return nullptr;
-
-    release_sysvar(var);
-
-    driver_rootpath = _get_driver_path();
-
-    if (!driver_rootpath || driver_rootpath[strlen(driver_rootpath) - 1] != '/')
-        return nullptr;
-
-    driver_path_len = strlen(driver_rootpath) + strlen(driver_filename) + 1;
-    driver_path = kmalloc(driver_path_len);
+    driver_path = _get_driver_path(varpath);
 
     if (!driver_path)
         return nullptr;
-
-    memset(driver_path, 0, driver_path_len);
-    concat((void*)driver_rootpath, (void*)driver_filename, driver_path);
 
     KLOG_DBG("Loading driver at %s from var %s\n", driver_path, varpath);
 

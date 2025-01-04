@@ -1,7 +1,7 @@
 #ifndef __ANIVA_OSS_PATH_UTILS__
 #define __ANIVA_OSS_PATH_UTILS__
 
-#include "libk/stddef.h"
+#include <lightos/types.h>
 
 #define _OSS_PATH_SLASH '/'
 #define _OSS_PATH_SKIP '%'

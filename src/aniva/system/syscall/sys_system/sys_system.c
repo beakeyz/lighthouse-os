@@ -100,7 +100,7 @@ HANDLE sys_create_sysvar(const char* key, handle_flags_t flags, enum SYSVAR_TYPE
     if (!target_node)
         return false;
 
-    if (KERR_ERR(sysvar_attach(target_node, key, target_prv_lvl, type, flags.s_flags, (uintptr_t)buffer)))
+    if (KERR_ERR(sysvar_attach_ex(target_node, key, target_prv_lvl, type, flags.s_flags, buffer, len)))
         return false;
 
     return true;

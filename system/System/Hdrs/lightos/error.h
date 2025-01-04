@@ -144,6 +144,7 @@
 #define ERESERVED 177
 #define EBADSIZE 178
 #define ETESTFAIL 179
+#define ECONST 180
 
 #define ERESTARTSYS 512
 

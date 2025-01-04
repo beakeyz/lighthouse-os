@@ -11,10 +11,14 @@
 #define SYSVAR_STDIO "STDIO"
 #define SYSVAR_IO_DUMP SYSVAR_STDIO
 
+/* A single sysvar may hold a buffer of max 4 Kib */
+#define SYSVAR_MAX_LEN 0x1000
+
 /*
  * The different types that a profile variable can hold
  *
  * FIXME: we should make this naming sceme consistent with PVAR_FLAG___ naming
+ * NOTE: DONT CHANGE THIS ORDER
  */
 enum SYSVAR_TYPE {
     SYSVAR_TYPE_INVAL = -1,
@@ -28,7 +32,14 @@ enum SYSVAR_TYPE {
     SYSVAR_TYPE_GUID,
     SYSVAR_TYPE_PATH,
     SYSVAR_TYPE_ENUM,
+    SYSVAR_TYPE_MEM_RANGE,
 };
+
+static inline bool sysvar_is_integer(enum SYSVAR_TYPE type)
+{
+    return (type >= SYSVAR_TYPE_BYTE && type <= SYSVAR_TYPE_QWORD);
+}
+
 
 /*
  * Template struct for building a sysvar

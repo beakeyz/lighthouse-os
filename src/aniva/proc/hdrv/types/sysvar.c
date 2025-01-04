@@ -82,6 +82,9 @@ static int sysvar_khdriver_close(khandle_driver_t* driver, khandle_t* handle)
 {
     sysvar_t* var;
 
+    if (handle->type != HNDL_TYPE_SYSVAR)
+        return -EINVAL;
+
     var = handle->reference.pvar;
 
     if (!var)

@@ -45,6 +45,8 @@ typedef enum HANDLE_TYPE {
     HNDL_TYPE_SHARED_LIB,
     /* An entire process environment */
     HNDL_TYPE_PROC_ENV,
+    /* A virtual memory mapping */
+    HNDL_TYPE_VMEM,
 
     NR_HNDL_TYPES,
 } HANDLE_TYPE,

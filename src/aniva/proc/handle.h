@@ -49,6 +49,7 @@ typedef struct kernel_handle {
         struct kevent* event;
         struct kevent_hook* hook;
         struct dynamic_library* dynlib;
+        struct sysvar* vmem_range;
         void* kobj;
     } reference;
 } khandle_t;

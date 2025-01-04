@@ -3,7 +3,6 @@
 #include "irq/interrupts.h"
 #include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"
-#include "libk/stddef.h"
 #include "logging/log.h"
 #include "mem/zalloc/zalloc.h"
 #include "proc/kprocs/idle.h"

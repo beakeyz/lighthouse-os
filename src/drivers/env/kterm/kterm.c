@@ -807,10 +807,19 @@ int kterm_set_login(user_profile_t* profile)
         if (profile_get_var(profile, "LOGIN_MSG", &login_msg_var))
             return 0;
 
-        if (sysvar_get_str_value(login_msg_var, &login_msg) == false)
-            return 0;
+        sysvar_lock(login_msg_var);
 
-        kterm_println(login_msg);
+        login_msg = sysvar_read_str(login_msg_var);
+
+        /* Pi */
+        if (login_msg)
+            kterm_println(login_msg);
+
+        /* Release the sysvar */
+        sysvar_unlock(login_msg_var);
+
+        /* Release the reference profile_get_var made */
+        release_sysvar(login_msg_var);
         return 0;
     }
 
@@ -1031,17 +1040,24 @@ static int kterm_read(device_t* device, driver_t* kterm, u64 offset, void* buffe
 static inline void kterm_init_lwnd_emulation()
 {
     const char* var_buffer;
+    size_t var_buffer_sz;
     sysvar_t* var;
 
     ASSERT_MSG(profile_find_var("User/DFLT_LWND_PATH", &var) == 0, "Could not find global variable for the default LWND path while initializing kterm!");
 
-    sysvar_get_str_value(var, &var_buffer);
+    /* Grab the var size */
+    sysvar_sizeof(var, &var_buffer_sz);
+
+    /* Allocate the thing */
+    var_buffer = kmalloc(var_buffer_sz);
+
+    ASSERT(sysvar_read(var, (u8*)var_buffer, var_buffer_sz) == 0);
 
     /* Make sure this is owned by us */
-    _old_dflt_lwnd_path_value = strdup(var_buffer);
+    _old_dflt_lwnd_path_value = var_buffer;
 
     /* Make sure the system knows we emulate lwnd */
-    sysvar_write(var, PROFILE_STR("other/kterm"));
+    sysvar_write(var, (void*)"other/kterm", 12);
 }
 
 static inline void kterm_fini_lwnd_emulation()
@@ -1051,7 +1067,10 @@ static inline void kterm_fini_lwnd_emulation()
     ASSERT_MSG(profile_find_var("User/DFLT_LWND_PATH", &var) == 0, "Could not find global variable for the default LWND path while initializing kterm!");
 
     /* Set the default back to the old default */
-    sysvar_write(var, PROFILE_STR(_old_dflt_lwnd_path_value));
+    sysvar_write(var, (void*)_old_dflt_lwnd_path_value, strlen(_old_dflt_lwnd_path_value));
+
+    /* Lol */
+    kfree((void*)_old_dflt_lwnd_path_value);
 }
 
 static void kterm_reset_prompt_vars()

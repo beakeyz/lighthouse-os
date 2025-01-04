@@ -28,7 +28,7 @@ struct pattr;
 /* This profile has a password in the hash */
 #define PROFILE_FLAG_HAS_PASSWD 0x00000001UL
 
-#define PROFILE_STR(str) (uint64_t)(str)
+#define PROFILE_STR(str) (str)
 
 #define DRIVERS_LOC_VARKEY "DRIVERS_LOC"
 #define BOOT_DEVICE_VARKEY "BOOT_DEVICE"

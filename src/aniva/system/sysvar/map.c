@@ -2,7 +2,6 @@
 #include "mem/heap.h"
 #include "oss/node.h"
 #include "oss/obj.h"
-#include "sync/atomic_ptr.h"
 #include "system/sysvar/var.h"
 
 bool oss_node_can_contain_sysvar(oss_node_t* node)
@@ -142,28 +141,35 @@ int sysvar_dump(struct oss_node* node, struct sysvar*** barr, size_t* bsize)
     return 0;
 }
 
+int sysvar_attach(struct oss_node* node, struct sysvar* var)
+{
+    error_t error;
+
+    if (!var)
+        return -KERR_INVAL;
+
+    error = oss_node_add_obj(node, var->obj);
+
+    /* This is kinda yikes lol */
+    if (error)
+        release_sysvar(var);
+
+    return error;
+}
+
 /*!
  * @brief: Attach a new sysvar into @node
  *
  *
  */
-int sysvar_attach(struct oss_node* node, const char* key, enum PROFILE_TYPE ptype, enum SYSVAR_TYPE type, uint8_t flags, uintptr_t value)
+int sysvar_attach_ex(struct oss_node* node, const char* key, enum PROFILE_TYPE ptype, enum SYSVAR_TYPE type, uint8_t flags, void* buffer, size_t bsize)
 {
-    int error;
     sysvar_t* target;
 
-    target = create_sysvar(key, ptype, type, flags, value);
+    /* Try to create this fucker */
+    target = create_sysvar(key, ptype, type, flags, buffer, bsize);
 
-    if (!target)
-        return -KERR_INVAL;
-
-    error = oss_node_add_obj(node, target->obj);
-
-    /* This is kinda yikes lol */
-    if (error)
-        release_sysvar(target);
-
-    return error;
+    return sysvar_attach(node, target);
 }
 
 /*!
@@ -185,9 +191,13 @@ int sysvar_detach(struct oss_node* node, const char* key, struct sysvar** bvar)
 
     var = oss_obj_unwrap(entry->obj, sysvar_t);
 
+    sysvar_lock(var);
+
     /* Only return the reference if this variable is still referenced */
-    if (atomic_ptr_read(var->refc) > 1 && bvar)
+    if (var->refc > 1 && bvar)
         *bvar = var;
+
+    sysvar_unlock(var);
 
     /* Release a reference */
     release_sysvar(var);

@@ -630,29 +630,36 @@ static bool try_mount_root(volume_t* device)
 static int _set_bootdevice(volume_t* device)
 {
     int error = -KERR_INVAL;
+    size_t bootdev_sz;
     const char* path;
+
+    if (!device)
+        return -1;
+
+    /* Compute the bootdev size here */
+    bootdev_sz = device->info.max_offset * device->info.logical_sector_size;
+
     const char* sysvar_names[] = {
         BOOT_DEVICE_VARKEY,
         BOOT_DEVICE_NAME_VARKEY,
         BOOT_DEVICE_SIZE_VARKEY,
     };
-    u64 sysvar_values[] = {
-        0, // Will get set later
-        (u64)device->dev->name,
-        device->info.max_offset * device->info.logical_sector_size,
+    struct { void* val; u64 sz; } sysvar_values[] = {
+        {0, 0}, // Will get set later
+        {(void*)device->dev->name, strlen(device->dev->name) + 1 },
+        {&bootdev_sz, sizeof(u64) },
     };
     sysvar_t* sysvar;
     user_profile_t* profile = get_admin_profile();
-
-    if (!device)
-        return -1;
 
     path = oss_obj_get_fullpath(device->dev->obj);
 
     if (!path)
         return -1;
 
-    sysvar_values[0] = (u64)path;
+    /* Set the path */
+    sysvar_values[0].val = (void*)path;
+    sysvar_values[1].sz = strlen(path) + 1;
 
     for (u32 i = 0; i < 3; i++) {
         sysvar = sysvar_get(profile->node, sysvar_names[i]);
@@ -663,7 +670,8 @@ static int _set_bootdevice(volume_t* device)
 
         error = -KERR_INVAL;
 
-        if (sysvar_write(sysvar, sysvar_values[i]))
+        /* Try to write shit */
+        if (sysvar_write(sysvar, (void*)sysvar_values[i].val, sysvar_values[i].sz))
             goto free_and_exit;
     }
 
