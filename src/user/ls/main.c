@@ -14,37 +14,17 @@ struct list_entry {
 
 static int list_add(struct list_entry** list_head, DirEntry* entry)
 {
+    struct list_entry* new_entry;
+
     if (!list_head)
         return -1;
 
-    while (*list_head)
-        list_head = &(*list_head)->next;
+    new_entry = malloc(sizeof(struct list_entry));
 
-    *list_head = malloc(sizeof(struct list_entry));
-    (*list_head)->entry = entry;
-    (*list_head)->next = nullptr;
+    new_entry->entry = entry;
+    new_entry->next = *list_head;
 
-    return 0;
-}
-
-static int list_switch_next(struct list_entry** a)
-{
-    struct list_entry* cached_next;
-    struct list_entry* cached_next_next;
-
-    if (!a)
-        return -1;
-
-    cached_next = (*a)->next;
-
-    if ((*a)->next) {
-        cached_next_next = (*a)->next->next;
-
-        (*a)->next->next = *a;
-        (*a)->next = cached_next_next;
-    }
-
-    *a = cached_next;
+    *list_head = new_entry;
 
     return 0;
 }
@@ -94,18 +74,19 @@ static void _fill_semi_sorted_dirlist(struct list_entry** sorted, struct list_en
 
     c_entry = unsorted;
 
-    /* First add the directories */
+    /* First add the default entries */
     while (*c_entry) {
-        if (direntry_is_dir((*c_entry)->entry))
+        if (!direntry_is_dir((*c_entry)->entry))
             list_add(sorted, (*c_entry)->entry);
+
         c_entry = &(*c_entry)->next;
     }
 
     c_entry = unsorted;
 
-    /* Then add the normal entries */
+    /* Then add the directories */
     while (*c_entry) {
-        if (!direntry_is_dir((*c_entry)->entry))
+        if (direntry_is_dir((*c_entry)->entry))
             list_add(sorted, (*c_entry)->entry);
         c_entry = &(*c_entry)->next;
     }
@@ -130,8 +111,8 @@ int main()
     const char* path;
     Directory* dir;
     DirEntry* entry;
-    struct list_entry* dirlist;
-    struct list_entry* dirlist_semi_sorted;
+    struct list_entry* dirlist = nullptr;
+    struct list_entry* dirlist_semi_sorted = nullptr;
 
     error = cmdline_get(&line);
 
@@ -161,8 +142,6 @@ int main()
     /* No entries */
     if (!dirlist)
         goto close_and_exit;
-
-    dirlist_semi_sorted = nullptr;
 
     /* Semi sort */
     _fill_semi_sorted_dirlist(&dirlist_semi_sorted, &dirlist);

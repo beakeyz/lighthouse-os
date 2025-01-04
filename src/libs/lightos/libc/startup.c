@@ -21,8 +21,8 @@ typedef int (*MainEntry_ex)(HANDLE this);
 /* Process is run as a unix/POSIX thingy */
 typedef int (*MainEntry_unix)(int argc, char* argv[]);
 
+/* Define the thing here */
 void lightapp_startup(lightos_appctx_t* ctx) __attribute__((used));
-void _start(lightos_appctx_t* ctx) __attribute__((used));
 
 extern void __attribute__((noreturn)) halt(void);
 extern void __init_memalloc(void);
@@ -45,17 +45,22 @@ void __init_libc(void)
  */
 void lightapp_startup(lightos_appctx_t* ctx)
 {
-    /* TMP */
-    exit(ctx->nr_libentries);
-
+    f_libinit c_init;
     error_t error;
 
     if (!ctx || !ctx->entry)
-        exit(EINVAL);
+        exit(69);
 
     /* Walk the dependencies list and initialize LIGHTENTRY functions */
     for (u32 i = 0; i < ctx->nr_libentries; i++) {
-        error = ctx->init_vec[i](ctx->self);
+        c_init = ctx->init_vec[i];
+
+        /* Frick */
+        if (!c_init)
+            continue;
+
+        /* Call the init func */
+        error = c_init(ctx->self);
 
         /* Fuck */
         if (error)
@@ -64,6 +69,8 @@ void lightapp_startup(lightos_appctx_t* ctx)
 
     /* 2) pass appropriate arguments to the program and run it */
     error = ctx->entry(ctx->self);
+
+    /* TODO: Call exit functions */
 
     /* 3) Notify the kernel that we have exited so we can be cleaned up */
     exit(error);

@@ -120,7 +120,7 @@ kerror_t _elf_load_phdrs(elf_image_t* image)
     /* Get the pointer */
     image->user_base = (void*)page_range_to_ptr(&range);
 
-    //page_tracker_alloc(&image->proc->m_virtual_tracker, range.page_idx, image->user_image_size >> 12, PAGE_RANGE_FLAG_UNBACKED);
+    //page_tracker_dump(&image->proc->m_virtual_tracker);
 
     KLOG_DBG("Found elf image user base: 0x%p (size=%lld bytes)\n", image->user_base, image->user_image_size);
 

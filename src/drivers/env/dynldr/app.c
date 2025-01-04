@@ -92,12 +92,64 @@ static inline error_t lightos_ctx_bind_proc_handle(lightos_appctx_t* ctx, loaded
     return bind_khandle(&app->image.proc->m_handle_map, &handle, (u32*)&ctx->self);
 }
 
+static inline error_t lightos_ctx_find_main(lightos_appctx_t* ctx, loaded_app_t* app)
+{
+    loaded_sym_t* sym;
+    u32 idx;
+    const char* possible_entry_symbols[] = {
+        "main", // For legacy applications
+        "lentry", // ???
+        "start", // just idk
+        "light_entry",
+        app->custom_entry_sym,
+        NULL,
+    };
+
+    /* Start at zero (duh) */
+    idx = 0;
+
+    while (possible_entry_symbols[idx]) {
+        /* Make sure we only look inside the symbols of the app itself */
+        sym = loaded_app_find_symbol_in_app(app, possible_entry_symbols[idx]);
+
+        if (sym)
+            break;
+    }
+
+    if (!sym)
+        return -ENOENT;
+
+    /* Set the entry to the first symbol we find matching this shit */
+    ctx->entry = (f_light_entry)sym->uaddr;
+
+    return 0;
+}
+
+static inline error_t lightos_ctx_gather_libinit_vec(lightos_appctx_t* ctx, loaded_app_t* app)
+{
+    f_libinit c_entry;
+
+    /* Cycle through the libraries in reverse */
+    FOREACH(i, app->ordered_liblist)
+    {
+        /* Get the entry */
+        c_entry = ((dynamic_library_t*)i->data)->entry;
+
+        KLOG_DBG("Adding entry 0x%p from library %s\n", c_entry, ((dynamic_library_t*)i->data)->name);
+
+        /* Only add if this library has an entry */
+        if (c_entry)
+            ctx->init_vec[ctx->nr_libentries++] = c_entry;
+    }
+
+    return 0;
+}
+
 static error_t allocate_lightos_appctx(loaded_app_t* app, lightos_appctx_t** p_ctx)
 {
     error_t error;
     size_t libcount;
     size_t lightctx_size;
-    f_libinit c_entry;
     lightos_appctx_t* ctx = NULL;
 
     if (!p_ctx)
@@ -121,21 +173,17 @@ static error_t allocate_lightos_appctx(loaded_app_t* app, lightos_appctx_t** p_c
     /* Zero the buffer */
     memset(ctx, 0, lightctx_size);
 
-    /* Cycle through the libraries in reverse */
-    FOREACH(i, app->ordered_liblist)
-    {
-        /* Get the entry */
-        c_entry = ((dynamic_library_t*)i->data)->entry;
+    /* Gather the init vector for the libraries */
+    error = lightos_ctx_gather_libinit_vec(ctx, app);
 
-        KLOG_DBG("Adding entry 0x%p from library %s\n", c_entry, ((dynamic_library_t*)i->data)->name);
-
-        /* Only add if this library has an entry */
-        if (c_entry)
-            ctx->init_vec[ctx->nr_libentries++] = c_entry;
-    }
+    if (error)
+        return error;
 
     /* Set the entry */
-    ctx->entry = app->entry;
+    error = lightos_ctx_find_main(ctx, app);
+
+    if (error)
+        return error;
 
     /* Try to bind a handle to the process here */
     error = lightos_ctx_bind_proc_handle(ctx, app);
@@ -206,6 +254,11 @@ loaded_sym_t* loaded_app_find_symbol_by_addr(loaded_app_t* app, void* addr)
     return nullptr;
 }
 
+loaded_sym_t* loaded_app_find_symbol_in_app(loaded_app_t* app, const char* symname)
+{
+    return hashmap_get(app->exported_symbols, (hashmap_key_t)symname);
+}
+
 loaded_sym_t* loaded_app_find_symbol(loaded_app_t* app, const char* symname)
 {
     loaded_sym_t* ret;
@@ -221,7 +274,7 @@ loaded_sym_t* loaded_app_find_symbol(loaded_app_t* app, const char* symname)
             return ret;
     }
 
-    return hashmap_get(app->exported_symbols, (hashmap_key_t)symname);
+    return loaded_app_find_symbol_in_app(app, symname);
 }
 
 /*!

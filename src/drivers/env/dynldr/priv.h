@@ -85,6 +85,9 @@ typedef struct loaded_app {
     f_light_entry entry;
     FuncPtr exit;
 
+    /* Symbol name for a custom entry (TODO: implement) */
+    const char* custom_entry_sym;
+
     hashmap_t* exported_symbols;
     /* This list contains all the symbols we find throughout the load process of a single app.
      * The list also owns every single loaded_sym object. */
@@ -115,6 +118,7 @@ static inline uint32_t loaded_app_get_lib_count(loaded_app_t* app)
 }
 
 extern struct loaded_sym* loaded_app_find_symbol(loaded_app_t* app, const char* symname);
+extern struct loaded_sym* loaded_app_find_symbol_in_app(loaded_app_t* app, const char* symname);
 extern struct loaded_sym* loaded_app_find_symbol_by_addr(loaded_app_t* app, void* addr);
 
 extern kerror_t loaded_app_set_entry_tramp(loaded_app_t* app);

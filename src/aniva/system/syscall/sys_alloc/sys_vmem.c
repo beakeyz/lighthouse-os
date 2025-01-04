@@ -11,11 +11,11 @@ static inline void _apply_memory_flags(uint32_t userflags, uint32_t* customflags
     *customflags = NULL;
     *kmem_flags = NULL;
 
-    if ((userflags & VMEM_FLAG_WRITE) == VMEM_FLAG_WRITE)
-        *kmem_flags |= KMEM_FLAG_WRITABLE;
+    //if ((userflags & VMEM_FLAG_WRITE) == VMEM_FLAG_WRITE)
+    *kmem_flags |= KMEM_FLAG_WRITABLE;
 
-    if ((userflags & VMEM_FLAG_EXEC) != VMEM_FLAG_EXEC)
-        *kmem_flags |= KMEM_FLAG_NOEXECUTE;
+    //if ((userflags & VMEM_FLAG_EXEC) != VMEM_FLAG_EXEC)
+        //*kmem_flags |= KMEM_FLAG_NOEXECUTE;
 }
 
 /*
