@@ -167,7 +167,7 @@ int vmem_close(struct khandle_driver* driver, khandle_t* handle)
     sysvar_t* var;
     penv_t* var_env;
     proc_t* c_proc;
-    page_range_t range;
+    page_range_t range = { 0 };
 
     /* Verify the typ */
     if (handle->type != HNDL_TYPE_VMEM)
@@ -188,10 +188,8 @@ int vmem_close(struct khandle_driver* driver, khandle_t* handle)
     if (!var_env || var_env->p != c_proc)
         goto unlock_and_release;
 
-    error = sysvar_read(var, &range, sizeof(range));
-
-    /* Can't read? */
-    if (error)
+    /* If we can't read from the sysvar, there isn't any vmem object bounded, which is OK */
+    if (sysvar_read(var, &range, sizeof(range)))
         goto unlock_and_release;
 
     /* Check if there are actual ranges allocated */

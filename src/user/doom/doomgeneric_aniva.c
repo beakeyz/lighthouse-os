@@ -166,7 +166,6 @@ CMDLINE line;
 
 int main()
 {
-
     /* Try to grab the commandline for this process */
     if (cmdline_get(&line))
         return -1;

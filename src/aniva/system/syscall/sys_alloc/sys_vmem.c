@@ -375,8 +375,7 @@ static void* __sys_bind_vmem(khandle_t* khandle, proc_t* c_proc, void* addr, siz
     sysvar_lock(var);
 
     /* Read the current state of the sysvar */
-    if (sysvar_read(var, &range, sizeof(range)))
-        goto unlock_and_exit_err;
+    (void)sysvar_read(var, &range, sizeof(range));
 
     /* We can't implicitly 'rebind' vmem object. The user first has to explicitly unbind */
     if (range.page_idx || range.nr_pages || range.refc)

@@ -37,7 +37,7 @@ int main()
         return -EINVAL;
 
     /* Create a new mapping */
-    if (vmem_remap(mapping, nullptr, (void**)&result, &size, VMEM_FLAG_READ | VMEM_FLAG_WRITE | VMEM_FLAG_SHARED, nullptr))
+    if (vmem_remap(mapping, "USBMNTR_COUNT", (void**)&result, &size, VMEM_FLAG_READ | VMEM_FLAG_WRITE | VMEM_FLAG_SHARED, &mapping))
         return -EPERM;
 
     printf("Got a mapping: 0x%p\n", result);
