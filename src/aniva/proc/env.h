@@ -11,6 +11,8 @@ struct sysvar;
 struct oss_node;
 struct user_profile;
 
+#define PENV_VMEM_NODE_NAME "vmem"
+
 /*
  * Process environment
  *
@@ -31,6 +33,7 @@ typedef struct penv {
     struct proc* p;
 
     struct oss_node* node;
+    struct oss_node* vmem_node;
     struct user_profile* profile;
 } penv_t;
 

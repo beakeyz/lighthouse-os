@@ -8,6 +8,7 @@
 #include <lightos/sysvar/shared.h>
 
 struct user_profile;
+struct penv;
 struct oss_obj;
 
 /*
@@ -54,7 +55,7 @@ typedef struct sysvar {
 
 void init_sysvars(void);
 
-sysvar_t* create_sysvar(const char* key, enum PROFILE_TYPE ptype, enum SYSVAR_TYPE type, uint8_t flags, void* buffer, size_t bsize);
+sysvar_t* create_sysvar(const char* key, pattr_t* pattr, enum SYSVAR_TYPE type, uint8_t flags, void* buffer, size_t bsize);
 
 sysvar_t* get_sysvar(sysvar_t* var);
 void release_sysvar(sysvar_t* var);
@@ -68,6 +69,8 @@ u16 sysvar_read_u16(sysvar_t* var);
 u8 sysvar_read_u8(sysvar_t* var);
 
 const char* sysvar_read_str(sysvar_t* var);
+
+struct penv* sysvar_get_parent_env(sysvar_t* var);
 
 /* These routines enable anyone to read/write anything to a sysvar, as long as it's inside the bounds of its size */
 error_t sysvar_write(sysvar_t* var, void* buffer, size_t length);

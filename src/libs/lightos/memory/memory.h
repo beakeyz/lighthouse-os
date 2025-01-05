@@ -31,6 +31,10 @@
 #define VMEM_FLAG_SHARED 0x00000008UL
 /* Deletes the specified mapping */
 #define VMEM_FLAG_DELETE 0x00000010UL
+/* Remaps the specified range somewhere else */
+#define VMEM_FLAG_REMAP 0x00000020UL
+/* Asks for a page range to be bounded to a vmem object */
+#define VMEM_FLAG_BIND 0x00000040UL
 
 /*
  * Page range flags
@@ -77,6 +81,11 @@ static inline void* page_range_to_ptr(page_range_t* range)
      * which may be a virtual page index, or a physical page index.
      */
     return (void*)((u64)(range->page_idx << LIGHTOS_PAGE_SHIFT) & PAGE_RANGE_PGE_IDX_MASK);
+}
+
+static inline size_t page_range_size(page_range_t* range)
+{
+    return ((size_t)range->nr_pages << LIGHTOS_PAGE_SHIFT);
 }
 
 static inline void init_page_range(page_range_t* range, vaddr_t page_idx, u32 nr_pages, u16 flags, u32 refc)
@@ -139,6 +148,5 @@ static inline size_t page_range_get_distance_to_page(page_range_t* range, u64 pa
 
     return 0;
 }
-
 
 #endif // !__LIGHTOS_MEMORY_H__

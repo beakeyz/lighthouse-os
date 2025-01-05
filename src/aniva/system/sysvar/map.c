@@ -2,11 +2,12 @@
 #include "mem/heap.h"
 #include "oss/node.h"
 #include "oss/obj.h"
+#include "system/profile/attr.h"
 #include "system/sysvar/var.h"
 
 bool oss_node_can_contain_sysvar(oss_node_t* node)
 {
-    return (node->type == OSS_PROFILE_NODE || node->type == OSS_PROC_ENV_NODE);
+    return (node->type == OSS_PROFILE_NODE || node->type == OSS_PROC_ENV_NODE || node->type == OSS_VMEM_NODE);
 }
 
 /*!
@@ -21,9 +22,6 @@ sysvar_t* sysvar_get(oss_node_t* node, const char* key)
     oss_node_entry_t* entry;
 
     if (!node || !key)
-        return nullptr;
-
-    if (!oss_node_can_contain_sysvar(node))
         return nullptr;
 
     if (KERR_ERR(oss_node_find(node, key, &entry)))
@@ -143,18 +141,14 @@ int sysvar_dump(struct oss_node* node, struct sysvar*** barr, size_t* bsize)
 
 int sysvar_attach(struct oss_node* node, struct sysvar* var)
 {
-    error_t error;
-
     if (!var)
-        return -KERR_INVAL;
+        return -EINVAL;
 
-    error = oss_node_add_obj(node, var->obj);
+    /* Only these types may have sysvars */
+    if (node->type != OSS_VMEM_NODE && node->type != OSS_PROFILE_NODE && node->type != OSS_PROC_ENV_NODE)
+        return -EINVAL;
 
-    /* This is kinda yikes lol */
-    if (error)
-        release_sysvar(var);
-
-    return error;
+    return oss_node_add_obj(node, var->obj);
 }
 
 /*!
@@ -164,12 +158,34 @@ int sysvar_attach(struct oss_node* node, struct sysvar* var)
  */
 int sysvar_attach_ex(struct oss_node* node, const char* key, enum PROFILE_TYPE ptype, enum SYSVAR_TYPE type, uint8_t flags, void* buffer, size_t bsize)
 {
+    error_t error;
     sysvar_t* target;
 
-    /* Try to create this fucker */
-    target = create_sysvar(key, ptype, type, flags, buffer, bsize);
+    /*
+     * Initialize a permission attributes struct for a generic sysvar. By default
+     * sysvars can be seen and read from by everyone.
+     */
+    pattr_t pattr = {
+        .ptype = ptype,
+        .pflags = PATTR_UNIFORM_FLAGS(PATTR_SEE | PATTR_READ),
+    };
 
-    return sysvar_attach(node, target);
+    /* Make sure anyone from the same level can also mutate this fucker */
+    pattr.pflags[ptype] |= (PATTR_WRITE | PATTR_DELETE);
+
+    /* Try to create this fucker */
+    target = create_sysvar(key, &pattr, type, flags, buffer, bsize);
+
+    if (!target)
+        return -ENOMEM;
+
+    error = sysvar_attach(node, target);
+
+    /* This is kinda yikes lol */
+    if (error)
+        release_sysvar(target);
+
+    return error;
 }
 
 /*!

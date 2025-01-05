@@ -1,6 +1,8 @@
 #include "lightos/dev/shared.h"
 #include "lightos/handle.h"
 #include "lightos/handle_def.h"
+#include "lightos/memory/memmap.h"
+#include "lightos/memory/memory.h"
 #include <lightos/dev/device.h>
 #include <lightos/lib.h>
 #include <lightos/proc/process.h>
@@ -51,6 +53,8 @@ int main()
     size_t elapsed_time_s = 0;
     size_t process_time_ms = 0;
 
+    uint32_t* test;
+
     /* Try to get the kterm library */
     __try_get_kterm_lib();
 
@@ -60,6 +64,13 @@ int main()
     /* Check if it exist */
     if (handle_verify(device))
         return ENODEV;
+
+    /* Create a new mapping */
+    HANDLE map = vmem_open("COUNT", HNDL_FLAG_RW, HNDL_MODE_CREATE);
+
+    vmem_map(map, (void**)&test, NULL, sizeof(void*), VMEM_FLAG_WRITE | VMEM_FLAG_READ | VMEM_FLAG_SHARED);
+
+    *test = 0;
 
     /* Set up this shit */
     info.dev_specific_info = &nr_poll_count;
@@ -78,7 +89,7 @@ int main()
             break;
 
         /* Update the poll rate for this second */
-        __update_poll_rate(nr_poll_count - nr_polls_since_last_sec);
+        __update_poll_rate(*test);
 
         nr_polls_since_last_sec = nr_poll_count;
     sleep_and_cycle:

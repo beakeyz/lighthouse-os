@@ -1,7 +1,7 @@
 #ifndef __ANIVA_PROFILE_ATTR_H__
 #define __ANIVA_PROFILE_ATTR_H__
 
-#include "libk/stddef.h"
+#include <lightos/types.h>
 
 enum PROFILE_TYPE {
     /* This profile has all rights and can even kill kernel processes or load drivers */
@@ -40,6 +40,8 @@ enum PROFILE_TYPE {
 #define PATTR_REBOOT 0x00000400
 #define PATTR_PROC_KILL 0x00000800
 
+#define PATTR_ALL 0xffffffffUL
+
 /*
  * In order for an attribute 'executor' (e.g. a process) to have access to an attribute holder
  * through a certain flag, it either has to have a higher profile type, or:
@@ -67,6 +69,9 @@ typedef struct pattr {
      */
     pattr_flags_t pflags[NR_PROFILE_TYPES];
 } pattr_t;
+
+#define PATTR_UNIFORM_FLAGS(flags) { (flags), (flags), (flags), (flags) }
+#define PATTR_FLAGS(admin, super, user, limit) { (admin), (super), (user), (limit) }
 
 int init_pattr(pattr_t* p_pattr, enum PROFILE_TYPE type, pattr_flags_t attr_flags[NR_PROFILE_TYPES]);
 void pattr_clear(pattr_t* attr);

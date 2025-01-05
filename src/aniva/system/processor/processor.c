@@ -45,7 +45,15 @@ static kerror_t __init_syscalls(processor_t* processor)
 // Should not be used to initialize bsp
 processor_t* create_processor(uint32_t num)
 {
-    processor_t* ret = kmalloc(sizeof(processor_t));
+    processor_t* ret;
+
+    ret = kmalloc(sizeof(processor_t));
+
+    if (!ret)
+        return nullptr;
+
+    memset(ret, 0, sizeof(processor_t));
+
     ret->m_cpu_num = num;
 
     /* TODO */

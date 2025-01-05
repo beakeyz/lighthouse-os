@@ -41,6 +41,7 @@ oss_node_t* create_oss_node(const char* name, enum OSS_NODE_TYPE type, struct os
     if (!name)
         return nullptr;
 
+    /* Allocate a fucker for us */
     ret = zalloc_fixed(_node_allocator);
 
     if (!ret)
@@ -48,20 +49,47 @@ oss_node_t* create_oss_node(const char* name, enum OSS_NODE_TYPE type, struct os
 
     memset(ret, 0, sizeof(*ret));
 
-    ret->name = strdup(name);
     ret->type = type;
-    ret->parent = parent;
     ret->ops = ops;
+    ret->name = strdup(name);
+
+    /* Check the name */
+    if (!ret->name)
+        goto cleanup_and_exit;
 
     ret->lock = create_mutex(NULL);
+
+    /* Check if we could create a mutex for this boi */
+    if (!ret->lock)
+        goto cleanup_and_exit;
+
     /* TODO: Allow the hashmap to be resized */
     ret->obj_map = create_hashmap(SOFT_OSS_NODE_OBJ_MAX, NULL);
 
-    /* Add to the parent, if this was specified */
-    if (parent)
-        oss_node_add_node(parent, ret);
+    /* Check if we could create a hashmap */
+    if (!ret->obj_map)
+        goto cleanup_and_exit;
 
+    /* Add to the parent, if this was specified */
+    if (parent && oss_node_add_node(parent, ret))
+        goto cleanup_and_exit;
+
+    /* Alg, lets return */
     return ret;
+
+cleanup_and_exit:
+    if (ret->obj_map)
+        destroy_hashmap(ret->obj_map);
+
+    if (ret->lock)
+        destroy_mutex(ret->lock);
+
+    if (ret->name)
+        kfree((void*)ret->name);
+
+    /* Clean up the node allocation */
+    zfree_fixed(_node_allocator, ret);
+    return nullptr;
 }
 
 /*!
@@ -102,6 +130,9 @@ void destroy_oss_node(oss_node_t* node)
  */
 void* oss_node_unwrap(oss_node_t* node)
 {
+    if (!node)
+        return nullptr;
+
     if (node->priv)
         return node->priv;
 
@@ -338,12 +369,13 @@ int oss_node_remove_entry(oss_node_t* node, const char* name, struct oss_node_en
     if (!entry)
         goto unlock_and_exit;
 
+    /* Make sure we tell the entry it's detached */
+    _entry_on_detach(entry);
+
     /* Only return if the caller means to */
     if (entry_out)
         *entry_out = entry;
 
-    /* Make sure we tell the entry it's detached */
-    _entry_on_detach(entry);
     error = 0;
 unlock_and_exit:
     mutex_unlock(node->lock);

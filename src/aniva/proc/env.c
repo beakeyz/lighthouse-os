@@ -32,8 +32,7 @@ penv_t* create_penv(const char* label, proc_t* p, uint32_t pflags_mask[NR_PROFIL
         return nullptr;
     }
 
-    /* Set the processes env pointer */
-    p->m_env = env;
+    env->vmem_node = create_oss_node(PENV_VMEM_NODE_NAME, OSS_VMEM_NODE, NULL, env->node);
 
     /* Set the rest of the fields */
     env->flags = flags;
@@ -45,12 +44,14 @@ penv_t* create_penv(const char* label, proc_t* p, uint32_t pflags_mask[NR_PROFIL
     else
         /*
          * Otherwise just set all flags
-         * This will make any object that enables an attribute for us visible
+         * This will make any object of higher/equal plevel that enables an attribute for us visible
          */
         memset(env->pflags_mask, 0xff, sizeof(*pflags_mask) * NR_PROFILE_TYPES);
 
     /* Set the thing */
     env->node->priv = env;
+    /* Set the processes env pointer */
+    p->m_env = env;
 
     return env;
 }
@@ -62,6 +63,7 @@ void destroy_penv(penv_t* env)
     if (env->profile)
         profile_remove_penv(env->profile, env);
 
+    destroy_oss_node(env->vmem_node);
     destroy_oss_node(env->node);
 
     kfree((void*)env->label);

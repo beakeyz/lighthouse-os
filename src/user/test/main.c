@@ -28,14 +28,27 @@ int main()
     printf(" [ TESTING MEMMAP STUFF ]\n");
 
     /* Create a new mapping */
-    void* result;
-    HANDLE mapping = vmem_open("epic mapping", HNDL_FLAG_RW, HNDL_MODE_CREATE);
+    u32* result;
+    size_t size;
+    page_range_t range;
+    HANDLE mapping = vmem_open("Admin/usbmntr/vmem/COUNT", HNDL_FLAG_RW, HNDL_MODE_NORMAL);
 
-    /* Create a mapping */
-    if (vmem_map(mapping, &result, NULL, 0x1000, VMEM_FLAG_READ | VMEM_FLAG_WRITE | VMEM_FLAG_SHARED))
-        return -ENOMEM;
+    if (handle_verify(mapping))
+        return -EINVAL;
+
+    /* Create a new mapping */
+    if (vmem_remap(mapping, nullptr, (void**)&result, &size, VMEM_FLAG_READ | VMEM_FLAG_WRITE | VMEM_FLAG_SHARED, nullptr))
+        return -EPERM;
 
     printf("Got a mapping: 0x%p\n", result);
+
+    /* Get mapping lol */
+    if (vmem_get_range(mapping, &range))
+        return -ENODEV;
+
+    /* Debug */
+    printf("Range(page_idx=0x%llx, page_nr=%d, references=%d, flags=0x%x)\n", range.page_idx, range.nr_pages, range.refc, range.flags);
+    *result = 10;
 
     return 0;
 }

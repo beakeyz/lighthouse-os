@@ -1,5 +1,6 @@
 #include "system/profile/attr.h"
 #include "libk/flow/error.h"
+#include "logging/log.h"
 #include <libk/string.h>
 
 int init_pattr(pattr_t* p_pattr, enum PROFILE_TYPE type, pattr_flags_t attr_flags[NR_PROFILE_TYPES])
@@ -11,13 +12,17 @@ int init_pattr(pattr_t* p_pattr, enum PROFILE_TYPE type, pattr_flags_t attr_flag
 
     p_pattr->ptype = type;
 
-    /* If there are no attribute flags specified, privilege will simply be based on
-     * profile type
+    /*
+     * If there are no attribute flags specified, privilege will simply be based on
+     * profile type and a few basic permissions
      */
     if (attr_flags)
         /* Copy the attribute flags */
         for (int i = 0; i < NR_PROFILE_TYPES; i++)
             p_pattr->pflags[i] = attr_flags[i];
+    else
+        for (int i = 0; i < NR_PROFILE_TYPES; i++)
+            p_pattr->pflags[i] = PATTR_SEE | PATTR_STAT | PATTR_READ;
 
     return 0;
 }
@@ -45,8 +50,6 @@ void pattr_mask(pattr_t* attr, pattr_flags_t mask[NR_PROFILE_TYPES])
 
 bool pattr_hasperm(pattr_t* higher, pattr_t* lower, pattr_flags_t flags)
 {
-    u32 lower_flags, higher_flags;
-
     /* Admin always has permission */
     if (lower->ptype == PROFILE_TYPE_ADMIN)
         return true;
@@ -55,10 +58,8 @@ bool pattr_hasperm(pattr_t* higher, pattr_t* lower, pattr_flags_t flags)
     if (lower->ptype < higher->ptype)
         return true;
 
-    /* Grab the target lower flags */
-    lower_flags = lower->pflags[higher->ptype] & flags;
-    higher_flags = higher->pflags[lower->ptype] & flags;
+    KLOG_DBG("Checking permission flags (hi type: %d, lo type: %d): 0x%x -> 0x%x\n", higher->ptype, lower->ptype, higher->pflags[lower->ptype], flags);
 
-    /* Check if all flags are present */
-    return (higher_flags == lower_flags);
+    /* Grab the target lower flags */
+    return (higher->pflags[lower->ptype] & flags) == flags;
 }

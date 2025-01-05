@@ -5,12 +5,16 @@
 #include "sync/spinlock.h"
 #include <libk/stddef.h>
 
+/* This mutex is allocated on the kernel heap */
+#define MUTEX_FLAG_ALLOCATED 0x00000001
+
 typedef struct mutex {
     const char* m_name;
     spinlock_t* m_lock;
     queue_t* m_waiters;
     thread_t* m_lock_holder;
-    uint64_t m_lock_depth;
+    uint32_t m_lock_depth;
+    uint32_t flags;
 } mutex_t;
 
 /*

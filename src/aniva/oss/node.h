@@ -29,6 +29,8 @@ enum OSS_NODE_TYPE {
     OSS_PROC_ENV_NODE,
     /* Node that holds driver/system configuration */
     OSS_CONFIG_NODE,
+    /* This node may only hold vmem sysvar objects */
+    OSS_VMEM_NODE,
 };
 
 void init_oss_nodes();

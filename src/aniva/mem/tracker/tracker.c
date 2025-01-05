@@ -4,7 +4,7 @@
 #include "logging/log.h"
 #include "mem/kmem.h"
 #include "mem/zalloc/zalloc.h"
-#include "sync/spinlock.h"
+#include "sync/mutex.h"
 #include <libk/math/math.h>
 
 /*!
@@ -20,7 +20,8 @@ error_t init_page_tracker(page_tracker_t* tracker, void* range_cache_buf, size_t
     memset(tracker, 0, sizeof(*tracker));
 
     /* Initialize the spinloc */
-    init_spinlock(&tracker->lock, NULL);
+    // init_mutex(&tracker->lock, NULL);
+    init_mutex(&tracker->lock, NULL);
 
     /* Try to initialize the zone allocator */
     error = init_zone_allocator_ex(&tracker->allocation_cache, range_cache_buf, bsize, sizeof(page_allocation_t), NULL);
@@ -39,12 +40,14 @@ error_t init_page_tracker(page_tracker_t* tracker, void* range_cache_buf, size_t
 /*!
  * @brief: Destroy a page tracker and all it's tracked memory
  *
- * We don't need to destroy the spinlock, since that's a self-sustaining structure for us
+ * We don't need to destroy the mutex, since that's a self-sustaining structure for us
  */
 error_t destroy_page_tracker(page_tracker_t* tracker)
 {
     /* Destroy the zone allocator we used */
     destroy_zone_allocator(&tracker->allocation_cache, false);
+
+    destroy_mutex(&tracker->lock);
 
     return 0;
 }
@@ -309,7 +312,7 @@ static error_t __cut_out_range_from_allocation(page_tracker_t* tracker, page_all
         ? 0
         : (lowest_end_page_idx - highest_start_page_idx) + 1;
 
-    //KLOG_DBG("Comparing range 0x%llx(%d) to 0x%llx(%d)\n", alloc->range.page_idx, alloc->range.nr_pages, range->page_idx, range->nr_pages);
+    // KLOG_DBG("Comparing range 0x%llx(%d) to 0x%llx(%d)\n", alloc->range.page_idx, alloc->range.nr_pages, range->page_idx, range->nr_pages);
 
     /* If there is a page delta of 0, there is no part of @range inside @alloc */
     if (!page_delta)
@@ -517,7 +520,7 @@ static error_t __page_tracker_add_allocation(page_tracker_t* tracker, u64 page_i
 
 static error_t __tracker_find_fitting_range(page_tracker_t* tracker, enum PAGE_TRACKER_ALLOC_MODE mode, u32 flags, size_t nr_pages, page_allocation_t*** palloc, page_range_t* prange)
 {
-    page_allocation_t** a, **last;
+    page_allocation_t **a, **last;
     u64 free_space_before;
     u64 prev_range_terminating_page = 0;
 
@@ -578,15 +581,14 @@ error_t page_tracker_find_fitting_range(page_tracker_t* tracker, enum PAGE_TRACK
 {
     error_t error;
 
-    spinlock_lock(&tracker->lock);
+    mutex_lock(&tracker->lock);
 
     error = __tracker_find_fitting_range(tracker, mode, NULL, nr_pages, NULL, prange);
 
-    spinlock_unlock(&tracker->lock);
+    mutex_unlock(&tracker->lock);
 
     return error;
 }
-
 
 error_t page_tracker_alloc_any(page_tracker_t* tracker, enum PAGE_TRACKER_ALLOC_MODE mode, size_t nr_pages, u32 flags, page_range_t* prange)
 {
@@ -594,7 +596,7 @@ error_t page_tracker_alloc_any(page_tracker_t* tracker, enum PAGE_TRACKER_ALLOC_
     page_allocation_t** last = nullptr;
     page_range_t target_range = { 0 };
 
-    spinlock_lock(&tracker->lock);
+    mutex_lock(&tracker->lock);
 
     /* Check error */
     error = __tracker_find_fitting_range(tracker, mode, flags, nr_pages, &last, &target_range);
@@ -611,14 +613,14 @@ error_t page_tracker_alloc_any(page_tracker_t* tracker, enum PAGE_TRACKER_ALLOC_
     else {
         /* Check if we can extend the last range. Otherwise just append a new range */
         if (__page_range_can_extend(&(*last)->range, &target_range))
-            (*last)->range.nr_pages += nr_pages; 
+            (*last)->range.nr_pages += nr_pages;
         else
             /* Need to append AFTER this boi */
             __page_allocation_append(tracker, *last, &target_range);
     }
 
 unlock_and_exit:
-    spinlock_unlock(&tracker->lock);
+    mutex_unlock(&tracker->lock);
 
     if (IS_OK(error))
         memcpy(prange, &target_range, sizeof(target_range));
@@ -630,7 +632,7 @@ error_t page_tracker_alloc(page_tracker_t* tracker, u64 start_page, size_t nr_pa
 {
     error_t error;
 
-    spinlock_lock(&tracker->lock);
+    mutex_lock(&tracker->lock);
 
     error = __page_tracker_add_allocation(tracker, start_page, nr_pages, flags);
 
@@ -641,7 +643,7 @@ error_t page_tracker_alloc(page_tracker_t* tracker, u64 start_page, size_t nr_pa
     __page_tracker_try_merge_ranges(tracker, tracker->base, nullptr);
 
 unlock_and_exit:
-    spinlock_unlock(&tracker->lock);
+    mutex_unlock(&tracker->lock);
 
     return error;
 }
@@ -678,7 +680,7 @@ error_t page_tracker_dealloc(page_tracker_t* tracker, page_range_t* range)
     if (!tracker->base)
         return -EINVAL;
 
-    spinlock_lock(&tracker->lock);
+    mutex_lock(&tracker->lock);
 
     /* Grab the closest range to @range */
     error = __tracker_get_closest_range(tracker, range->page_idx, &start, NULL);
@@ -686,10 +688,10 @@ error_t page_tracker_dealloc(page_tracker_t* tracker, page_range_t* range)
     if (error || !start)
         goto unlock_and_exit;
 
-    //KLOG_DBG("Closest range to r:%llx(%d) is c:%llx(%d)\n", range->page_idx, range->nr_pages, start->range.page_idx, start->range.nr_pages);
+    // KLOG_DBG("Closest range to r:%llx(%d) is c:%llx(%d)\n", range->page_idx, range->nr_pages, start->range.page_idx, start->range.nr_pages);
 
-    //if (start->nx_link) {
-        //KLOG_DBG("   ==> Next: %llx(%d)\n", start->nx_link->range.page_idx, start->nx_link->range.nr_pages);
+    // if (start->nx_link) {
+    // KLOG_DBG("   ==> Next: %llx(%d)\n", start->nx_link->range.page_idx, start->nx_link->range.nr_pages);
     //}
 
     /*
@@ -752,7 +754,7 @@ error_t page_tracker_dealloc(page_tracker_t* tracker, page_range_t* range)
     __page_tracker_try_merge_ranges(tracker, tracker->base, nullptr);
 
 unlock_and_exit:
-    spinlock_unlock(&tracker->lock);
+    mutex_unlock(&tracker->lock);
 
     return error;
 }
@@ -820,13 +822,13 @@ error_t page_tracker_get_used_page_count(page_tracker_t* tracker, size_t* pcount
     if (!tracker || !pcount)
         return -EINVAL;
 
-    spinlock_lock(&tracker->lock);
+    mutex_lock(&tracker->lock);
 
     /* Loop over all allocations to sum up all the pages */
     for (page_allocation_t* allocation = tracker->base; allocation; allocation = allocation->nx_link)
         total_sz += allocation->range.nr_pages;
 
-    spinlock_unlock(&tracker->lock);
+    mutex_unlock(&tracker->lock);
 
     *pcount = total_sz;
 

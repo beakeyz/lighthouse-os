@@ -1,7 +1,6 @@
 #include "lightos/handle_def.h"
 #include "lightos/memory/memory.h"
 #include "lightos/sysvar/shared.h"
-#include "logging/log.h"
 #include "mem/kmem.h"
 #include "oss/path.h"
 #include "proc/env.h"
@@ -10,9 +9,11 @@
 #include "proc/proc.h"
 #include "sched/scheduler.h"
 #include "sys/types.h"
+#include "system/profile/attr.h"
 #include "system/profile/profile.h"
 #include "system/sysvar/map.h"
 #include "system/sysvar/var.h"
+#include <oss/obj.h>
 
 static sysvar_t* __get_sysvar(penv_t* env, const char* path)
 {
@@ -22,13 +23,13 @@ static sysvar_t* __get_sysvar(penv_t* env, const char* path)
     error_t error = penv_get_var(env, path, &ret);
 
     if (!error && ret)
-        return ret;
+        goto found;
 
     /* Shit. Try the profile */
     error = profile_get_var(env->profile, path, &ret);
 
     if (!error && ret)
-        return ret;
+        goto found;
 
     /* FUCKKKK try all other profiles */
     error = profile_find_var(path, &ret);
@@ -37,9 +38,14 @@ static sysvar_t* __get_sysvar(penv_t* env, const char* path)
     if (error)
         return nullptr;
 
-    return ret;
-}
+found:
+    if (ret->type == SYSVAR_TYPE_MEM_RANGE)
+        return ret;
 
+    /* Release the reference and dip */
+    release_sysvar(ret);
+    return nullptr;
+}
 
 /*!
  * @brief: Basic virtual memory mapping open function
@@ -74,42 +80,67 @@ int vmem_open(struct khandle_driver* driver, const char* path, u32 flags, enum H
 
     /* Check what we need to do */
     switch (mode) {
-        case HNDL_MODE_NORMAL:
-            var = __get_sysvar(c_env, path);
+    case HNDL_MODE_NORMAL:
+        var = __get_sysvar(c_env, path);
+        break;
+    case HNDL_MODE_CREATE:
+        var = __get_sysvar(c_env, path);
+
+        /* If the variable already exists, we're guccie */
+        if (var)
             break;
-        case HNDL_MODE_CREATE:
-            var = __get_sysvar(c_env, path);
 
-            /* If the variable already exists, we're guccie */
-            if (var)
-                break;
+        // Fallthrough
+    case HNDL_MODE_CREATE_NEW:
+        /* Parse this path */
+        error = oss_parse_path(path, &oss_path);
 
-            // Fallthrough
-        case HNDL_MODE_CREATE_NEW:
-            /* Parse this path */
-            error = oss_parse_path(path, &oss_path);
-
-            /* Invalid path? */
-            if (error)
-                break;
-
-            KLOG_DBG("Path: %s, thing: %s\n", path, oss_path.subpath_vec[oss_path.n_subpath-1]);
-
-            /* Create a new sysvar if it didnt exists yet */
-            var = create_sysvar(oss_path.subpath_vec[oss_path.n_subpath-1], c_env->profile->attr.ptype, SYSVAR_TYPE_MEM_RANGE, NULL, NULL, NULL);
-
-            /* Kill the path */
-            oss_destroy_path(&oss_path);
-
-            /* Attach the variable to the node */
-            error = sysvar_attach(c_env->node, var);
+        /* Invalid path? */
+        if (error || !oss_path.n_subpath)
             break;
-        default:
-            return -ENOTSUP;
+
+        /*
+         * Create a new sysvar if it didnt exists yet
+         * TODO: Attach sysvars at the correct environment, based on the provided path
+         */
+        var = create_sysvar(oss_path.subpath_vec[oss_path.n_subpath - 1], &c_env->attr, SYSVAR_TYPE_MEM_RANGE, NULL, NULL, NULL);
+
+        /* Kill the path */
+        oss_destroy_path(&oss_path);
+
+        /* Attach the variable to the node */
+        error = sysvar_attach(c_env->vmem_node, var);
+
+        if (error)
+            release_sysvar(var);
+
+        break;
+    default:
+        return -ENOTSUP;
     }
 
     if (!var)
         return -ENOENT;
+
+    /* If the object of the variable has the SEE flag for our profile type, we have permission to access =D */
+    if (!pattr_hasperm(&var->obj->attr, &c_env->attr, PATTR_SEE)) {
+        release_sysvar(var);
+        return -EPERM;
+    }
+
+    /*
+     * If the environment isn't allowed to write to the object, but we're trying to open a handle with write permissions
+     * prevent that
+     */
+    if (!pattr_hasperm(&var->obj->attr, &c_env->attr, PATTR_WRITE) && (flags & HNDL_FLAG_W) == HNDL_FLAG_W)
+        flags &= ~HNDL_FLAG_W;
+
+    /*
+     * If the environment isn't allowed to read to the object, but we're trying to open a handle with read permissions
+     * prevent that
+     */
+    if (!pattr_hasperm(&var->obj->attr, &c_env->attr, PATTR_READ) && (flags & HNDL_FLAG_R) == HNDL_FLAG_R)
+        flags &= ~HNDL_FLAG_R;
 
     if (error)
         return error;
@@ -132,8 +163,10 @@ int vmem_open_rel(struct khandle_driver* driver, khandle_t* rel_hndl, const char
  */
 int vmem_close(struct khandle_driver* driver, khandle_t* handle)
 {
-    error_t error;
+    error_t error = 0;
     sysvar_t* var;
+    penv_t* var_env;
+    proc_t* c_proc;
     page_range_t range;
 
     /* Verify the typ */
@@ -145,7 +178,15 @@ int vmem_close(struct khandle_driver* driver, khandle_t* handle)
     if (!var)
         return -KERR_INVAL;
 
+    c_proc = get_current_proc();
+
     sysvar_lock(var);
+
+    var_env = sysvar_get_parent_env(var);
+
+    /* Check if this is a sysvar from our map */
+    if (!var_env || var_env->p != c_proc)
+        goto unlock_and_release;
 
     error = sysvar_read(var, &range, sizeof(range));
 
@@ -158,7 +199,7 @@ int vmem_close(struct khandle_driver* driver, khandle_t* handle)
         goto unlock_and_release;
 
     /* Dellocate the range from the users addresspace */
-    error = kmem_user_dealloc(get_current_proc(), kmem_get_page_addr(range.page_idx), range.nr_pages << PAGE_SHIFT);
+    error = kmem_user_dealloc(c_proc, kmem_get_page_addr(range.page_idx), range.nr_pages << PAGE_SHIFT);
 
 unlock_and_release:
     sysvar_unlock(var);
@@ -167,12 +208,27 @@ unlock_and_release:
     return error;
 }
 
+error_t vmem_read(struct khandle_driver* driver, khandle_t* hndl, void* buffer, size_t bsize)
+{
+    sysvar_t* var;
+
+    if (hndl->type != HNDL_TYPE_VMEM)
+        return -EINVAL;
+
+    /* Grab the vmem range */
+    var = hndl->reference.vmem_range;
+
+    /* Let the sysvar read function handle the rest */
+    return sysvar_read(var, buffer, bsize);
+}
+
 khandle_driver_t vmem_driver = {
     .name = "vmem",
     .handle_type = HNDL_TYPE_VMEM,
-    .function_flags = KHDRIVER_FUNC_OPEN | KHDRIVER_FUNC_OPEN_REL | KHDRIVER_FUNC_CLOSE,
+    .function_flags = KHDRIVER_FUNC_OPEN | KHDRIVER_FUNC_OPEN_REL | KHDRIVER_FUNC_CLOSE | KHDRIVER_FUNC_READ,
     .f_open = vmem_open,
     .f_open_relative = vmem_open_rel,
     .f_close = vmem_close,
+    .f_read = vmem_read,
 };
 EXPORT_KHANDLE_DRIVER(vmem_driver);

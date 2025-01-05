@@ -1,15 +1,18 @@
 #include "var.h"
-#include <libk/math/math.h>
 #include "libk/flow/error.h"
 #include "lightos/sysvar/shared.h"
 #include "logging/log.h"
 #include "mem/heap.h"
 #include "mem/zalloc/zalloc.h"
+#include "oss/node.h"
 #include "oss/obj.h"
+#include "proc/env.h"
 #include "proc/proc.h"
 #include "sched/scheduler.h"
 #include "sync/mutex.h"
 #include "system/profile/attr.h"
+#include "system/sysvar/map.h"
+#include <libk/math/math.h>
 #include <libk/string.h>
 
 static zone_allocator_t __var_allocator;
@@ -67,28 +70,30 @@ void sysvar_unlock(sysvar_t* var)
  */
 static void destroy_sysvar(sysvar_t* var)
 {
-    /* destroy_oss_obj clears obj->priv before calling it's child destructor */
-    if (var->obj && var->obj->priv) {
-        destroy_oss_obj(var->obj);
-        return;
-    }
+    destroy_oss_obj(var->obj);
+}
 
+/*!
+ * Called by the destruction of the oss object
+ */
+static void __destroy_sysvar(sysvar_t* var)
+{
     /* Release strduped key */
     kfree((void*)var->key);
 
     switch (var->type) {
-        case SYSVAR_TYPE_STRING:
-            if (var->str_value)
-                /* Just in case this was allocated on the heap (by strdup) */
-                kfree((void*)var->str_value);
-            break;
-        case SYSVAR_TYPE_MEM_RANGE:
-            if (var->range_value)
-                /* We own this memory */
-                kfree(var->range_value);
-            break;
-        default:
-            break;
+    case SYSVAR_TYPE_STRING:
+        if (var->str_value)
+            /* Just in case this was allocated on the heap (by strdup) */
+            kfree((void*)var->str_value);
+        break;
+    case SYSVAR_TYPE_MEM_RANGE:
+        if (var->range_value)
+            /* We own this memory */
+            kfree(var->range_value);
+        break;
+    default:
+        break;
     }
 
     zfree_fixed(&__var_allocator, var);
@@ -124,24 +129,24 @@ static error_t __sysvar_allocate_value(sysvar_t* var, enum SYSVAR_TYPE type, voi
         memcpy(&ret, buffer, write_sz);
     else {
         switch (type) {
-            case SYSVAR_TYPE_STRING:
-                ret = kmalloc(var->len);
+        case SYSVAR_TYPE_STRING:
+            ret = kmalloc(var->len);
 
-                if (!ret)
-                    return -ENOMEM;
+            if (!ret)
+                return -ENOMEM;
 
-                memcpy(ret, buffer, write_sz);
-                break;
-            case SYSVAR_TYPE_MEM_RANGE:
-                ret = kmalloc(sizeof(page_range_t));
+            memcpy(ret, buffer, write_sz);
+            break;
+        case SYSVAR_TYPE_MEM_RANGE:
+            ret = kmalloc(sizeof(page_range_t));
 
-                if (!ret)
-                    return -ENOMEM;
+            if (!ret)
+                return -ENOMEM;
 
-                memcpy(ret, buffer, write_sz);
-                break;
-            default:
-                return -ENOTSUP;
+            memcpy(ret, buffer, write_sz);
+            break;
+        default:
+            return -ENOTSUP;
         }
     }
 
@@ -162,11 +167,12 @@ static error_t __sysvar_allocate_value(sysvar_t* var, enum SYSVAR_TYPE type, voi
  *          require the most up-to-date value of any sysvar
  * @bsize: The size of @buffer
  */
-sysvar_t* create_sysvar(const char* key, enum PROFILE_TYPE ptype, enum SYSVAR_TYPE type, uint8_t flags, void* buffer, size_t bsize)
+sysvar_t* create_sysvar(const char* key, pattr_t* pattr, enum SYSVAR_TYPE type, uint8_t flags, void* buffer, size_t bsize)
 {
     sysvar_t* var;
 
-    if (!key || !buffer || !sysvar_is_valid_len(bsize))
+    /* Both bsize and buffer may be null, but if there is a size, we also need a buffer */
+    if (!key || !sysvar_is_valid_len(bsize) || (!buffer && bsize))
         return nullptr;
 
     var = zalloc_fixed(&__var_allocator);
@@ -198,12 +204,42 @@ sysvar_t* create_sysvar(const char* key, enum PROFILE_TYPE ptype, enum SYSVAR_TY
      * and releases
      */
     var->refc = 1;
-    var->obj = create_oss_obj_ex(key, ptype, NULL);
+    var->obj = create_oss_obj_ex(
+        var->key,
+        pattr ? pattr->ptype : PROFILE_TYPE_USER,
+        pattr ? pattr->pflags : nullptr);
 
     /* Register this sysvar to its object */
-    oss_obj_register_child(var->obj, var, OSS_OBJ_TYPE_VAR, destroy_sysvar);
+    oss_obj_register_child(var->obj, var, OSS_OBJ_TYPE_VAR, __destroy_sysvar);
 
     return var;
+}
+
+penv_t* sysvar_get_parent_env(sysvar_t* var)
+{
+    penv_t* env = nullptr;
+    oss_node_t* parent_node;
+
+    /* Lock this fucker */
+    sysvar_lock(var);
+
+    /* Weird but ok */
+    if (!var || !var->obj)
+        goto unlock_and_return;
+
+    /* Grab the parent node */
+    parent_node = var->obj->parent;
+
+    /* Check this */
+    if (!oss_node_can_contain_sysvar(parent_node))
+        goto unlock_and_return;
+
+    /* Unwrap, since nodes with OSS_VMEM_NODE inherit their private field with their parent */
+    env = (penv_t*)oss_node_unwrap(parent_node);
+
+unlock_and_return:
+    sysvar_unlock(var);
+    return env;
 }
 
 sysvar_t* get_sysvar(sysvar_t* var)
@@ -302,11 +338,8 @@ error_t sysvar_write(sysvar_t* var, void* buffer, size_t length)
     size_t write_sz;
     size_t old_sz;
 
-
     if (!var)
         return -EINVAL;
-
-    KLOG_DBG("Writing to sysvar: %s\n", var->key);
 
     /* Yikes */
     if ((var->flags & SYSVAR_FLAG_CONSTANT) == SYSVAR_FLAG_CONSTANT)
@@ -331,50 +364,50 @@ error_t sysvar_write(sysvar_t* var, void* buffer, size_t length)
     else {
         /* Non-basic type.. we need to do fancy shit */
         switch (var->type) {
-            case SYSVAR_TYPE_MEM_RANGE:
-                /* Allocate our own page range if we don't have one yet */
-                if (!var->range_value)
-                    var->range_value = kmalloc(sizeof(page_range_t));
+        case SYSVAR_TYPE_MEM_RANGE:
+            /* Allocate our own page range if we don't have one yet */
+            if (!var->range_value)
+                var->range_value = kmalloc(sizeof(page_range_t));
 
-                /* Pre-set error */
-                error = -ENOMEM;
+            /* Pre-set error */
+            error = -ENOMEM;
 
-                /* Could not allocate =( sadge */
-                if (!var->range_value)
-                    goto unlock_and_exit;
-                break;
-            case SYSVAR_TYPE_STRING:
-                error =  -EINVAL;
-
-                /* First, try to set the new length */
-                if (sysvar_set_len(var, length + 1))
-                    goto unlock_and_exit;
-
-                /*
-                 * Update write size.
-                 */
-                write_sz = var->len;
-
-                if (var->len > old_sz) {
-                    /* Free the previous buffer, if it exists and wasn't big enough */
-                    if (var->str_value)
-                        kfree((void*)var->str_value);
-                    /* Allocate a new buffer */
-                    var->str_value = kmalloc(write_sz);
-                }
-
-                /* Pre-set error */
-                error = -ENOMEM;
-
-                /* FAILEDDD */
-                if (!var->str_value)
-                    goto unlock_and_exit;
-
-                /* Clear the entire range out */
-                memset(var->value, 0, length + 1);
-            default:
-                error = -ENOTSUP;
+            /* Could not allocate =( sadge */
+            if (!var->range_value)
                 goto unlock_and_exit;
+            break;
+        case SYSVAR_TYPE_STRING:
+            error = -EINVAL;
+
+            /* First, try to set the new length */
+            if (sysvar_set_len(var, length + 1))
+                goto unlock_and_exit;
+
+            /*
+             * Update write size.
+             */
+            write_sz = var->len;
+
+            if (var->len > old_sz) {
+                /* Free the previous buffer, if it exists and wasn't big enough */
+                if (var->str_value)
+                    kfree((void*)var->str_value);
+                /* Allocate a new buffer */
+                var->str_value = kmalloc(write_sz);
+            }
+
+            /* Pre-set error */
+            error = -ENOMEM;
+
+            /* FAILEDDD */
+            if (!var->str_value)
+                goto unlock_and_exit;
+
+            /* Clear the entire range out */
+            memset(var->value, 0, length + 1);
+        default:
+            error = -ENOTSUP;
+            goto unlock_and_exit;
         }
 
         /* Copy, but make sure we don't overshoot size */
@@ -392,14 +425,13 @@ unlock_and_exit:
 
 error_t sysvar_read(sysvar_t* var, void* buffer, size_t length)
 {
+    error_t error;
     proc_t* current_proc;
     size_t data_size = NULL;
     size_t minimal_buffersize = 1;
 
     if (!var)
         return -EINVAL;
-
-    KLOG_DBG("Reading from sysvar: %s\n", var->key);
 
     /* Get the current process */
     current_proc = get_current_proc();
@@ -409,13 +441,23 @@ error_t sysvar_read(sysvar_t* var, void* buffer, size_t length)
 
     sysvar_lock(var);
 
+    error = -ENULL;
+
     switch (var->type) {
     case SYSVAR_TYPE_STRING:
+        /* If there is no string buffer, we can't read */
+        if (!var->str_value)
+            goto unlock_and_exit;
+
         /* We need at least the null-byte */
         minimal_buffersize = 1;
         data_size = var->len;
         break;
     case SYSVAR_TYPE_MEM_RANGE:
+        /* If there is no range, we can't read */
+        if (!var->range_value)
+            goto unlock_and_exit;
+
         data_size = minimal_buffersize = sizeof(page_range_t);
         break;
     case SYSVAR_TYPE_QWORD:
@@ -431,14 +473,16 @@ error_t sysvar_read(sysvar_t* var, void* buffer, size_t length)
         data_size = minimal_buffersize = sizeof(uint8_t);
         break;
     default:
-        break;
+        error = -ENOTSUP;
+        goto unlock_and_exit;
     }
 
+    /* Next error might be invalid */
+    error = -EINVAL;
+
     /* Check if we have enough space to store the value */
-    if (!data_size || length < minimal_buffersize) {
-        sysvar_unlock(var);
-        return -EINVAL;
-    }
+    if (!data_size || length < minimal_buffersize)
+        goto unlock_and_exit;
 
     /* Make sure we are not going to copy too much into the user buffer */
     if (data_size > length)
@@ -457,9 +501,12 @@ error_t sysvar_read(sysvar_t* var, void* buffer, size_t length)
     } else
         memcpy(buffer, &var->value, data_size);
 
+    /* Success, clear the error status */
+    error = 0;
+unlock_and_exit:
     sysvar_unlock(var);
 
-    return 0;
+    return error;
 }
 
 error_t sysvar_sizeof(sysvar_t* var, size_t* psize)

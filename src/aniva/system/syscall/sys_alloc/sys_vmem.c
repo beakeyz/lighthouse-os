@@ -1,12 +1,17 @@
 #include "libk/flow/error.h"
+#include "libk/math/math.h"
 #include "lightos/handle_def.h"
 #include "lightos/memory/memory.h"
 #include "lightos/syscall.h"
-#include "logging/log.h"
+#include "lightos/sysvar/shared.h"
+#include "proc/env.h"
 #include "proc/handle.h"
 #include "proc/proc.h"
 #include "sched/scheduler.h"
+#include "sys/types.h"
+#include "system/profile/attr.h"
 #include <mem/kmem.h>
+#include <oss/obj.h>
 #include <system/sysvar/var.h>
 
 static void _apply_memory_flags(uint32_t userflags, uint32_t* customflags, uint32_t* kmem_flags)
@@ -17,11 +22,24 @@ static void _apply_memory_flags(uint32_t userflags, uint32_t* customflags, uint3
         kmem |= KMEM_FLAG_WRITABLE;
 
     /* This flag gives us shit for some reason */
-    //if ((userflags & VMEM_FLAG_EXEC) != VMEM_FLAG_EXEC)
-        //kmem |= KMEM_FLAG_NOEXECUTE;
+    // if ((userflags & VMEM_FLAG_EXEC) != VMEM_FLAG_EXEC)
+    // kmem |= KMEM_FLAG_NOEXECUTE;
 
     *customflags = NULL;
     *kmem_flags = kmem;
+}
+
+static u32 _get_page_range_flags(u32 vmem_flags)
+{
+    u32 ret = 0;
+
+    if ((vmem_flags & VMEM_FLAG_SHARED) == VMEM_FLAG_SHARED)
+        ret |= PAGE_RANGE_FLAG_EXPORTED;
+
+    if ((vmem_flags & VMEM_FLAG_WRITE) == VMEM_FLAG_WRITE)
+        ret |= PAGE_RANGE_FLAG_WRITABLE;
+
+    return ret;
 }
 
 /*
@@ -67,85 +85,317 @@ error_t sys_dealloc_vmem(vaddr_t buffer, size_t size)
     return 0;
 }
 
-static inline bool __can_map_in_handle(khandle_t* khandle)
+static inline bool __can_proc_delete_vmem(khandle_t* handle, proc_t* c_proc, proc_t* target_proc, sysvar_t* var)
 {
-    return (khandle->type == HNDL_TYPE_VMEM);
+    if ((handle->flags & HNDL_FLAG_W) != HNDL_FLAG_W)
+        return false;
+
+    /* Processes can always delete their own memory, but other processes only can if  */
+    return (c_proc == target_proc || pattr_hasperm(&var->obj->attr, &c_proc->m_env->attr, PATTR_WRITE));
 }
 
-static inline u32 __get_page_range_flags(u32 vmem_flags)
+static inline bool __can_proc_map_vmem(khandle_t* handle, proc_t* c_proc, proc_t* target_proc, sysvar_t* var)
 {
-    u32 ret = 0;
+    /* This handle also needs to have the write flag  */
+    if ((handle->flags & HNDL_FLAG_W) != HNDL_FLAG_W)
+        return false;
 
-    /* Shared region, mark it as such */
-    if ((vmem_flags & VMEM_FLAG_SHARED) == VMEM_FLAG_SHARED)
-        ret |= PAGE_RANGE_FLAG_EXPORTED;
+    return (c_proc == target_proc || (pattr_hasperm(&var->obj->attr, &c_proc->m_env->attr, PATTR_WRITE)));
+}
+
+static inline bool __can_proc_remap_vmem(khandle_t* handle, proc_t* c_proc, proc_t* target_proc, sysvar_t* var)
+{
+    /* This handle also needs to have the read flag  */
+    if ((handle->flags & HNDL_FLAG_R) != HNDL_FLAG_R)
+        return false;
+
+    /* When remapping, we only read the range from the var, hence why we need read permissions */
+    return (c_proc == target_proc || (pattr_hasperm(&var->obj->attr, &c_proc->m_env->attr, PATTR_READ)));
+}
+
+static inline void* __sys_delete_local_vmem(proc_t* c_proc, void* addr, size_t len)
+{
+    /* First validate the pointer to make sure it points to a valid address */
+    if (kmem_validate_ptr(c_proc, (vaddr_t)addr, len))
+        return nullptr;
+
+    /* Simply unmap the specified range */
+    if (kmem_user_dealloc(c_proc, (vaddr_t)addr, len))
+        return nullptr;
+
+    /* Just return addr at this point and hope no one touches it anymore */
+    return addr;
+}
+
+static void* __sys_delete_vmem(khandle_t* khandle, proc_t* c_proc, void* addr, size_t len, u32 flags)
+{
+    void* ret;
+    sysvar_t* var;
+    penv_t* target_penv;
+    proc_t* target_proc;
+    page_range_t range = { 0 };
+
+    if (!khandle)
+        return __sys_delete_local_vmem(c_proc, addr, len);
+
+    /* Grab the pertaining sysvar holding the vmem object */
+    var = khandle->reference.vmem_range;
+
+    /* Invalid sysvar =( */
+    if (var->type != SYSVAR_TYPE_MEM_RANGE)
+        return nullptr;
+
+    /* Get the parent environment so we can check permissions */
+    target_penv = sysvar_get_parent_env(var);
+    /* Get the environments process */
+    target_proc = target_penv->p;
+
+    /* Check if our process can act on the target */
+    if (!__can_proc_delete_vmem(khandle, c_proc, target_proc, var))
+        return nullptr;
+
+    /* Pre-set the return variable */
+    ret = NULL;
+
+    /* Lock the variable just in case */
+    sysvar_lock(var);
+
+    /* Read the range from the var */
+    if (sysvar_read(var, &range, sizeof(range)))
+        goto unlock_and_exit;
+
+    /* Deallocate the range */
+    if (kmem_user_dealloc(target_proc, (vaddr_t)page_range_to_ptr(&range), page_range_size(&range)))
+        goto unlock_and_exit;
+
+    /* Clear the range block */
+    memset(&range, 0, sizeof(range));
+
+    /*
+     * Write back the new range
+     * FIXME: What do we do when this call fails and we have already deallocated the range?
+     */
+    (void)sysvar_write(var, &range, sizeof(range));
+
+    /* Success. Set the return variable to indicate that */
+    ret = addr;
+unlock_and_exit:
+    /* Unlock the var */
+    sysvar_unlock(var);
 
     return ret;
 }
 
-static void* __sys_map_vmem_in_handle(khandle_t* khandle, proc_t* c_proc, void* addr, size_t len, u32 vmem_flags, u32 custom_flags, u32 kmem_flags)
+static void* __sys_remap_local_vmem(proc_t* c_proc, void* addr, size_t len, u32 flags)
 {
-    error_t error = EOK;
-    u32 page_range_flags;
-    u32 nr_pages;
-    page_range_t range;
+    /* TODO: Implement remaps without handles */
+    kernel_panic("__sys_remap_vmem: See todo");
+}
 
-    /* This is just sad =( */
-    if (!__can_map_in_handle(khandle))
+static void* __sys_remap_vmem(khandle_t* khandle, proc_t* c_proc, void* addr, size_t len, u32 flags)
+{
+    void* result = nullptr;
+    sysvar_t* var;
+    penv_t* target_penv;
+    proc_t* target_proc;
+    page_range_t range = { 0 };
+    vaddr_t target_addr;
+    size_t target_size;
+    u32 custom_flags, page_flags;
+
+    /* We need a size specified */
+    if (!len)
         return nullptr;
 
-    KLOG_DBG("Trying to map into handle: %s\n", khandle->reference.vmem_range->key);
+    if (!khandle)
+        return __sys_remap_local_vmem(c_proc, addr, len, flags);
 
-    /* Lock the sysvar */
-    sysvar_lock(khandle->reference.vmem_range);
+    /* Yes; we'll have to check if we can even map in this vmem object */
+    var = khandle->reference.vmem_range;
 
-    /* Read the current range from the handle */
-    error = sysvar_read(khandle->reference.pvar, &range, sizeof(range));
+    /* Invalid sysvar =( */
+    if (var->type != SYSVAR_TYPE_MEM_RANGE)
+        return nullptr;
 
-    /* Well that sucks */
+    /* Get the environment of this sysvar */
+    target_penv = sysvar_get_parent_env(var);
+    /* Get the process accociated with it */
+    target_proc = target_penv->p;
+
+    /* Can't remap. Dip */
+    if (!__can_proc_remap_vmem(khandle, c_proc, target_proc, var))
+        return nullptr;
+
+    /* Read the range from the sysvar */
+    if (sysvar_read(var, &range, sizeof(range)))
+        return nullptr;
+
+    /* Either of these being NULL implies an unused range */
+    if (!range.nr_pages || !range.refc)
+        return nullptr;
+
+    /* Get the range bounds */
+    target_addr = (vaddr_t)page_range_to_ptr(&range);
+    target_size = MIN(page_range_size(&range), len);
+
+    /* Get page flags from the vmem flags */
+    _apply_memory_flags(flags, &custom_flags, &page_flags);
+
+    /* Reallocate */
+    if (kmem_user_realloc(&result, c_proc, target_proc, target_addr, target_size, custom_flags, page_flags))
+        /* Reset result just to be safe */
+        result = nullptr;
+
+    /* TODO: Remap the specified range */
+    return result;
+}
+
+/*!
+ * @brief: Map local virtual memory
+ *
+ * There was no (valid) handle specified so we'll just map some memory
+ */
+static void* __sys_map_local_vmem(proc_t* c_proc, void* addr, size_t len, u32 flags)
+{
+    error_t error;
+    u32 custom_flags, page_flags;
+
+    /* Get page flags from the vmem flags */
+    _apply_memory_flags(flags, &custom_flags, &page_flags);
+
+    /* Try to allocate */
+    if (addr)
+        error = kmem_user_alloc_scattered(&addr, c_proc, (vaddr_t)addr, len, custom_flags, page_flags);
+    else
+        error = kmem_user_alloc_range(&addr, c_proc, len, custom_flags, page_flags);
+
+    /* Shitt */
     if (error)
+        return nullptr;
+
+    return addr;
+}
+
+static void* __sys_map_vmem(khandle_t* khandle, proc_t* c_proc, void* addr, size_t len, u32 flags)
+{
+    sysvar_t* var;
+    penv_t* target_penv;
+    proc_t* target_proc;
+    page_range_t range = { 0 };
+
+    /* No length at this point is fatal */
+    if (!len)
+        return nullptr;
+
+    /* Do we have a handle? */
+    if (!khandle)
+        /* No; lets just do a private allocation inside the process */
+        return __sys_map_local_vmem(c_proc, addr, len, flags);
+
+    /* Yes; we'll have to check if we can even map in this vmem object */
+    var = khandle->reference.vmem_range;
+
+    /* Invalid sysvar =( */
+    if (var->type != SYSVAR_TYPE_MEM_RANGE)
+        return nullptr;
+
+    /* Get the environment of this sysvar */
+    target_penv = sysvar_get_parent_env(var);
+    /* Get the process accociated with it */
+    target_proc = target_penv->p;
+
+    /* Can't map. Dip */
+    if (!__can_proc_map_vmem(khandle, c_proc, target_proc, var))
+        return nullptr;
+
+    /* Lock the variable so no one fucks us */
+    sysvar_lock(var);
+
+    /* Read the range from the sysvar */
+    sysvar_read(var, &range, sizeof(range));
+
+    /* If the range is alredy set, we can't map in it =( */
+    if (range.page_idx || range.nr_pages || range.refc) {
+        addr = nullptr;
         goto unlock_and_exit;
-
-    KLOG_DBG("Current : %d\n", range.nr_pages);
-
-    /* Check if there is already an active mapping in this range and remove it if there is */
-    if (range.nr_pages && range.refc) {
-        error = kmem_user_dealloc(c_proc, kmem_get_page_addr(range.page_idx), range.nr_pages << 12);
-
-        /* Well that sucks */
-        if (error)
-            goto unlock_and_exit;
     }
 
-    /* Get some data for the new mapping */
-    page_range_flags = __get_page_range_flags(vmem_flags);
-    nr_pages = GET_PAGECOUNT((u64)addr, len);
+    /* Do a 'local' map in the target process */
+    addr = __sys_map_local_vmem(target_proc, addr, len, flags);
 
-    /* First allocate a range */
-    if (addr)
-        error = kmem_user_alloc_scattered(&addr, c_proc, (vaddr_t)addr, len, custom_flags, kmem_flags);
-    else
-        error = kmem_user_alloc_range(&addr, c_proc, len, custom_flags, kmem_flags);
-
-    /* Check if the allocation went OK */
-    if (error || !addr)
+    if (!addr)
         goto unlock_and_exit;
 
-    /* Initialize the new range */
-    init_page_range(&range, kmem_get_page_idx((u64)addr), nr_pages, page_range_flags, 1);
+    /* Init this range */
+    init_page_range(&range, kmem_get_page_idx((vaddr_t)addr), GET_PAGECOUNT((u64)addr, len), NULL, 1);
 
-    /* Write back the new range into the handle */
-    sysvar_write(khandle->reference.pvar, &range, sizeof(range));
-
-    /* Unlock the sysvar to the rest of the world =D */
-    sysvar_unlock(khandle->reference.vmem_range);
-
-    /* Convert this shit to a pointer */
-    return page_range_to_ptr(&range);
+    /* Write back the new range */
+    (void)sysvar_write(var, &range, sizeof(range));
 
 unlock_and_exit:
-    sysvar_unlock(khandle->reference.pvar);
+    sysvar_unlock(var);
 
+    return addr;
+}
+
+static void* __sys_bind_vmem(khandle_t* khandle, proc_t* c_proc, void* addr, size_t len, u32 flags)
+{
+    sysvar_t* var;
+    proc_t* target_proc;
+    penv_t* target_penv;
+    page_range_t range = { 0 };
+
+    /* Can't bind to an invalid handle */
+    if (!khandle || khandle->type != HNDL_TYPE_VMEM || !khandle->reference.vmem_range)
+        return nullptr;
+
+    if (!addr || !len)
+        return nullptr;
+
+    /* Get the reference */
+    var = khandle->reference.vmem_range;
+
+    /* Shit */
+    if (var->type != SYSVAR_TYPE_MEM_RANGE)
+        return nullptr;
+
+    target_penv = sysvar_get_parent_env(var);
+
+    /* ??? */
+    if (!target_penv)
+        return nullptr;
+
+    /* Get this */
+    target_proc = target_penv->p;
+
+    /* For binding, the same privileges are needed as for mapping */
+    if (!__can_proc_map_vmem(khandle, c_proc, target_proc, var))
+        return nullptr;
+
+    sysvar_lock(var);
+
+    /* Read the current state of the sysvar */
+    if (sysvar_read(var, &range, sizeof(range)))
+        goto unlock_and_exit_err;
+
+    /* We can't implicitly 'rebind' vmem object. The user first has to explicitly unbind */
+    if (range.page_idx || range.nr_pages || range.refc)
+        goto unlock_and_exit_err;
+
+    /* Initalize the page range */
+    init_page_range(&range, kmem_get_page_idx((vaddr_t)addr), GET_PAGECOUNT((vaddr_t)addr, len), _get_page_range_flags(flags), 1);
+
+    /* Write back the new range */
+    sysvar_write(var, &range, sizeof(range));
+
+    /* Unlock */
+    sysvar_unlock(var);
+
+    /* Return back our address */
+    return addr;
+
+unlock_and_exit_err:
+    sysvar_unlock(var);
     return nullptr;
 }
 
@@ -158,11 +408,7 @@ unlock_and_exit:
  */
 void* sys_map_vmem(HANDLE handle, void* addr, size_t len, u32 flags)
 {
-    void* ret;
-    error_t error;
     khandle_t* khandle;
-    u32 customflags;
-    u32 kmem_flags;
     proc_t* c_proc;
 
     /* No length, no mapping =/ */
@@ -172,26 +418,27 @@ void* sys_map_vmem(HANDLE handle, void* addr, size_t len, u32 flags)
     /* Grab the current process */
     c_proc = get_current_proc();
 
-    /* Get the memory flags for kmem */
-    _apply_memory_flags(flags, &customflags, &kmem_flags);
-
     /* Try to find a handle */
     khandle = find_khandle(&c_proc->m_handle_map, handle);
 
-    /* If there was a handle specified, try to map into this handle */
-    if (khandle)
-        return __sys_map_vmem_in_handle(khandle, c_proc, addr, len, flags, customflags, kmem_flags);
+    /* Check for invalid handle */
+    if (khandle && (khandle->type != HNDL_TYPE_VMEM || !khandle->reference.vmem_range))
+        return nullptr;
 
-    /* Try to do a normal mapping */
-    if (!addr)
-        error = kmem_user_alloc_range(&ret, c_proc, len, customflags, kmem_flags);
-    else
-        error = kmem_user_alloc_scattered(&ret, c_proc, (vaddr_t)addr, len, customflags, kmem_flags);
+    switch (flags & (VMEM_FLAG_REMAP | VMEM_FLAG_DELETE | VMEM_FLAG_BIND)) {
+    case VMEM_FLAG_DELETE:
+        return __sys_delete_vmem(khandle, c_proc, addr, len, flags);
+    case VMEM_FLAG_REMAP:
+        return __sys_remap_vmem(khandle, c_proc, addr, len, flags);
+    case VMEM_FLAG_BIND:
+        return __sys_bind_vmem(khandle, c_proc, addr, len, flags);
+    case 0:
+        return __sys_map_vmem(khandle, c_proc, addr, len, flags);
+    default:
+        return nullptr;
+    }
 
-    if (error)
-        return NULL;
-
-    return ret;
+    return nullptr;
 }
 
 error_t sys_protect_vmem(void* addr, size_t len, u32 flags)

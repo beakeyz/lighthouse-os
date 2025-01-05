@@ -68,10 +68,10 @@ int init_proc_profile(user_profile_t* profile, char* name, struct pattr* attr)
 }
 
 static pattr_flags_t __base_flags[] = {
-    [PROFILE_TYPE_ADMIN] = 0xffffffffUL,
-    [PROFILE_TYPE_SUPERVISOR] = 0,
-    [PROFILE_TYPE_USER] = 0,
-    [PROFILE_TYPE_LIMITED] = 0,
+    [PROFILE_TYPE_ADMIN] = PATTR_ALL,
+    [PROFILE_TYPE_SUPERVISOR] = PATTR_ALL,
+    [PROFILE_TYPE_USER] = (PATTR_SEE | PATTR_READ | PATTR_WRITE),
+    [PROFILE_TYPE_LIMITED] = (PATTR_SEE),
 };
 
 user_profile_t* create_proc_profile(char* name, enum PROFILE_TYPE type)
@@ -609,8 +609,10 @@ void init_user_profiles(void)
     _active_profile_locked = 0;
     _active_profile = nullptr;
 
+    /* Admin profile doesn't really care about permissons, since it overpowers all of them */
     init_proc_profile(&_admin_profile, "Admin", &(pattr_t) { .ptype = PROFILE_TYPE_ADMIN, .pflags = { 0 } });
-    init_proc_profile(&_user_profile, "User", &(pattr_t) { .ptype = PROFILE_TYPE_USER, .pflags = { 0 } });
+    /* The user profile can do anything with any object of the same level by default, but lets limited plevels only look and read */
+    init_proc_profile(&_user_profile, "User", &(pattr_t) { .ptype = PROFILE_TYPE_USER, .pflags = PATTR_FLAGS(0, 0, PATTR_ALL, PATTR_SEE | PATTR_READ) });
 
     /* Apply the default variables onto the default profiles */
     __apply_admin_variables();

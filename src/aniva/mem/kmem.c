@@ -3,6 +3,8 @@
 #include "irq/interrupts.h"
 #include "libk/flow/error.h"
 #include "libk/multiboot.h"
+#include "lightos/error.h"
+#include "lightos/memory/memory.h"
 #include "logging/log.h"
 #include "mem/page_dir.h"
 #include "mem/pg.h"
@@ -849,14 +851,20 @@ int kmem_user_dealloc(struct proc* p, vaddr_t vaddr, size_t size)
         /* Grab the aligned physical base of this virtual address */
         c_phys_base = kmem_to_phys_aligned(p->m_root_pd.m_root, vaddr);
 
+        /* Invalid base, can't unmap shit */
+        if (!c_phys_base)
+            return -EINVAL;
+
         /* Grab it's physical page index */
         c_phys_idx = kmem_get_page_idx(c_phys_base);
 
         /* Free the physical page */
-        kmem_phys_dealloc_page(c_phys_idx);
+        if (kmem_phys_dealloc_page(c_phys_idx))
+            return -EINVAL;
 
         /* Unmap from the process */
-        kmem_unmap_page(p->m_root_pd.m_root, vaddr);
+        if (!kmem_unmap_page(p->m_root_pd.m_root, vaddr))
+            return -EINVAL;
 
         /* Next page */
         vaddr += SMALL_PAGE_SIZE;
@@ -910,6 +918,75 @@ int kmem_user_alloc(void** result, struct proc* p, paddr_t addr, size_t size, ui
 int kmem_user_alloc_scattered(void** p_result, struct proc* p, vaddr_t addr, size_t size, uint32_t custom_flags, uint32_t page_flags)
 {
     return kmem_alloc_scattered(p_result, p->m_root_pd.m_root, &p->m_virtual_tracker, addr, size, custom_flags | KMEM_CUSTOMFLAG_CREATE_USER, page_flags);
+}
+
+int kmem_user_realloc(void** p_result, struct proc* c_proc, struct proc* target, vaddr_t addr, size_t size, u32 custom_flags, u32 page_flags)
+{
+    u64 i;
+    void** result = nullptr;
+    error_t error;
+    page_range_t range;
+
+    if (!p_result)
+        return -EINVAL;
+
+    const vaddr_t vbase = addr & ~PAGE_LOW_MASK;
+    const size_t nr_pages = GET_PAGECOUNT(addr, size);
+
+    /* Allocate an array of physical addresses on the stack */
+    paddr_t* paddrs;
+
+    /* Temporarily allocate an array to store the physical addresses */
+    error = kmem_kernel_alloc_range((void**)&paddrs, nr_pages * sizeof(paddr_t), NULL, KMEM_FLAG_WRITABLE | KMEM_FLAG_KERNEL);
+
+    if (error)
+        return error;
+
+    /* Collect all the physical pages from the target process */
+    for (i = 0; i < nr_pages; i++) {
+        paddrs[i] = kmem_to_phys(target->m_root_pd.m_root, vbase + (i << PAGE_SHIFT));
+
+        /* Ensure that we could find a physical address for this fucker */
+        if (!paddrs[i])
+            kernel_panic("kmem_user_realloc: see todo");
+
+        /* TODO: Investigate if we should allocate new physical pages here if we can't find one */
+    }
+
+    /* 
+     * Alright; At this point, we know that the entire virtual range is mapped inside the 
+     * target. We can now find a range inside c_proc to map the addresses to
+     */
+
+    error = page_tracker_alloc_any(&c_proc->m_virtual_tracker, NULL, nr_pages, NULL, &range);
+
+    /* Shit */
+    if (error)
+        goto dealloc_and_exit;
+
+    /* Grab the result */
+    result = page_range_to_ptr(&range);
+
+    /* Keep mapping shit until there are no pages left, or if err isn't OK */
+    for (i = 0; i < nr_pages && IS_OK(error); i++)
+        if (!kmem_map_page(c_proc->m_root_pd.m_root, (vaddr_t)result + (i << PAGE_SHIFT), paddrs[i], custom_flags, page_flags))
+            error = -ENOMEM;
+
+    if (HAS_ERROR(error))
+        kernel_panic("kmem_user_realloc => TODO: find out waht to do when mapping failed =(");
+
+    /* Export the result pointer */
+    *p_result = result + (addr & PAGE_LOW_MASK);
+
+dealloc_and_exit:
+    kmem_kernel_dealloc((vaddr_t)paddrs, nr_pages * sizeof(paddr_t));
+
+    /* If there was an error, dealloc the virtual range from the process */
+    if (result && error)
+        page_tracker_dealloc(&c_proc->m_virtual_tracker, &range);
+
+    return error;
+
 }
 
 /*!

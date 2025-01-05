@@ -27,6 +27,7 @@ mutex_t* create_mutex(uint8_t flags)
     ret->m_waiters = create_limitless_queue();
     ret->m_lock = create_spinlock(NULL);
     ret->m_lock_holder = nullptr;
+    ret->flags = MUTEX_FLAG_ALLOCATED;
 
     return ret;
 }
@@ -38,6 +39,7 @@ void init_mutex(mutex_t* lock, uint8_t flags)
     lock->m_waiters = create_limitless_queue();
     lock->m_lock = create_spinlock(NULL);
     lock->m_lock_holder = nullptr;
+    lock->flags = NULL;
 }
 
 void clear_mutex(mutex_t* mutex)
@@ -76,7 +78,9 @@ void destroy_mutex(mutex_t* mutex)
     clear_mutex(mutex);
 
     destroy_spinlock(mutex->m_lock);
-    kfree(mutex);
+
+    if ((mutex->flags & MUTEX_FLAG_ALLOCATED) == MUTEX_FLAG_ALLOCATED)
+        kfree(mutex);
 }
 
 void mutex_lock(mutex_t* mutex)

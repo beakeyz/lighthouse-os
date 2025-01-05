@@ -526,7 +526,7 @@ error_t kmem_phys_dealloc_from_tracker(pml_entry_t* ptable_root, page_tracker_t*
     error = EOK;
 
     /* Lock the fucker */
-    spinlock_lock(&tracker->lock);
+    mutex_lock(&tracker->lock);
 
     /* Grab the base range */
     alloc = tracker->base;
@@ -550,7 +550,7 @@ error_t kmem_phys_dealloc_from_tracker(pml_entry_t* ptable_root, page_tracker_t*
     }
 
 unlock_and_exit:
-    spinlock_unlock(&tracker->lock);
+    mutex_unlock(&tracker->lock);
 
     return error;
 

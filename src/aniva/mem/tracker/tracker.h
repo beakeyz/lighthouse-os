@@ -3,7 +3,6 @@
 
 #include "mem/kmem.h"
 #include "mem/zalloc/zalloc.h"
-#include "sync/spinlock.h"
 #include <lightos/memory/memory.h>
 
 /*!
@@ -31,7 +30,7 @@ typedef struct page_tracker {
     /* The maximum addressable page in this tracker */
     u64 max_page;
     /* Main lock that protects this boi =) */
-    spinlock_t lock;
+    mutex_t lock;
     /* Store the cache buffer here... */
     void* cache_buffer;
     /* and the size of that buffer */
