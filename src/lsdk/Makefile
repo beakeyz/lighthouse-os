@@ -28,7 +28,7 @@ override LSDK_CFLAGS := \
 	-mno-red-zone \
 	-MMD \
 	-DGNU_EFI_USE_MS_ABI \
-	-I. \
+	-I$(SRC) \
 
 # Name defs
 LSDK_OBJ=lsdk.obj

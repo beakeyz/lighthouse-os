@@ -61,7 +61,7 @@ export KERNEL_CFLAGS := \
 	-mno-mmx -mno-80387 -mno-red-zone -m64 -march=x86-64 -mcmodel=large \
 	-ffreestanding -fno-stack-protector -fno-stack-check -fshort-wchar \
 	-fno-lto -fno-exceptions -MMD -I$(SRC) -I$(SRC)/$(KERNEL_NAME) -I$(SRC)/libs -I$(SRC)/libs/lightos/libc -I$(SRC)/$(KERNEL_NAME)/libk \
-	-I$(SRC)/lsdk -D'ANIVA_KERNEL'
+	-D'ANIVA_KERNEL'
 
 ifeq ($(KERNEL_DEBUG_LEVEL), verbose)
 	KERNEL_CFLAGS += -DDBG_VERBOSE=1
