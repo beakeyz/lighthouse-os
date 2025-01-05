@@ -6,7 +6,7 @@
 -I./src/lightloader/efi/include
 -I./src/lightloader/common/include
 
--I./src/modules/
+-I./src/lsdk/
 
 -DDBG_VERBOSE=1
 -DANIVA_COMPILE_TESTS=1

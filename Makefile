@@ -61,7 +61,7 @@ export KERNEL_CFLAGS := \
 	-mno-mmx -mno-80387 -mno-red-zone -m64 -march=x86-64 -mcmodel=large \
 	-ffreestanding -fno-stack-protector -fno-stack-check -fshort-wchar \
 	-fno-lto -fno-exceptions -MMD -I$(SRC) -I$(SRC)/$(KERNEL_NAME) -I$(SRC)/libs -I$(SRC)/libs/lightos/libc -I$(SRC)/$(KERNEL_NAME)/libk \
-	-I$(SRC)/modules -D'ANIVA_KERNEL'
+	-I$(SRC)/lsdk -D'ANIVA_KERNEL'
 
 ifeq ($(KERNEL_DEBUG_LEVEL), verbose)
 	KERNEL_CFLAGS += -DDBG_VERBOSE=1
@@ -108,8 +108,8 @@ libs: ## Build system libraries
 user: ## Build userspace stuff
 	@make -C ./src/user build
 
-modules: ## Build the shared system modules (modules.obj)
-	@make -C ./src/modules build
+lsdk: ## Build the shared system lsdk (lsdk.obj)
+	@make -C ./src/lsdk build
 
 loader: ## Build the bootloader sources
 	@make -C ./src/lightloader build
@@ -123,7 +123,7 @@ clean: ## Remove any build artifacts
 	@rm -r $(OUT)
 	@echo -e "Cleaned build artifacts!"
 
-all: modules loader aniva drivers libs user ramdisk
+all: lsdk loader aniva drivers libs user ramdisk
 	@echo Built the entire project =D
 
 LIGHTOS_IMG=lightos.img
@@ -186,4 +186,4 @@ else
 	@sudo dd bs=4M if=$(OUT)/$(LIGHTOS_IMG) of=$(INSTALL_DEV) conv=fsync oflag=direct status=progress
 endif
 
-.PHONY: aniva drivers loader modules libs user ramdisk clean all install-gcc-hdrs
+.PHONY: aniva drivers loader lsdk libs user ramdisk clean all install-gcc-hdrs

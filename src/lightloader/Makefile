@@ -35,8 +35,8 @@ override LOADER_CFLAGS := \
 SRC_DIRS=common efi
 INCLUDE_DIRS=common/include efi/include
 
-# Define the modules object
-MODULES_OBJ=$(OUT)/modules/modules.obj
+# Define the LSDK object
+LSDK_OBJ=$(OUT)/lsdk/lsdk.obj
 
 C_SRC := $(shell find $(LOADER_SRC) -type f -name '*.c')
 ASM_SRC := $(shell find $(LOADER_SRC) -type f -name '*.asm')
@@ -66,8 +66,8 @@ $(LOADER_OUT)/%.o: $(LOADER_SRC)/%.asm
 
 build: $(C_OBJ) $(ASM_OBJ) $(S_OBJ)
 	@echo -e [LOADER] Linking objects...
-	@stat $(MODULES_OBJ)
-	@$(LD) $^ $(MODULES_OBJ) $(LOADER_LDFLAGS) -o $(LOADER_OUT)/$(LOADER_ELF)
+	@stat $(LSDK_OBJ)
+	@$(LD) $^ $(LSDK_OBJ) $(LOADER_LDFLAGS) -o $(LOADER_OUT)/$(LOADER_ELF)
 	@$(OBJCOPY) -O binary $(LOADER_OUT)/$(LOADER_ELF) $(LOADER_OUT)/$(LOADER_EFI)
 	@echo -e [LOADER] Done =D
 
