@@ -4,6 +4,7 @@
 #include "lightos/memory/memory.h"
 #include "lightos/syscall.h"
 #include "lightos/sysvar/shared.h"
+#include "mem/phys.h"
 #include "proc/env.h"
 #include "proc/handle.h"
 #include "proc/proc.h"

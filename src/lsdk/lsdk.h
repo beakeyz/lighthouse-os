@@ -28,7 +28,10 @@ typedef struct lsdk_ctx {
 
 extern void init_lsdk(lsdk_ctx_t* ctx);
 
-extern lsdk_ctx_t* g_lsdk_ctx;
+extern void* lsdk_alloc(size_t size);
+extern void lsdk_dealloc(void* addr, size_t size);
+
+extern lsdk_ctx_t g_lsdk_ctx;
 extern lsdk_version_t g_lsdk_version;
 
 #endif // !__LIGHTOS_lsdk_H__

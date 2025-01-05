@@ -57,7 +57,7 @@ static struct {
 
     page_dir_t kernel_pdir;
 
-    //pml_entry_t* m_kernel_base_pd;
+    // pml_entry_t* m_kernel_base_pd;
 } KMEM_DATA;
 
 /* Variable from boot.asm */
@@ -74,7 +74,7 @@ static inline u32 generate_tracker_flags(u32 custom_flags, u32 page_flags)
     u32 ret = 0;
 
     if ((page_flags & KMEM_FLAG_KERNEL) == KMEM_FLAG_KERNEL)
-        ret |= PAGE_RANGE_FLAG_KERNEL; 
+        ret |= PAGE_RANGE_FLAG_KERNEL;
 
     if ((page_flags & KMEM_FLAG_NOEXECUTE) != KMEM_FLAG_NOEXECUTE)
         ret |= PAGE_RANGE_FLAG_EXEC;
@@ -114,9 +114,9 @@ int kmem_get_info(kmem_info_t* info_buffer, uint32_t cpu_id)
     info_buffer->total_pages = kmem_phys_get_total_bytecount() >> PAGE_SHIFT;
     info_buffer->used_pages = kmem_phys_get_used_bytecount() >> PAGE_SHIFT;
 
-    //KLOG_ERR("Got info buffer (used: %lld, total: %lld)\n", info_buffer->used_pages, info_buffer->total_pages);
+    // KLOG_ERR("Got info buffer (used: %lld, total: %lld)\n", info_buffer->used_pages, info_buffer->total_pages);
 
-    //kmem_phys_dump();
+    // kmem_phys_dump();
 
     return 0;
 }
@@ -634,8 +634,8 @@ int kmem_dealloc_ex(pml_entry_t* map, page_tracker_t* tracker, uintptr_t virt_ba
     }
 
     /* Only release the resource if we dont want to defer that opperation */
-    //if (resources && !defer_res_release && resource_release(virt_base, size, GET_RESOURCE(resources, KRES_TYPE_MEM)))
-        //return 1;
+    // if (resources && !defer_res_release && resource_release(virt_base, size, GET_RESOURCE(resources, KRES_TYPE_MEM)))
+    // return 1;
 
     /* We don't want to track this deallocation. Dip */
     if (!tracker || defer_res_release)
@@ -710,7 +710,7 @@ int kmem_alloc_ex(void** result, pml_entry_t* map, page_tracker_t* tracker, padd
          * allocated internally. This is because otherwise we won't be able to find this resource again if we
          * try to release it
          */
-        //resource_claim_ex("kmem alloc", nullptr, ALIGN_DOWN(ret, SMALL_PAGE_SIZE), pages_needed * SMALL_PAGE_SIZE, KRES_TYPE_MEM, resources);
+        // resource_claim_ex("kmem alloc", nullptr, ALIGN_DOWN(ret, SMALL_PAGE_SIZE), pages_needed * SMALL_PAGE_SIZE, KRES_TYPE_MEM, resources);
         page_tracker_alloc(tracker, kmem_get_page_idx(ret), pages_needed, generate_tracker_flags(custom_flags, page_flags));
     }
 
@@ -744,7 +744,7 @@ int kmem_alloc_range(void** result, pml_entry_t* map, page_tracker_t* tracker, v
         return -1;
 
     if (tracker)
-        //resource_claim_ex("kmem alloc range", nullptr, ALIGN_DOWN(virt_base, SMALL_PAGE_SIZE), (pages_needed * SMALL_PAGE_SIZE), KRES_TYPE_MEM, resources);
+        // resource_claim_ex("kmem alloc range", nullptr, ALIGN_DOWN(virt_base, SMALL_PAGE_SIZE), (pages_needed * SMALL_PAGE_SIZE), KRES_TYPE_MEM, resources);
         page_tracker_alloc(tracker, kmem_get_page_idx(virt_base), pages_needed, generate_tracker_flags(custom_flags, page_flags));
 
     *result = (void*)virt_base;
@@ -847,6 +847,8 @@ int kmem_user_dealloc(struct proc* p, vaddr_t vaddr, size_t size)
     page_range_t range;
     const size_t page_count = GET_PAGECOUNT(vaddr, size);
 
+    vaddr = vaddr & ~PAGE_LOW_MASK;
+
     for (uintptr_t i = 0; i < page_count; i++) {
         /* Grab the aligned physical base of this virtual address */
         c_phys_base = kmem_to_phys_aligned(p->m_root_pd.m_root, vaddr);
@@ -897,7 +899,7 @@ int kmem_user_alloc(void** result, struct proc* p, paddr_t addr, size_t size, ui
     tracker_flags = generate_tracker_flags(custom_flags, page_flags);
 
     /* FIXME: this is not very safe, we need to randomize the start of process data probably lmaoo */
-    //error = resource_find_usable_range(&p->m_virtual_tracker, KRES_TYPE_MEM, size, &first_usable_base);
+    // error = resource_find_usable_range(&p->m_virtual_tracker, KRES_TYPE_MEM, size, &first_usable_base);
     error = page_tracker_alloc_any(&p->m_virtual_tracker, PAGE_TRACKER_FIRST_FIT, nr_pages, tracker_flags, &range);
 
     if (error)
@@ -944,7 +946,7 @@ int kmem_user_realloc(void** p_result, struct proc* c_proc, struct proc* target,
 
     /* Collect all the physical pages from the target process */
     for (i = 0; i < nr_pages; i++) {
-        paddrs[i] = kmem_to_phys(target->m_root_pd.m_root, vbase + (i << PAGE_SHIFT));
+        paddrs[i] = kmem_to_phys_aligned(target->m_root_pd.m_root, vbase + (i << PAGE_SHIFT));
 
         /* Ensure that we could find a physical address for this fucker */
         if (!paddrs[i])
@@ -953,8 +955,8 @@ int kmem_user_realloc(void** p_result, struct proc* c_proc, struct proc* target,
         /* TODO: Investigate if we should allocate new physical pages here if we can't find one */
     }
 
-    /* 
-     * Alright; At this point, we know that the entire virtual range is mapped inside the 
+    /*
+     * Alright; At this point, we know that the entire virtual range is mapped inside the
      * target. We can now find a range inside c_proc to map the addresses to
      */
 
@@ -968,9 +970,13 @@ int kmem_user_realloc(void** p_result, struct proc* c_proc, struct proc* target,
     result = page_range_to_ptr(&range);
 
     /* Keep mapping shit until there are no pages left, or if err isn't OK */
-    for (i = 0; i < nr_pages && IS_OK(error); i++)
+    for (i = 0; i < nr_pages && IS_OK(error); i++) {
         if (!kmem_map_page(c_proc->m_root_pd.m_root, (vaddr_t)result + (i << PAGE_SHIFT), paddrs[i], custom_flags, page_flags))
             error = -ENOMEM;
+        else
+            /* We also need to reserve this page */
+            error = kmem_phys_reserve_page(kmem_get_page_idx(paddrs[i]));
+    }
 
     if (HAS_ERROR(error))
         kernel_panic("kmem_user_realloc => TODO: find out waht to do when mapping failed =(");
@@ -986,7 +992,6 @@ dealloc_and_exit:
         page_tracker_dealloc(&c_proc->m_virtual_tracker, &range);
 
     return error;
-
 }
 
 /*!
@@ -1493,4 +1498,3 @@ error_t init_kmem(uintptr_t* mb_addr)
 
     return 0;
 }
-

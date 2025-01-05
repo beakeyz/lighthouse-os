@@ -438,6 +438,11 @@ error_t kmem_phys_dealloc_page(u64 page_idx)
     return kmem_phys_dealloc_range(page_idx, 1);
 }
 
+error_t kmem_phys_reserve_page(u64 page_idx)
+{
+    return kmem_phys_reserve_range(page_idx, 1);
+}
+
 /*!
  * @brief: Reserves a specific page range
  *
@@ -517,7 +522,7 @@ error_t kmem_phys_dealloc_range(u64 page_idx, u32 nr_pages)
 error_t kmem_phys_dealloc_from_tracker(pml_entry_t* ptable_root, page_tracker_t* tracker)
 {
     error_t error;
-    page_allocation_t* alloc, *next;
+    page_allocation_t *alloc, *next;
 
     if (!tracker)
         return -EINVAL;
@@ -553,7 +558,6 @@ unlock_and_exit:
     mutex_unlock(&tracker->lock);
 
     return error;
-
 }
 
 int init_kmem_phys(u64* mb_addr)

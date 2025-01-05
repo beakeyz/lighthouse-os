@@ -31,6 +31,7 @@ bool kmem_phys_is_page_used(uintptr_t idx);
 error_t kmem_phys_alloc_page(u64* p_page_idx);
 error_t kmem_phys_dealloc_page(u64 page_idx);
 
+error_t kmem_phys_reserve_page(u64 page_idx);
 error_t kmem_phys_reserve_range(u64 page_idx, u32 nr_pages);
 error_t kmem_phys_alloc_range(u32 nr_pages, u64* p_page_idx);
 error_t kmem_phys_dealloc_range(u64 page_idx, u32 nr_pages);
