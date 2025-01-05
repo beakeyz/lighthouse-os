@@ -953,6 +953,7 @@ int kmem_user_realloc(void** p_result, struct proc* c_proc, struct proc* target,
             kernel_panic("kmem_user_realloc: see todo");
 
         /* TODO: Investigate if we should allocate new physical pages here if we can't find one */
+        ASSERT(kmem_phys_reserve_page(kmem_get_page_idx(paddrs[i])) == 0);
     }
 
     /*
@@ -970,13 +971,9 @@ int kmem_user_realloc(void** p_result, struct proc* c_proc, struct proc* target,
     result = page_range_to_ptr(&range);
 
     /* Keep mapping shit until there are no pages left, or if err isn't OK */
-    for (i = 0; i < nr_pages && IS_OK(error); i++) {
+    for (i = 0; i < nr_pages && IS_OK(error); i++)
         if (!kmem_map_page(c_proc->m_root_pd.m_root, (vaddr_t)result + (i << PAGE_SHIFT), paddrs[i], custom_flags, page_flags))
             error = -ENOMEM;
-        else
-            /* We also need to reserve this page */
-            error = kmem_phys_reserve_page(kmem_get_page_idx(paddrs[i]));
-    }
 
     if (HAS_ERROR(error))
         kernel_panic("kmem_user_realloc => TODO: find out waht to do when mapping failed =(");
