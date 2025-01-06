@@ -2,9 +2,9 @@
 #include "libgfx/shared.h"
 #include "lightos/driver/drv.h"
 #include "lightos/handle_def.h"
-#include <lightos/lightos.h>
 #include "lightos/sysvar/var.h"
 #include <errno.h>
+#include <lightos/lightos.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -71,8 +71,7 @@ LIGHTENTRY int gfxlibentry(void)
 
     /* Open the driver */
     if (!open_driver(drvname, HNDL_FLAG_RW, HNDL_MODE_NORMAL, &lwnd_driver))
-        return -ENODEV;
+        return -ENODRV;
 
-    printf("Initialized gfxlib!\n");
     return 0;
 }

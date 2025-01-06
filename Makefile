@@ -170,7 +170,7 @@ image: $(OUT)/$(LIGHTOS_IMG)
 debug: image
 	@echo Debugging: Running system in QEMU
 	@$(EMU) -m 1G -enable-kvm -net none -M q35 -usb $(OUT)/$(LIGHTOS_IMG) -bios ./ovmf/OVMF.fd -serial stdio -device usb-ehci -device usb-kbd -device usb-mouse
-	# @$(EMU) -m 1G -enable-kvm -net none -M q35 -usb $(OUT)/$(LIGHTOS_IMG) -bios ./ovmf/OVMF.fd -serial stdio
+	#@$(EMU) -m 1G -enable-kvm -net none -M q35 -usb $(OUT)/$(LIGHTOS_IMG) -bios ./ovmf/OVMF.fd -serial stdio
 
 install-gcc-hdrs:
 	@$(MAKE) -C ./cross_compiler/build/binutils install

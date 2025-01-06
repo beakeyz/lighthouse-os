@@ -20,6 +20,9 @@ penv_t* create_penv(const char* label, proc_t* p, uint32_t pflags_mask[NR_PROFIL
 
     env = kmalloc(sizeof(*env));
 
+    if (!env)
+        return nullptr;
+
     memset(env, 0, sizeof(*env));
 
     env->p = p;

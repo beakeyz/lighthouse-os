@@ -145,7 +145,7 @@ int sysvar_attach(struct oss_node* node, struct sysvar* var)
         return -EINVAL;
 
     /* Only these types may have sysvars */
-    if (node->type != OSS_VMEM_NODE && node->type != OSS_PROFILE_NODE && node->type != OSS_PROC_ENV_NODE)
+    if (node->type != OSS_OBJ_STORE_NODE && node->type != OSS_VMEM_NODE && node->type != OSS_PROFILE_NODE && node->type != OSS_PROC_ENV_NODE)
         return -EINVAL;
 
     return oss_node_add_obj(node, var->obj);

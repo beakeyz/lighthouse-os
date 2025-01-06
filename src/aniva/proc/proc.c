@@ -59,17 +59,17 @@ static inline int __proc_init_page_tracker(proc_t* proc, size_t bsize)
         return error;
 
     /* Initialize the page tracker */
-    error =  init_page_tracker(&proc->m_virtual_tracker, range_cache_buf, bsize, (u64)-1);
+    error = init_page_tracker(&proc->m_virtual_tracker, range_cache_buf, bsize, (u64)-1);
 
     if (error)
         goto dealloc_and_exit;
 
     /* Pre-allocate the first 1 Mib of pages, so the NULL address can always stay un-allocated */
     /* TODO: have this work */
-    //error = page_tracker_alloc(&proc->m_virtual_tracker, 0, 256, PAGE_RANGE_FLAG_UNBACKED);
+    // error = page_tracker_alloc(&proc->m_virtual_tracker, 0, 256, PAGE_RANGE_FLAG_UNBACKED);
 
-    //if (HAS_ERROR(error))
-        //goto dealloc_and_exit;
+    // if (HAS_ERROR(error))
+    // goto dealloc_and_exit;
 
     /* Algood, let's exit */
     return error;
@@ -159,7 +159,7 @@ proc_t* create_proc(proc_t* parent, struct user_profile* profile, char* name, Fu
     __proc_init_page_tracker(proc, PROC_DEFAULT_PAGE_TRACKER_BSIZE);
 
     /* Okay to pass a reference, since resource bundles should NEVER own this memory */
-    //proc->m_resource_bundle = create_resource_bundle(&proc->m_root_pd);
+    // proc->m_resource_bundle = create_resource_bundle(&proc->m_root_pd);
     proc->m_env = create_penv(proc->m_name, proc, NULL, NULL);
 
     init_thread = create_thread_for_proc(proc, entry, args, "main");

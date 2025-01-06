@@ -8,7 +8,6 @@
 #include "dev/video/device.h"
 #include "dev/video/events.h"
 #include "dev/video/framebuffer.h"
-#include "lightos/dev/shared.h"
 #include "drivers/env/kterm/font.h"
 #include "drivers/env/kterm/fs.h"
 #include "drivers/env/kterm/util.h"
@@ -20,6 +19,7 @@
 #include "libk/gfx/font.h"
 #include "libk/stddef.h"
 #include "libk/string.h"
+#include "lightos/dev/shared.h"
 #include "logging/log.h"
 #include "mem/heap.h"
 #include "mem/kmem.h"
@@ -1039,6 +1039,7 @@ static int kterm_read(device_t* device, driver_t* kterm, u64 offset, void* buffe
 
 static inline void kterm_init_lwnd_emulation()
 {
+    const char* kterm_path = "other/kterm";
     const char* var_buffer;
     size_t var_buffer_sz;
     sysvar_t* var;
@@ -1051,13 +1052,13 @@ static inline void kterm_init_lwnd_emulation()
     /* Allocate the thing */
     var_buffer = kmalloc(var_buffer_sz);
 
-    ASSERT(sysvar_read(var, (u8*)var_buffer, var_buffer_sz) == 0);
+    ASSERT(sysvar_read(var, (void*)var_buffer, var_buffer_sz) == 0);
 
     /* Make sure this is owned by us */
     _old_dflt_lwnd_path_value = var_buffer;
 
     /* Make sure the system knows we emulate lwnd */
-    sysvar_write(var, (void*)"other/kterm", 12);
+    sysvar_write(var, (void*)kterm_path, 12);
 }
 
 static inline void kterm_fini_lwnd_emulation()
@@ -1675,14 +1676,10 @@ static inline void kterm_draw_cursor_glyph()
  */
 static void kterm_write_char(char c)
 {
-    char msg[2] = { 0 };
-
     if (__kterm_buffer_ptr >= KTERM_MAX_BUFFER_SIZE) {
         // time to flush the buffer
         return;
     }
-
-    msg[0] = c;
 
     switch (c) {
     case '\b':
@@ -1710,9 +1707,11 @@ static void kterm_write_char(char c)
         break;
     default:
         if (c >= 0x20) {
-            kterm_print(msg);
-            __kterm_char_buffer[__kterm_buffer_ptr] = c;
-            __kterm_buffer_ptr++;
+            kterm_print((char[2]) { c, '\0' });
+            /* Write the chard */
+            __kterm_char_buffer[__kterm_buffer_ptr++] = c;
+            /* Clear this boi */
+            __kterm_char_buffer[__kterm_buffer_ptr] = NULL;
 
             kterm_draw_cursor_glyph();
             // kterm_draw_char((KTERM_CURSOR_WIDTH + __kterm_buffer_ptr) * KTERM_FONT_WIDTH, __kterm_current_line * KTERM_FONT_HEIGHT, '_', 0, 0);

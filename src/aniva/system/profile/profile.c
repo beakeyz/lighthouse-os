@@ -517,7 +517,7 @@ static void __apply_user_variables()
 
 static void __apply_runtime_variables()
 {
-    sysvar_attach_ex(_runtime_node, RUNTIME_VARNAME_PROC_COUNT, PROFILE_TYPE_USER, SYSVAR_TYPE_DWORD, SYSVAR_FLAG_GLOBAL | SYSVAR_FLAG_STATIC, 0, 0);
+    ASSERT(sysvar_attach_ex(_runtime_node, RUNTIME_VARNAME_PROC_COUNT, PROFILE_TYPE_USER, SYSVAR_TYPE_DWORD, SYSVAR_FLAG_GLOBAL, 0, 0) == 0);
 }
 
 uint32_t runtime_get_proccount()
@@ -530,7 +530,7 @@ uint32_t runtime_get_proccount()
     error = profile_find_var(RUNTIME_VARNAME_PROC_COUNT, &var);
 
     if (error)
-        return 0;
+        return -1;
 
     /* Read the value */
     count = sysvar_read_u32(var);

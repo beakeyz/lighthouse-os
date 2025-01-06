@@ -135,6 +135,10 @@ static error_t __sysvar_allocate_value(sysvar_t* var, enum SYSVAR_TYPE type, voi
             if (!ret)
                 return -ENOMEM;
 
+            /* Clear the buffer we just created */
+            memset(ret, 0, var->len);
+
+            /* Copy the string located at @buffer */
             memcpy(ret, buffer, write_sz);
             break;
         case SYSVAR_TYPE_MEM_RANGE:
@@ -404,7 +408,8 @@ error_t sysvar_write(sysvar_t* var, void* buffer, size_t length)
                 goto unlock_and_exit;
 
             /* Clear the entire range out */
-            memset(var->value, 0, length + 1);
+            memset(var->value, 0, var->len);
+            break;
         default:
             error = -ENOTSUP;
             goto unlock_and_exit;

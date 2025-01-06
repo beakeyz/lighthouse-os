@@ -4,6 +4,7 @@
 #include "lightos/syscall.h"
 #include "stdlib.h"
 #include "sys/types.h"
+#include <stdio.h>
 
 BOOL open_driver(const char* name, u32 flags, u32 mode, HANDLE* handle)
 {

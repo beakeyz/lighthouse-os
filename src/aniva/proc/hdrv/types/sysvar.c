@@ -32,6 +32,9 @@ static int sysvar_khdriver_open(khandle_driver_t* driver, const char* path, u32 
     c_profile = c_penv->profile;
 
     switch (mode) {
+    case HNDL_MODE_NORMAL:
+
+        break;
     case HNDL_MODE_CURRENT_ENV:
         ret = sysvar_get(c_penv->node, path);
         break;

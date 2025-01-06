@@ -1,5 +1,6 @@
 #include "hashmap.h"
 #include "libk/flow/error.h"
+#include "logging/log.h"
 #include "mem/heap.h"
 #include "mem/kmem.h"
 #include "mem/zalloc/zalloc.h"

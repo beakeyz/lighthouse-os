@@ -155,7 +155,7 @@ uint32_t kterm_try_exec(const char** argv, size_t argc, const char* cmdline)
         return 5;
     }
 
-    KLOG_DBG("Got proc: %s\n", p->m_name);
+    KLOG_DBG("Got proc: %s %s\n", p->m_name, cmdline);
 
     /*
      * Losing this process would be a fatal error because it compromises the entire system

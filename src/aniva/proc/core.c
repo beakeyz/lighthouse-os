@@ -3,6 +3,7 @@
 #include "kevent/types/proc.h"
 #include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"
+#include "logging/log.h"
 #include "mem/kmem.h"
 #include "mem/zalloc/zalloc.h"
 #include "oss/core.h"
@@ -197,6 +198,9 @@ kerror_t proc_register(struct proc* proc, user_profile_t* profile)
     if (error)
         return -1;
 
+    /* Add a count to the runtime proccount */
+    runtime_add_proccount();
+
     cpu = get_current_processor();
 
     ctx.process = proc;
@@ -217,6 +221,9 @@ kerror_t proc_unregister(struct proc* proc)
 {
     processor_t* cpu;
     kevent_proc_ctx_t ctx;
+
+    /* Add a count to the runtime proccount */
+    runtime_remove_proccount();
 
     mutex_lock(proc->m_lock);
 
