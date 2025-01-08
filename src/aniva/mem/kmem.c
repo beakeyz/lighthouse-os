@@ -153,7 +153,7 @@ uintptr_t kmem_to_phys_aligned(pml_entry_t* root, vaddr_t addr)
 {
     pml_entry_t* page;
 
-    if (kmem_get_page(&page, root, ALIGN_DOWN(addr, SMALL_PAGE_SIZE), 0, 0))
+    if (kmem_get_page(&page, root, ALIGN_DOWN_TO_PAGE(addr), 0, 0))
         return NULL;
 
     return kmem_get_page_base(page->raw_bits);
@@ -173,7 +173,7 @@ uintptr_t kmem_to_phys(pml_entry_t* root, vaddr_t addr)
     if (kmem_get_page(&page, root, addr, 0, 0))
         return NULL;
 
-    delta = addr - ALIGN_DOWN(addr, SMALL_PAGE_SIZE);
+    delta = addr - ALIGN_DOWN_TO_PAGE(addr);
 
     return kmem_get_page_base(page->raw_bits) + delta;
 }
@@ -350,7 +350,7 @@ void kmem_invalidate_tlb_cache_entry(uintptr_t vaddr)
 
 void kmem_invalidate_tlb_cache_range(uintptr_t vaddr, size_t size)
 {
-    vaddr_t virtual_base = ALIGN_DOWN(vaddr, SMALL_PAGE_SIZE);
+    vaddr_t virtual_base = ALIGN_DOWN_TO_PAGE(vaddr);
     uintptr_t indices = kmem_get_page_idx(size);
 
     for (uintptr_t i = 0; i < indices; i++) {
@@ -494,7 +494,7 @@ bool kmem_unmap_range(pml_entry_t* table, uintptr_t virt, size_t page_count)
 
 bool kmem_unmap_range_ex(pml_entry_t* table, uintptr_t virt, size_t page_count, uint32_t custom_flags)
 {
-    virt = ALIGN_DOWN(virt, SMALL_PAGE_SIZE);
+    virt = ALIGN_DOWN_TO_PAGE(virt);
 
     for (uintptr_t i = 0; i < page_count; i++) {
 
@@ -542,7 +542,12 @@ int kmem_validate_ptr(struct proc* process, vaddr_t v_address, size_t size)
 
     root = (process ? (process->m_root_pd.m_root) : nullptr);
 
-    p_page_count = ALIGN_UP(size, SMALL_PAGE_SIZE) / SMALL_PAGE_SIZE;
+    /* Calculate page count */
+    p_page_count = GET_PAGECOUNT(0, size);
+
+    /* No pages needed. All good */
+    if (!p_page_count)
+        return 0;
 
     for (uint64_t i = 0; i < p_page_count; i++) {
         v_offset = v_address + (i * SMALL_PAGE_SIZE);
@@ -572,6 +577,9 @@ int kmem_ensure_mapped(pml_entry_t* table, vaddr_t base, size_t size)
     size_t page_count;
 
     page_count = GET_PAGECOUNT(base, size);
+
+    if (!page_count)
+        return 0;
 
     for (uint64_t i = 0; i < page_count; i++) {
 
@@ -617,6 +625,9 @@ int kmem_dealloc_ex(pml_entry_t* map, page_tracker_t* tracker, uintptr_t virt_ba
 {
     page_range_t range;
     const size_t pages_needed = GET_PAGECOUNT(virt_base, size);
+
+    if (!pages_needed)
+        return 0;
 
     for (uintptr_t i = 0; i < pages_needed; i++) {
         // get the virtual address of the current page
@@ -683,11 +694,15 @@ int kmem_alloc(void** result, pml_entry_t* map, page_tracker_t* tracker, paddr_t
 
 int kmem_alloc_ex(void** result, pml_entry_t* map, page_tracker_t* tracker, paddr_t addr, vaddr_t vbase, size_t size, uint32_t custom_flags, uintptr_t page_flags)
 {
+    const size_t pages_needed = GET_PAGECOUNT(addr, size);
+
+    /* No pages needed. Just bail */
+    if (!pages_needed)
+        return 0;
+
+    const paddr_t phys_base = ALIGN_DOWN_TO_PAGE(addr);
     const bool should_identity_map = (custom_flags & KMEM_CUSTOMFLAG_IDENTITY) == KMEM_CUSTOMFLAG_IDENTITY;
     const bool should_remap = (custom_flags & KMEM_CUSTOMFLAG_NO_REMAP) != KMEM_CUSTOMFLAG_NO_REMAP;
-
-    const paddr_t phys_base = ALIGN_DOWN(addr, SMALL_PAGE_SIZE);
-    const size_t pages_needed = GET_PAGECOUNT(addr, size);
 
     const vaddr_t virt_base = should_identity_map ? phys_base : (should_remap ? kmem_from_phys(phys_base, vbase) : vbase);
 
@@ -710,7 +725,6 @@ int kmem_alloc_ex(void** result, pml_entry_t* map, page_tracker_t* tracker, padd
          * allocated internally. This is because otherwise we won't be able to find this resource again if we
          * try to release it
          */
-        // resource_claim_ex("kmem alloc", nullptr, ALIGN_DOWN(ret, SMALL_PAGE_SIZE), pages_needed * SMALL_PAGE_SIZE, KRES_TYPE_MEM, resources);
         page_tracker_alloc(tracker, kmem_get_page_idx(ret), pages_needed, generate_tracker_flags(custom_flags, page_flags));
     }
 
@@ -724,6 +738,10 @@ int kmem_alloc_range(void** result, pml_entry_t* map, page_tracker_t* tracker, v
     int error;
     uintptr_t phys_idx;
     const size_t pages_needed = GET_PAGECOUNT(vbase, size);
+
+    if (!pages_needed)
+        return 0;
+
     const bool should_identity_map = (custom_flags & KMEM_CUSTOMFLAG_IDENTITY) == KMEM_CUSTOMFLAG_IDENTITY;
     const bool should_remap = (custom_flags & KMEM_CUSTOMFLAG_NO_REMAP) != KMEM_CUSTOMFLAG_NO_REMAP;
 
@@ -744,7 +762,6 @@ int kmem_alloc_range(void** result, pml_entry_t* map, page_tracker_t* tracker, v
         return -1;
 
     if (tracker)
-        // resource_claim_ex("kmem alloc range", nullptr, ALIGN_DOWN(virt_base, SMALL_PAGE_SIZE), (pages_needed * SMALL_PAGE_SIZE), KRES_TYPE_MEM, resources);
         page_tracker_alloc(tracker, kmem_get_page_idx(virt_base), pages_needed, generate_tracker_flags(custom_flags, page_flags));
 
     *result = (void*)virt_base;
@@ -761,8 +778,12 @@ int kmem_alloc_scattered(void** result, pml_entry_t* map, page_tracker_t* tracke
     paddr_t p_addr;
     vaddr_t v_addr;
 
-    const vaddr_t v_base = ALIGN_DOWN(vbase, SMALL_PAGE_SIZE);
     const size_t pages_needed = GET_PAGECOUNT(vbase, size);
+
+    if (!pages_needed)
+        return 0;
+
+    const vaddr_t v_base = ALIGN_DOWN_TO_PAGE(vbase);
 
     /*
      * 1) Loop for as many times as we need pages
@@ -812,10 +833,14 @@ int kmem_user_alloc_range(void** result, struct proc* p, size_t size, uint32_t c
     page_range_t range;
     size_t nr_pages;
 
-    if (!p || !size)
+    if (!p)
         return -1;
 
     nr_pages = GET_PAGECOUNT(0, size);
+
+    if (!nr_pages)
+        return 0;
+
     tracker_flags = generate_tracker_flags(custom_flags, page_flags);
 
     /*
@@ -847,7 +872,10 @@ int kmem_user_dealloc(struct proc* p, vaddr_t vaddr, size_t size)
     page_range_t range;
     const size_t page_count = GET_PAGECOUNT(vaddr, size);
 
-    vaddr = vaddr & ~PAGE_LOW_MASK;
+    if (!page_count)
+        return 0;
+
+    vaddr = ALIGN_DOWN_TO_PAGE(vaddr);
 
     for (uintptr_t i = 0; i < page_count; i++) {
         /* Grab the aligned physical base of this virtual address */
@@ -892,10 +920,15 @@ int kmem_user_alloc(void** result, struct proc* p, paddr_t addr, size_t size, ui
     page_range_t range;
     size_t nr_pages;
 
-    if (!p || !size)
+    if (!p)
         return -1;
 
     nr_pages = GET_PAGECOUNT(addr, size);
+
+    /* No pages to be mapped =) */
+    if (!nr_pages)
+        return 0;
+
     tracker_flags = generate_tracker_flags(custom_flags, page_flags);
 
     /* FIXME: this is not very safe, we need to randomize the start of process data probably lmaoo */
@@ -932,8 +965,12 @@ int kmem_user_realloc(void** p_result, struct proc* c_proc, struct proc* target,
     if (!p_result)
         return -EINVAL;
 
-    const vaddr_t vbase = addr & ~PAGE_LOW_MASK;
     const size_t nr_pages = GET_PAGECOUNT(addr, size);
+
+    if (!nr_pages)
+        return 0;
+
+    const vaddr_t vbase = ALIGN_DOWN_TO_PAGE(addr);
 
     /* Allocate an array of physical addresses on the stack */
     paddr_t* paddrs;
@@ -1117,8 +1154,8 @@ int kmem_create_page_dir(page_dir_t* ret, uint32_t custom_flags, size_t initial_
         return error;
     }
 
-    const vaddr_t kernel_start = ALIGN_DOWN((uintptr_t)&_kernel_start, SMALL_PAGE_SIZE);
-    const vaddr_t kernel_end = ALIGN_DOWN((uintptr_t)&_kernel_end, SMALL_PAGE_SIZE);
+    const vaddr_t kernel_start = ALIGN_DOWN_TO_PAGE((uintptr_t)&_kernel_start);
+    const vaddr_t kernel_end = ALIGN_DOWN_TO_PAGE((uintptr_t)&_kernel_end);
 
     ret->m_root = table_root;
     ret->m_phys_root = kmem_to_phys(nullptr, (vaddr_t)table_root);
@@ -1411,7 +1448,7 @@ int kmem_get_kernel_address_ex(vaddr_t* p_kaddr, vaddr_t virtual_address, vaddr_
     p_address = kmem_get_page_base(page->raw_bits);
 
     /* Calculate the delta of the virtual address to its closest page base downwards */
-    v_align_delta = virtual_address - ALIGN_DOWN(virtual_address, SMALL_PAGE_SIZE);
+    v_align_delta = virtual_address - ALIGN_DOWN_TO_PAGE(virtual_address);
 
     /*
      * FIXME: 'high' mappings have a hard limit in them, so we will have to
@@ -1444,6 +1481,9 @@ int kmem_map_to_kernel(vaddr_t* p_kaddr, vaddr_t uaddr, size_t size, vaddr_t map
     if (!map)
         return -1;
 
+    if (GET_PAGECOUNT(uaddr, size) == 0)
+        return 0;
+
     /* Make sure we don't make a new page here */
     if (kmem_get_page(&page, map, uaddr, 0, 0))
         return -1;
@@ -1451,7 +1491,7 @@ int kmem_map_to_kernel(vaddr_t* p_kaddr, vaddr_t uaddr, size_t size, vaddr_t map
     p_address = kmem_get_page_base(page->raw_bits);
 
     /* Calculate the delta of the virtual address to its closest page base downwards */
-    v_align_delta = uaddr - ALIGN_DOWN(uaddr, SMALL_PAGE_SIZE);
+    v_align_delta = uaddr - ALIGN_DOWN_TO_PAGE(uaddr);
 
     /*
      * FIXME: 'high' mappings have a hard limit in them, so we will have to

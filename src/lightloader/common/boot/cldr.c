@@ -1,5 +1,4 @@
 #include "file.h"
-#include "gfx.h"
 #include "stddef.h"
 #include <boot/cldr.h>
 #include <heap.h>
@@ -164,7 +163,6 @@ static void destroy_config_node(config_node_t* node)
         }
     }
 
-free_and_exit:
     heap_free(node);
 }
 /*!

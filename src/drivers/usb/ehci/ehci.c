@@ -4,13 +4,13 @@
 #include "dev/usb/spec.h"
 #include "dev/usb/usb.h"
 #include "dev/usb/xfer.h"
-#include "lightos/dev/pci.h"
+#include "drivers/usb/ehci/buffer.h"
 #include "drivers/usb/ehci/ehci_spec.h"
 #include "libk/data/linkedlist.h"
 #include "libk/data/queue.h"
 #include "libk/flow/error.h"
 #include "libk/io.h"
-#include "libk/stddef.h"
+#include "lightos/dev/pci.h"
 #include "logging/log.h"
 #include "mem/heap.h"
 #include "mem/kmem.h"
@@ -222,7 +222,7 @@ static int ehci_interrupt_poll(ehci_hcd_t* ehci)
             kernel_panic("EHCI: Host system error (yikes)!\n");
 
         if (usbsts & EHCI_OPREG_USBSTS_INTONAA) {
-            // KLOG_DBG("EHCI: Advanced the async qh!\n");
+            KLOG_DBG("EHCI: Advanced the async qh!\n");
             ehci->n_destroyable_qh++;
         }
 
@@ -242,8 +242,6 @@ static inline void _ehci_check_xfer_status(ehci_xfer_t* xfer)
 
     /* Loop over the descriptors to check the status of the transfer */
     do {
-        // KLOG_DBG("%d\n", c_qtd->hw_token);
-
         /* Still busy */
         if ((c_qtd->hw_token & EHCI_QTD_STATUS_ACTIVE) == EHCI_QTD_STATUS_ACTIVE)
             break;
@@ -315,8 +313,6 @@ static int ehci_transfer_finish_thread(ehci_hcd_t* ehci)
     while ((ehci->ehci_flags & EHCI_HCD_FLAG_STOPPING) != EHCI_HCD_FLAG_STOPPING) {
         c_e_xfer = nullptr;
 
-        // KLOG_DBG("Ehci transfer list size: %d\n", ehci->transfer_list->m_length);
-
         /* Find a finished transfer */
         while (ehci_get_finished_transfer(ehci, &c_e_xfer))
             scheduler_yield();
@@ -353,15 +349,21 @@ static int ehci_qhead_cleanup_thread(ehci_hcd_t* ehci)
         while (!ehci->n_destroyable_qh)
             scheduler_yield();
 
-        /* Yoink a qh */
-        to_destroy = queue_dequeue(ehci->destroyable_qh_q);
+        /* Kill all the queue heads until we've depleded them */
+        do {
+            /* Yoink a qh */
+            to_destroy = queue_dequeue(ehci->destroyable_qh_q);
 
-        /* Fuck */
-        if (!to_destroy)
-            continue;
+            /* Fuck */
+            if (!to_destroy)
+                break;
 
-        /* Destroy the qh and clear the async adv flag */
-        destroy_ehci_qh(ehci, to_destroy);
+            /* Destroy the qh and clear the async adv flag */
+            (void)destroy_ehci_qh(ehci, to_destroy);
+
+        } while (to_destroy);
+
+        /* Ded */
         ehci->n_destroyable_qh--;
 
         scheduler_yield();
@@ -986,6 +988,7 @@ int ehci_enqueue_transfer(usb_hcd_t* hcd, usb_xfer_t* xfer)
 
     return 0;
 destroy_and_exit:
+    KLOG_DBG("HOWWWW??\n");
     destroy_ehci_qh(ehci, qh);
     return error;
 }
@@ -1010,6 +1013,9 @@ static ehci_hcd_t* create_ehci_hcd(usb_hcd_t* hcd)
     hcd->private = ehci;
     hcd->hw_ops = &ehci_hw_ops;
     hcd->io_ops = &ehci_io_ops;
+
+    /* Initialize a scratch buffer for transfer pages */
+    init_ehci_scratch_buffer(&ehci->xfer_buf, 128, NULL);
 
     return ehci;
 }

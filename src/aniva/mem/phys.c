@@ -102,8 +102,8 @@ static kmem_range_t* _create_kmem_range(multiboot_memory_map_t* mb_mmap_entry)
     if (range->type != MEMTYPE_USABLE)
         goto exit_and_return;
 
-    range->start = ALIGN_DOWN(range->start, SMALL_PAGE_SIZE);
-    range->length = ALIGN_UP(range->length, SMALL_PAGE_SIZE);
+    range->start = ALIGN_DOWN_TO_PAGE(range->start);
+    range->length = ALIGN_UP_TO_PAGE(range->length);
 
     g_phys_data.m_total_avail_memory_bytes += range->length;
 

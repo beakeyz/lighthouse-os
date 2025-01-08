@@ -63,7 +63,7 @@ void debug_kmem(void);
 // Anything IO can be mapped here
 #define IO_MAP_BASE 0xffff000000000000ULL
 // Base for early kernelheap mappings
-#define EARLY_KERNEL_HEAP_BASE ALIGN_UP((uintptr_t)&_kernel_end, SMALL_PAGE_SIZE)
+#define EARLY_KERNEL_HEAP_BASE ALIGN_UP_TO_PAGE((uintptr_t)&_kernel_end)
 // Base for early multiboot fb
 #define EARLY_FB_MAP_BASE 0xffffff8000000000ULL
 // Base for the quickmap engine. We take the pretty much highest possible vaddr
@@ -84,8 +84,8 @@ void debug_kmem(void);
 #define PAGE_SIZE 0x200000
 #define PAGE_SHIFT 12
 #define LARGE_PAGE_SHIFT 21
-#define SMALL_PAGE_SIZE (1 << PAGE_SHIFT)
-#define LARGE_PAGE_SIZE (1 << LARGE_PAGE_SHIFT)
+#define SMALL_PAGE_SIZE (1ULL << PAGE_SHIFT)
+#define LARGE_PAGE_SIZE (1ULL << LARGE_PAGE_SHIFT)
 #define PAGE_SIZE_BYTES 0x200000UL
 
 #define PDP_MASK 0x3fffffffUL
@@ -117,17 +117,19 @@ void debug_kmem(void);
 #define KMEM_STATUS_FLAG_DONE_INIT 0x00000001
 #define KMEM_STATUS_FLAG_HAS_QUICKMAP 0x00000002
 
-
 // defines for alignment
 #define ALIGN_UP(addr, size) \
     (((addr) % (size) == 0) ? (addr) : (addr) + (size) - ((addr) % (size)))
 
 #define ALIGN_DOWN(addr, size) ((addr) - ((addr) % (size)))
 
+#define ALIGN_DOWN_TO_PAGE(addr) (((u64)(addr) & ~PAGE_LOW_MASK))
+#define ALIGN_UP_TO_PAGE(addr) (((u64)(addr) + PAGE_LOW_MASK) & ~PAGE_LOW_MASK)
+
 // #define GET_PAGECOUNT_EX(bytes, page_shift) (ALIGN_UP((bytes), (1 << (page_shift))) >> (page_shift))
 // #define GET_PAGECOUNT(bytes) (ALIGN_UP((bytes), SMALL_PAGE_SIZE) >> 12)
 
-#define GET_PAGECOUNT_EX(start, len, page_shift) ((ALIGN_UP((start) + (len), (1 << (page_shift))) - ALIGN_DOWN((start), (1 << (page_shift)))) >> (page_shift))
+#define GET_PAGECOUNT_EX(start, len, page_shift) (((ALIGN_UP_TO_PAGE((start) + (len))) - ALIGN_DOWN_TO_PAGE(start)) >> (page_shift))
 #define GET_PAGECOUNT(start, len) GET_PAGECOUNT_EX(start, len, PAGE_SHIFT)
 
 static inline uintptr_t kmem_get_page_idx(uintptr_t page_addr)

@@ -21,6 +21,7 @@ typedef struct usb_hcd_hw_ops {
     int (*hcd_setup)(struct usb_hcd* hcd);
     int (*hcd_start)(struct usb_hcd* hcd);
     void (*hcd_stop)(struct usb_hcd* hcd);
+    void (*hcd_cleanup)(struct usb_hcd* hcd);
 } usb_hcd_hw_ops_t;
 
 /*

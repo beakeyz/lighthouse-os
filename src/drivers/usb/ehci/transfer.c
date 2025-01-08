@@ -1,15 +1,16 @@
 #include "dev/usb/spec.h"
 #include "dev/usb/usb.h"
 #include "dev/usb/xfer.h"
+#include "drivers/usb/ehci/buffer.h"
 #include "drivers/usb/ehci/ehci_spec.h"
 #include "ehci.h"
 #include "libk/data/linkedlist.h"
 #include "libk/data/queue.h"
 #include "libk/flow/error.h"
-#include "libk/stddef.h"
 #include "mem/kmem.h"
 #include "mem/zalloc/zalloc.h"
 #include "sync/mutex.h"
+#include <libk/math/math.h>
 
 static zone_allocator_t* _ehci_xfer_cache;
 
@@ -75,26 +76,42 @@ int ehci_deq_xfer(ehci_hcd_t* ehci, ehci_xfer_t* xfer)
 
 static inline void _try_allocate_qtd_buffer(ehci_hcd_t* ehci, ehci_qtd_t* qtd)
 {
-    void* qtd_buffer;
-    paddr_t c_phys;
+    u32 ndx;
+    u32 required_len;
+    size_t required_nr_pages;
+    struct ehci_scratch_entry entry;
+
+    /* Reset all the indices in this guy to invalid values */
+    for (u32 i = 0; i < arrlen(qtd->ndcs); i++)
+        qtd->ndcs[i] = EHCI_SCRATCH_BUFFER_INVAL_IDX;
 
     if (!qtd->len)
         return;
 
-    ASSERT(!kmem_kernel_alloc_range((void**)&qtd_buffer, qtd->len, NULL, KMEM_FLAG_DMA));
+    /* Calculate how many pages we need for this qtd */
+    required_len = qtd->len;
+    required_nr_pages = MIN(GET_PAGECOUNT(0, qtd->len), 5);
 
-    qtd->buffer = qtd_buffer;
+    /* Allocate scratch pages */
+    for (u32 i = 0; i < required_nr_pages; i++) {
+        if (!required_len)
+            break;
 
-    memset(qtd->buffer, 0, qtd->len);
+        const u32 c_size = MIN(required_len, SMALL_PAGE_SIZE);
+        ASSERT(IS_OK(ehci_scratch_buffer_alloc(&ehci->xfer_buf, &entry, &ndx)));
 
-    /* This allocation should be page aligned, so we're all good on that part */
-    c_phys = kmem_to_phys(nullptr, (vaddr_t)qtd->buffer);
+        /* Store this buffer index */
+        qtd->ndcs[i] = ndx;
 
-    for (uint32_t i = 0; i < 5; i++) {
-        qtd->hw_buffer[i] = (c_phys & EHCI_QTD_PAGE_MASK);
-        qtd->hw_buffer_hi[i] = NULL;
+        /* Clear the range for a bit */
+        memset((void*)entry.v, 0, c_size);
 
-        c_phys += SMALL_PAGE_SIZE;
+        /* Shave of stuff */
+        required_len -= c_size;
+
+        /* Set the hw buffer for this qtd */
+        qtd->hw_buffer[i] = (entry.p & EHCI_QTD_PAGE_MASK);
+        qtd->hw_buffer_hi[i] = 0;
     }
 }
 
@@ -128,7 +145,9 @@ static ehci_qtd_t* _create_ehci_qtd_raw(ehci_hcd_t* ehci, size_t bsize, uint8_t 
 
 static void _destroy_ehci_qtd(ehci_hcd_t* ehci, ehci_qtd_t* qtd)
 {
-    kmem_kernel_dealloc((vaddr_t)qtd->buffer, qtd->len);
+    for (u32 i = 0; i < arrlen(qtd->ndcs); i++)
+        ehci_scratch_buffer_dealloc(&ehci->xfer_buf, qtd->ndcs[i]);
+
     zfree_fixed(ehci->qtd_pool, qtd);
 }
 
@@ -214,7 +233,7 @@ ehci_qh_t* create_ehci_qh(ehci_hcd_t* ehci, struct usb_xfer* xfer)
     return qh;
 }
 
-void destroy_ehci_qh(ehci_hcd_t* ehci, ehci_qh_t* qh)
+error_t destroy_ehci_qh(ehci_hcd_t* ehci, ehci_qh_t* qh)
 {
     ehci_qtd_t *this_qtd, *next_qtd;
 
@@ -236,6 +255,7 @@ void destroy_ehci_qh(ehci_hcd_t* ehci, ehci_qh_t* qh)
 
     /* Return to pool */
     zfree_fixed(ehci->qh_pool, qh);
+    return 0;
 }
 
 /*!
@@ -256,10 +276,11 @@ static size_t _ehci_write_qtd_chain(ehci_hcd_t* ehci, ehci_qtd_t* qtd, ehci_qtd_
     written_size = NULL;
 
     do {
-        c_written_size = bsize > qtd->len ? qtd->len : bsize;
+        c_written_size = MIN(bsize, qtd->len);
 
         /* Copy the bytes */
-        memcpy(qtd->buffer, buffer + written_size, c_written_size);
+        // memcpy(qtd->buffer, buffer + written_size, c_written_size);
+        ehci_scratch_buffer_write_qtd(&ehci->xfer_buf, qtd, buffer + written_size, c_written_size);
 
         /* Mark the written bytes */
         written_size += c_written_size;
@@ -425,7 +446,7 @@ int ehci_xfer_finalise(ehci_hcd_t* ehci, ehci_xfer_t* xfer)
     case USB_DIRECTION_DEVICE_TO_HOST:
         c_qtd = xfer->data_qtd;
 
-        while (c_qtd && c_qtd->buffer) {
+        while (c_qtd && ehci_qtd_has_buffer(c_qtd)) {
             /* Get the buffer size of this descriptor */
             c_read_size = c_qtd->len - ((c_qtd->hw_token >> EHCI_QTD_BYTES_SHIFT) & EHCI_QTD_BYTES_MASK);
 
@@ -443,7 +464,8 @@ int ehci_xfer_finalise(ehci_hcd_t* ehci, ehci_xfer_t* xfer)
                 c_read_size = xfer->xfer->resp_size - c_buffer_offset;
 
             /* Copy to the response buffer */
-            memcpy(xfer->xfer->resp_buffer + c_buffer_offset, c_qtd->buffer, c_read_size);
+            // memcpy(xfer->xfer->resp_buffer + c_buffer_offset, c_qtd->buffer, c_read_size);
+            ehci_scratch_buffer_read_qtd(&ehci->xfer_buf, c_qtd, xfer->xfer->resp_buffer + c_buffer_offset, c_read_size);
 
             /* Update the offsets */
             c_total_read_size += c_read_size;

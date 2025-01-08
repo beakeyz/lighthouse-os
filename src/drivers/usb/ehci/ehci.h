@@ -3,6 +3,7 @@
 
 #include "dev/usb/usb.h"
 #include "dev/usb/xfer.h"
+#include "drivers/usb/ehci/buffer.h"
 #include "drivers/usb/ehci/ehci_spec.h"
 #include "mem/zalloc/zalloc.h"
 #include "sync/mutex.h"
@@ -43,6 +44,9 @@ typedef struct ehci_hcd {
     ehci_itd_t** itd_list;
     ehci_sitd_t** sitd_list;
 
+    /* Scratch buffer for transfer pages */
+    ehci_scratch_buffer_t xfer_buf;
+
     /* DMA Pools for the EHCI datastructures */
     zone_allocator_t* qh_pool;
     zone_allocator_t* qtd_pool;
@@ -73,7 +77,7 @@ extern int ehci_clear_port_feature(ehci_hcd_t* ehci, uint32_t port, uint16_t fea
 /* transfer.c */
 extern ehci_qh_t* create_ehci_qh(ehci_hcd_t* ehci, struct usb_xfer* xfer);
 extern void ehci_init_qh(ehci_qh_t* qh, usb_xfer_t* xfer);
-extern void destroy_ehci_qh(ehci_hcd_t* ehci, ehci_qh_t* qh);
+extern error_t destroy_ehci_qh(ehci_hcd_t* ehci, ehci_qh_t* qh);
 
 extern ehci_qtd_t* create_ehci_qtd(ehci_hcd_t* ehci, struct usb_xfer* xfer, ehci_qh_t* qh);
 

@@ -1,6 +1,7 @@
 #ifndef __ANIVA_USB_EHCI_SPEC__
 #define __ANIVA_USB_EHCI_SPEC__
 
+#include "drivers/usb/ehci/buffer.h"
 #include <libk/stddef.h>
 
 #define EHCI_HCD_PORTSMAX 15
@@ -198,9 +199,15 @@ typedef struct ehci_qtd {
     u32 len;
     struct ehci_qtd* next;
     struct ehci_qtd* alt_next;
-    void* buffer;
+    /* Indices for the qtd buffers in the scratch buffer */
+    u32 ndcs[6];
     paddr_t qtd_dma_addr;
 } __attribute__((packed, aligned(32))) ehci_qtd_t;
+
+static inline bool ehci_qtd_has_buffer(ehci_qtd_t* qtd)
+{
+    return (qtd->ndcs[0] != EHCI_SCRATCH_BUFFER_INVAL_IDX);
+}
 
 /* qh info 0 */
 #define EHCI_QH_CONTROL_EP (1 << 27) /* FS/LS control endpoint */

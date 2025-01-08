@@ -62,15 +62,16 @@ thread_t* create_thread(FuncPtr entry, uintptr_t data, const char* name, proc_t*
     memcpy(&thread->m_fpu_state, &standard_fpu_state, sizeof(FpuState));
 
     /* Allocate kernel memory for the stack */
-    ASSERT(kmem_alloc_range(
-               (void**)&thread->m_kernel_stack_bottom,
-               proc->m_root_pd.m_root,
-               &proc->m_virtual_tracker,
-               KERNEL_MAP_BASE,
-               DEFAULT_STACK_SIZE,
-               NULL,
-               KMEM_FLAG_WRITABLE)
-        == 0);
+    ASSERT_MSG(kmem_alloc_range(
+                   (void**)&thread->m_kernel_stack_bottom,
+                   proc->m_root_pd.m_root,
+                   &proc->m_virtual_tracker,
+                   KERNEL_MAP_BASE,
+                   DEFAULT_STACK_SIZE,
+                   NULL,
+                   KMEM_FLAG_WRITABLE)
+            == 0,
+        "Failed to allocate kernel stack!");
 
     /* Compute the kernel stack top */
     thread->m_kernel_stack_top = ALIGN_DOWN(thread->m_kernel_stack_bottom + DEFAULT_STACK_SIZE - 8, 16);
@@ -92,20 +93,21 @@ thread_t* create_thread(FuncPtr entry, uintptr_t data, const char* name, proc_t*
     if (!kthread) {
         thread->m_user_stack_bottom = HIGH_STACK_BASE - (thread->m_tid * DEFAULT_STACK_SIZE);
 
-        ASSERT(kmem_alloc_range(
-                   (void**)&thread->m_user_stack_bottom,
-                   proc->m_root_pd.m_root,
-                   &proc->m_virtual_tracker,
-                   thread->m_user_stack_bottom,
-                   DEFAULT_STACK_SIZE,
-                   KMEM_CUSTOMFLAG_NO_REMAP | KMEM_CUSTOMFLAG_CREATE_USER,
-                   KMEM_FLAG_WRITABLE)
-            == 0);
+        ASSERT_MSG(kmem_alloc_range(
+                       (void**)&thread->m_user_stack_bottom,
+                       proc->m_root_pd.m_root,
+                       &proc->m_virtual_tracker,
+                       thread->m_user_stack_bottom,
+                       DEFAULT_STACK_SIZE,
+                       KMEM_CUSTOMFLAG_NO_REMAP | KMEM_CUSTOMFLAG_CREATE_USER,
+                       KMEM_FLAG_WRITABLE)
+                == 0,
+            "Failed to allocate user stack!");
 
         /* TODO: subtract random offset */
         thread->m_user_stack_top = ALIGN_DOWN(thread->m_user_stack_bottom + DEFAULT_STACK_SIZE - 8, 16);
 
-        ASSERT(kmem_get_kernel_address((uintptr_t*)&k_stack_addr, thread->m_user_stack_bottom, proc->m_root_pd.m_root) == 0);
+        ASSERT_MSG(kmem_get_kernel_address((uintptr_t*)&k_stack_addr, thread->m_user_stack_bottom, proc->m_root_pd.m_root) == 0, "Failed to get kaddr of userstack");
 
         /* Clear the user stack */
         memset(k_stack_addr, 0, DEFAULT_STACK_SIZE);
@@ -180,19 +182,17 @@ ANIVA_STATUS destroy_thread(thread_t* thread)
 
     /* Lol */
     kmem_dealloc(
-            parent_proc->m_root_pd.m_root,
-            &parent_proc->m_virtual_tracker,
-            thread->m_kernel_stack_bottom,
-            DEFAULT_STACK_SIZE
-            );
+        parent_proc->m_root_pd.m_root,
+        &parent_proc->m_virtual_tracker,
+        thread->m_kernel_stack_bottom,
+        DEFAULT_STACK_SIZE);
 
     if (thread->m_user_stack_bottom)
         kmem_dealloc(
-                parent_proc->m_root_pd.m_root,
-                &parent_proc->m_virtual_tracker,
-                thread->m_user_stack_bottom,
-                DEFAULT_STACK_SIZE
-                );
+            parent_proc->m_root_pd.m_root,
+            &parent_proc->m_virtual_tracker,
+            thread->m_user_stack_bottom,
+            DEFAULT_STACK_SIZE);
 
     if (thread->m_lock)
         destroy_mutex(thread->m_lock);
@@ -377,7 +377,7 @@ void bootstrap_thread_entries(thread_t* thread)
     if (thread->m_current_state == NO_CONTEXT)
         thread_prepare_context(thread);
 
-    ASSERT(get_current_scheduling_thread() == thread);
+    ASSERT_MSG(get_current_scheduling_thread() == thread, "Current thread isn't the thread we expect!");
     thread_set_state(thread, RUNNING);
 
     tss_entry_t* tss_ptr = &get_current_processor()->m_tss;
