@@ -1,7 +1,7 @@
 #ifndef __LIGHTENV_PROCESS__
 #define __LIGHTENV_PROCESS__
 
-#include "lightos/handle_def.h"
+#include "lightos/api/handle.h"
 
 #include "stdint.h"
 #include "sys/types.h"

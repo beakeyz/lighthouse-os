@@ -21,7 +21,7 @@
 #include "libk/multiboot.h"
 #include "libk/stddef.h"
 #include "logging/log.h"
-#include "mem/buffer.h"
+#include "mem/abuff/buffer.h"
 #include "mem/zalloc/zalloc.h"
 #include "oss/core.h"
 #include "proc/core.h"
@@ -431,7 +431,7 @@ void kthread_entry(void)
     /* Execute the buffer */
     ASSERT_MSG(proc_exec(init_buffer, vec, get_admin_profile(), PROC_KERNEL | PROC_SYNC) != nullptr, "Failed to launch init process");
 
-    //kernel_panic("TEST");
+    // kernel_panic("TEST");
 
     /*
      * Remove the early TTY right before we finish low-level system setup. After

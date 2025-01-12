@@ -2,7 +2,7 @@
 #include "dev/disk/partition/gpt.h"
 #include "dev/disk/volume.h"
 #include "mem/heap.h"
-#include "lightos/volume/shared.h"
+#include "lightos/api/volume.h"
 #include <dev/disk/partition/mbr.h>
 #include <libk/string.h>
 

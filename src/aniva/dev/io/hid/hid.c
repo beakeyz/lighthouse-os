@@ -3,7 +3,7 @@
 #include "dev/device.h"
 #include "dev/group.h"
 #include "dev/io/hid/event.h"
-#include "lightos/dev/shared.h"
+#include "lightos/api/device.h"
 #include "kevent/event.h"
 #include "libk/flow/error.h"
 #include "mem/heap.h"

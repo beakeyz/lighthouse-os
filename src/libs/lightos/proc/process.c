@@ -1,7 +1,7 @@
 
 #include "process.h"
 #include "lightos/handle.h"
-#include "lightos/handle_def.h"
+#include "lightos/api/handle.h"
 #include "lightos/syscall.h"
 
 HANDLE open_proc(const char* name, u32 flags, u32 mode)

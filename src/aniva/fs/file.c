@@ -58,19 +58,6 @@ int f_write(file_t* file, void* buffer, size_t* size, uintptr_t offset)
     return 0;
 }
 
-int f_resize(file_t* file, size_t new_size)
-{
-    /*
-     * TODO: if new_size > ->m_size then we need to enlarge the buffer
-     * if new_size < ->m_size then we can simply shrink the size and
-     * free up the memory that that gives us
-     */
-
-    kernel_panic("TODO: implement f_resize");
-
-    return 0;
-}
-
 /*
  * NOTE: This function may block for a while
  */
@@ -110,7 +97,6 @@ file_ops_t generic_file_ops = {
     .f_read = f_read,
     .f_write = f_write,
     .f_kmap = f_kmap,
-    .f_resize = f_resize,
 };
 
 /*

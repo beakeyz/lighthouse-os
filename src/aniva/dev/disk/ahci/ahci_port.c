@@ -7,14 +7,14 @@
 #include "dev/disk/volume.h"
 #include "dev/driver.h"
 #include "lightos/dev/pci.h"
-#include "lightos/dev/shared.h"
+#include "lightos/api/device.h"
 #include "libk/flow/error.h"
 #include "libk/io.h"
 #include "libk/stddef.h"
 #include "logging/log.h"
 #include "mem/kmem.h"
 #include "sched/scheduler.h"
-#include "lightos/volume/shared.h"
+#include "lightos/api/volume.h"
 #include <mem/heap.h>
 
 static void decode_disk_model_number(char* model_number)

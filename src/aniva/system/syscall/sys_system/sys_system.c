@@ -1,5 +1,5 @@
-#include "lightos/handle_def.h"
-#include "lightos/sysvar/shared.h"
+#include "lightos/api/handle.h"
+#include "lightos/api/sysvar.h"
 #include "oss/node.h"
 #include "proc/handle.h"
 #include "proc/proc.h"

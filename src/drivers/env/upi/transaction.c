@@ -1,6 +1,6 @@
 #include "dev/driver.h"
 #include "libk/flow/error.h"
-#include "lightos/proc/ipc/pipe/shared.h"
+#include "lightos/api/ipc/pipe.h"
 #include "mem/heap.h"
 #include "mem/zalloc/zalloc.h"
 #include "upi.h"

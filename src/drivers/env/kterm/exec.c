@@ -2,7 +2,7 @@
 #include "drivers/env/kterm/kterm.h"
 #include "libk/bin/elf.h"
 #include "libk/flow/error.h"
-#include "lightos/handle_def.h"
+#include "lightos/api/handle.h"
 #include "logging/log.h"
 #include "mem/heap.h"
 #include "oss/core.h"

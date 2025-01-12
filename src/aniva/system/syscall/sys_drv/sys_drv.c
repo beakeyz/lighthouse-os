@@ -3,7 +3,7 @@
 #include "fs/file.h"
 #include "libk/flow/error.h"
 #include <lightos/types.h>
-#include "lightos/handle_def.h"
+#include "lightos/api/handle.h"
 #include "lightos/syscall.h"
 #include "mem/kmem.h"
 #include "oss/obj.h"
@@ -13,7 +13,7 @@
 #include <dev/driver.h>
 #include <proc/env.h>
 
-#include <lightos/driver/ctl.h>
+#include <lightos/api/driver.h>
 
 error_t sys_send_msg(HANDLE handle, dcc_t code, u64 offset, void* buffer, size_t size)
 {

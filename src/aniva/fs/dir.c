@@ -3,7 +3,7 @@
 #include "fs/file.h"
 #include "libk/flow/error.h"
 #include "libk/string.h"
-#include "lightos/fs/shared.h"
+#include "lightos/api/filesystem.h"
 #include "logging/log.h"
 #include "mem/heap.h"
 #include "oss/core.h"

@@ -5,7 +5,7 @@
 #include "libk/data/hashmap.h"
 #include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"
-#include "lightos/driver/loader.h"
+#include "lightos/api/dynldr.h"
 #include "lightos/lightos.h"
 #include "proc/core.h"
 #include <fs/file.h>

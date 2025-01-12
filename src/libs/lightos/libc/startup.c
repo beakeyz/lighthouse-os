@@ -7,8 +7,7 @@
  */
 #include <mem/memory.h>
 
-#include <lightos/lightos.h>
-#include "lightos/handle_def.h"
+#include "lightos/api/handle.h"
 #include <lightos/error.h>
 #include <lightos/lightos.h>
 #include <stdlib.h>

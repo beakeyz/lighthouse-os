@@ -1,6 +1,6 @@
 #include "dev/driver.h"
-#include "lightos/handle_def.h"
-#include "lightos/proc/ipc/pipe/shared.h"
+#include "lightos/api/handle.h"
+#include "lightos/api/ipc/pipe.h"
 #include "oss/obj.h"
 #include "proc/handle.h"
 #include "upi.h"

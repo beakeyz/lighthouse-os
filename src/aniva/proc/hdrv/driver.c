@@ -1,7 +1,7 @@
 #include "driver.h"
 #include "dev/driver.h"
 #include "libk/flow/error.h"
-#include "lightos/handle_def.h"
+#include "lightos/api/handle.h"
 #include "logging/log.h"
 #include "oss/core.h"
 #include "oss/node.h"

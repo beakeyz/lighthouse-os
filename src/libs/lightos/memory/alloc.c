@@ -1,5 +1,5 @@
 #include "alloc.h"
-#include "lightos/memory/memory.h"
+#include "lightos/api/memory.h"
 #include "lightos/syscall.h"
 
 /*!

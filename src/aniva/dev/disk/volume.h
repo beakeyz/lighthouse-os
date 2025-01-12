@@ -4,7 +4,7 @@
 #include "dev/device.h"
 #include "dev/disk/device.h"
 #include "sync/mutex.h"
-#include "lightos/volume/shared.h"
+#include "lightos/api/volume.h"
 
 struct volume_device;
 

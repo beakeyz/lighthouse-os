@@ -16,8 +16,8 @@
  *    an invalid handle given, the specified address will be unmapped.
  */
 
-#include "lightos/handle_def.h"
-#include "lightos/memory/memory.h"
+#include "lightos/api/handle.h"
+#include "lightos/api/memory.h"
 #include <lightos/lightos.h>
 #include <lightos/types.h>
 

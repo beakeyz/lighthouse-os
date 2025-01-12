@@ -2,7 +2,7 @@
 #define __ANIVA_DRIVERS_UPI_PRIVATE__
 
 #include "libk/stddef.h"
-#include "lightos/proc/ipc/pipe/shared.h"
+#include "lightos/api/ipc/pipe.h"
 #include "mem/zalloc/zalloc.h"
 #include "proc/handle.h"
 #include <oss/obj.h>

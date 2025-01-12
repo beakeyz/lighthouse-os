@@ -1,7 +1,7 @@
 #ifndef __ANIVA_DEVICE_CTL_H__
 #define __ANIVA_DEVICE_CTL_H__
 
-#include "lightos/dev/shared.h"
+#include "lightos/api/device.h"
 #include <libk/stddef.h>
 
 struct device;

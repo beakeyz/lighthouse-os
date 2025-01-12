@@ -1,7 +1,7 @@
 #ifndef __ANIVA_SYSVAR_MAP__
 #define __ANIVA_SYSVAR_MAP__
 
-#include "lightos/sysvar/shared.h"
+#include "lightos/api/sysvar.h"
 #include "system/profile/attr.h"
 #include <libk/stddef.h>
 

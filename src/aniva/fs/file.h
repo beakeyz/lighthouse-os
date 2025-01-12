@@ -37,7 +37,7 @@ typedef struct file_ops {
      *  - Try to clean data buffers if there are any
      */
     int (*f_close)(struct file* file);
-    int (*f_resize)(struct file* file, size_t new_size);
+    int (*f_remove)(struct file* file);
 } file_ops_t;
 
 #define FILE_READONLY (0x00000001)

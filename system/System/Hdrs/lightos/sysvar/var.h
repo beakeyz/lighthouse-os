@@ -1,7 +1,7 @@
 #ifndef __LIGHTOS_PVR_ULIB__
 #define __LIGHTOS_PVR_ULIB__
 
-#include "shared.h"
+#include "lightos/api/sysvar.h"
 #include <lightos/handle.h>
 
 /*!

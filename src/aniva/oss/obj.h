@@ -1,7 +1,7 @@
 #ifndef __ANIVA_OSS_OBJ__
 #define __ANIVA_OSS_OBJ__
 
-#include "lightos/handle_def.h"
+#include "lightos/api/handle.h"
 #include "proc/env.h"
 #include "sync/atomic_ptr.h"
 #include "sync/mutex.h"

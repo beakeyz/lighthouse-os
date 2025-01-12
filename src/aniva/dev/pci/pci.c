@@ -3,7 +3,7 @@
 #include "dev/device.h"
 #include "dev/driver.h"
 #include "lightos/dev/pci.h"
-#include "lightos/dev/shared.h"
+#include "lightos/api/device.h"
 #include "io.h"
 #include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"

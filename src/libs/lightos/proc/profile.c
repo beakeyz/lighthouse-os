@@ -1,6 +1,6 @@
 #include "profile.h"
 #include "lightos/handle.h"
-#include "lightos/handle_def.h"
+#include "lightos/api/handle.h"
 
 HANDLE open_profile(const char* name, u32 flags)
 {

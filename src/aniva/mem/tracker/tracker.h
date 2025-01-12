@@ -3,7 +3,7 @@
 
 #include "mem/kmem.h"
 #include "mem/zalloc/zalloc.h"
-#include <lightos/memory/memory.h>
+#include <lightos/api/memory.h>
 
 /*!
  * @brief: Structure to track page allocations

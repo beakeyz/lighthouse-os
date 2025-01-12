@@ -6,7 +6,7 @@
 #include "fs/file.h"
 #include "libk/bin/elf_types.h"
 #include "libk/flow/error.h"
-#include "lightos/driver/loader.h"
+#include "lightos/api/dynldr.h"
 #include "mem/heap.h"
 #include "mem/kmem.h"
 #include "oss/obj.h"

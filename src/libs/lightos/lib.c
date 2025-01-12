@@ -1,6 +1,6 @@
 #include "lib.h"
 #include "lightos/handle.h"
-#include "lightos/handle_def.h"
+#include "lightos/api/handle.h"
 #include "lightos/syscall.h"
 #include "stdlib.h"
 

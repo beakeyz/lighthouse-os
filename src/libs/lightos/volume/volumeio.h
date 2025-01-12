@@ -2,7 +2,7 @@
 #define __LIGHTOS_VOLUMEIO_H__
 
 #include <lightos/handle.h>
-#include <lightos/volume/shared.h>
+#include <lightos/api/volume.h>
 
 /* Common typedefs for using volumes */
 typedef handle_t volume_hndl_t;

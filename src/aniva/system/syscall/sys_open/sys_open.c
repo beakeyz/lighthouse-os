@@ -1,8 +1,8 @@
 #include "dev/core.h"
 #include "libk/flow/error.h"
-#include "lightos/driver/loader.h"
+#include "lightos/api/dynldr.h"
 #include <lightos/types.h>
-#include "lightos/handle_def.h"
+#include "lightos/api/handle.h"
 #include "lightos/syscall.h"
 #include "mem/kmem.h"
 #include "proc/handle.h"

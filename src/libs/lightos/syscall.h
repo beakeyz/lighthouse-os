@@ -14,11 +14,11 @@
  * sysids must be terminated
  */
 
-#include "lightos/dev/shared.h"
-#include "lightos/driver/loader.h"
-#include "lightos/fs/shared.h"
-#include "lightos/handle_def.h"
-#include "lightos/sysvar/shared.h"
+#include "lightos/api/device.h"
+#include "lightos/api/dynldr.h"
+#include "lightos/api/filesystem.h"
+#include "lightos/api/handle.h"
+#include "lightos/api/sysvar.h"
 #include <lightos/types.h>
 
 /*!

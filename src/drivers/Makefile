@@ -23,7 +23,6 @@ USB_DRIVERS := \
 DRIVER_PATHS := \
 	./env/login \
 	./env/kterm \
-	./env/lwnd \
 	./env/dynldr \
 	./env/prism \
 	./env/upi \

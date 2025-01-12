@@ -1,6 +1,0 @@
-{
-    "name": "kill",
-    "linking": "dynamic",
-    "type": "process",
-    "libs": []
-}

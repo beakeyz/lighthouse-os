@@ -1,5 +1,5 @@
 #include "libk/flow/error.h"
-#include "lightos/handle_def.h"
+#include "lightos/api/handle.h"
 #include "proc/hdrv/driver.h"
 #include "system/sysvar/map.h"
 #include "system/sysvar/var.h"

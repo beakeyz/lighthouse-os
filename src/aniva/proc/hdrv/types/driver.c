@@ -2,7 +2,7 @@
 #include "dev/loader.h"
 #include "fs/file.h"
 #include "libk/flow/error.h"
-#include "lightos/handle_def.h"
+#include "lightos/api/handle.h"
 #include "oss/node.h"
 #include "proc/handle.h"
 #include "proc/proc.h"

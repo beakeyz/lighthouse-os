@@ -5,7 +5,7 @@
  * Routines to deal with profiles and profile variables
  */
 
-#include "lightos/handle_def.h"
+#include "lightos/api/handle.h"
 #include "sys/types.h"
 
 /*

@@ -1,4 +1,0 @@
-#ifndef __LIGHTENV_MEMFLAGS__
-#define __LIGHTENV_MEMFLAGS__
-
-#endif // !__LIGHTENV_MEMFLAGS__

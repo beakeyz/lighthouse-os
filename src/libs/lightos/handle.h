@@ -13,7 +13,7 @@
 #include "stdint.h"
 
 /* This file contains definitions to be used for both userspace and kernelspace */
-#include "handle_def.h"
+#include "lightos/api/handle.h"
 #include "lightos/types.h"
 
 /*!

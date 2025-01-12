@@ -1,6 +1,6 @@
 #include "drivers/env/kterm/kterm.h"
 #include "libk/string.h"
-#include "lightos/sysvar/shared.h"
+#include "lightos/api/sysvar.h"
 #include "oss/core.h"
 #include "oss/node.h"
 #include "oss/obj.h"

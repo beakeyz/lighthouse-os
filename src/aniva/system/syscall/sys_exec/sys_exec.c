@@ -1,11 +1,10 @@
 #include "dev/core.h"
-#include "kterm/shared.h"
-#include <lightos/types.h>
 #include "lightos/syscall.h"
 #include "mem/kmem.h"
 #include "proc/proc.h"
 #include "sched/scheduler.h"
 #include <libk/string.h>
+#include <lightos/types.h>
 
 /*
  * TODO: this function should be redone, since the existance of kterm is not a given
@@ -23,8 +22,8 @@ error_t sys_exec(const char __user* cmd, size_t cmd_len)
     if (kmem_validate_ptr(current_proc, (uintptr_t)cmd, cmd_len))
         return EINVAL;
 
-    if (strcmp("clear", cmd) == 0)
-        driver_send_msg("other/kterm", KTERM_DRV_CLEAR, NULL, NULL);
+    // if (strcmp("clear", cmd) == 0)
+    // driver_send_msg("other/kterm", KTERM_DRV_CLEAR, NULL, NULL);
 
     return 0;
 }

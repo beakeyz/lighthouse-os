@@ -5,7 +5,7 @@
 #include <sync/atomic_ptr.h>
 #include <system/profile/attr.h>
 #include <mem/tracker/tracker.h>
-#include <lightos/sysvar/shared.h>
+#include <lightos/api/sysvar.h>
 
 struct user_profile;
 struct penv;

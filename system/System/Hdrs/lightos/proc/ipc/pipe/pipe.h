@@ -1,7 +1,7 @@
 #ifndef __LIGTOS_LIBC_PIPE__
 #define __LIGTOS_LIBC_PIPE__
 
-#include "shared.h"
+#include "lightos/api/ipc/pipe.h"
 #include <lightos/handle.h>
 #include <stdint.h>
 

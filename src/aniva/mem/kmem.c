@@ -4,7 +4,7 @@
 #include "libk/flow/error.h"
 #include "libk/multiboot.h"
 #include "lightos/error.h"
-#include "lightos/memory/memory.h"
+#include "lightos/api/memory.h"
 #include "logging/log.h"
 #include "mem/page_dir.h"
 #include "mem/pg.h"

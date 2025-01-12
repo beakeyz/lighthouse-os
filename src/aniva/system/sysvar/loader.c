@@ -1,7 +1,7 @@
 #include "loader.h"
 #include "entry/entry.h"
 #include "fs/file.h"
-#include "lightos/sysvar/shared.h"
+#include "lightos/api/sysvar.h"
 #include "mem/heap.h"
 #include "mem/kmem.h"
 #include "oss/node.h"

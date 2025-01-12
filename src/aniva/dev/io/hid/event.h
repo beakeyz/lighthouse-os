@@ -1,7 +1,6 @@
 #ifndef __ANIVA_HIDDEVICE_EVENT__
 #define __ANIVA_HIDDEVICE_EVENT__
 
-#include "libgfx/shared.h"
 #include "lightos/event/key.h"
 #include <libk/stddef.h>
 
@@ -96,7 +95,5 @@ int init_hid_event_buffer(struct hid_event_buffer* out, hid_event_t* buffer, uin
 hid_event_t* hid_event_buffer_read(struct hid_event_buffer* buffer, uint32_t* p_r_idx);
 int hid_event_buffer_write(struct hid_event_buffer* buffer, hid_event_t* event);
 int hid_event_buffer_clear(struct hid_event_buffer* buffer);
-
-int hid_event_write_to_user(struct hid_event_buffer* buffer, uint32_t* p_r_idx, lwindow_t* uwnd);
 
 #endif // !__ANIVA_HIDDEVICE_EVENT__

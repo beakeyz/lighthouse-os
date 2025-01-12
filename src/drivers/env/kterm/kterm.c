@@ -12,14 +12,12 @@
 #include "drivers/env/kterm/fs.h"
 #include "drivers/env/kterm/util.h"
 #include "kevent/event.h"
-#include "kterm/shared.h"
-#include "libgfx/shared.h"
 #include "libk/flow/doorbell.h"
 #include "libk/flow/error.h"
 #include "libk/gfx/font.h"
 #include "libk/stddef.h"
 #include "libk/string.h"
-#include "lightos/dev/shared.h"
+#include "lightos/api/device.h"
 #include "logging/log.h"
 #include "mem/heap.h"
 #include "mem/kmem.h"
@@ -29,6 +27,7 @@
 #include "proc/proc.h"
 #include "proc/thread.h"
 #include "sched/scheduler.h"
+#include <lightos/api/kterm.h>
 #include <lightos/event/key.h>
 #include <mem/kmem.h>
 #include <system/processor/processor.h>
@@ -1329,7 +1328,6 @@ int kterm_exit()
  */
 uintptr_t kterm_on_packet(aniva_driver_t* driver, dcc_t code, void __user* buffer, size_t size, void* out_buffer, size_t out_size)
 {
-    lwindow_t* uwnd = NULL;
     kterm_box_constr_t* constr;
     proc_t* c_proc = get_current_proc();
 
@@ -1374,125 +1372,6 @@ uintptr_t kterm_on_packet(aniva_driver_t* driver, dcc_t code, void __user* buffe
         constr = buffer;
 
         kterm_clear_abs_box(constr->x, constr->y, constr->w, constr->h);
-
-        break;
-    case LWND_DCC_CREATE:
-        /* Switch the kterm mode to KTERM_MODE_GRAPHICS and prepare a canvas for the graphical application to run
-         */
-        if (size != sizeof(*uwnd))
-            return DRV_STAT_INVAL;
-
-        uwnd = buffer;
-
-        mode = KTERM_MODE_GRAPHICS;
-
-        _keybuffer_app_r_ptr = 0;
-        _keybuffer_kterm_r_ptr = 0;
-        _keybuffer.w_idx = 0;
-        break;
-    case LWND_DCC_CLOSE:
-        /* Don't do anything: We switch back to terminal mode once the app exits
-         */
-
-        // Must(kmem_user_dealloc(c_proc, (vaddr_t)_active_grpx_app.c_fb, _active_grpx_app.fb_size));
-        break;
-    case LWND_DCC_MINIMIZE:
-        /* Won't be implemented
-         */
-    case LWND_DCC_RESIZE:
-        /* Won't be implemented
-         */
-        break;
-    case LWND_DCC_REQ_FB:
-        /* Allocate a portion of the framebuffer for the process
-         */
-        if (size != sizeof(*uwnd))
-            return DRV_STAT_INVAL;
-
-        uwnd = buffer;
-
-        /* Clamp width */
-        if (uwnd->current_width > _kterm_fb_width)
-            uwnd->current_width = _kterm_fb_width;
-
-        /* Clamp height */
-        if (uwnd->current_height > _kterm_fb_height)
-            uwnd->current_height = _kterm_fb_height;
-
-        _active_grpx_app.client_proc = c_proc;
-        _active_grpx_app.width = uwnd->current_width;
-        _active_grpx_app.height = uwnd->current_height;
-
-        /* Compute best startx and starty */
-        _active_grpx_app.startx = (_kterm_fb_width >> 1) - (_active_grpx_app.width >> 1);
-        _active_grpx_app.starty = (_kterm_fb_height >> 1) - (_active_grpx_app.height >> 1);
-
-        /* Allocate this crap in the userprocess */
-        _active_grpx_app.fb_size = ALIGN_UP(_active_grpx_app.width * _active_grpx_app.height * sizeof(uint32_t), SMALL_PAGE_SIZE);
-
-        /* Allocate a userframebuffer */
-        ASSERT(!kmem_user_alloc_range((void**)&_active_grpx_app.c_fb, c_proc, _active_grpx_app.fb_size, NULL, KMEM_FLAG_WRITABLE));
-
-        uwnd->fb.fb = (u64)_active_grpx_app.c_fb;
-        uwnd->fb.height = uwnd->current_height;
-        uwnd->fb.pitch = uwnd->current_width * (_kterm_fb_bpp >> 3);
-        uwnd->fb.bpp = _kterm_fb_bpp;
-        uwnd->fb.red_lshift = _kterm_fb_red_shift;
-        uwnd->fb.green_lshift = _kterm_fb_green_shift;
-        uwnd->fb.blue_lshift = _kterm_fb_blue_shift;
-        uwnd->fb.alpha_lshift = 0;
-
-        uwnd->fb.red_mask = 0xffffffff;
-        uwnd->fb.green_mask = 0xffffffff;
-        uwnd->fb.blue_mask = 0xffffffff;
-        uwnd->fb.alpha_mask = 0;
-
-        memset(_active_grpx_app.c_fb, 0, _active_grpx_app.fb_size);
-
-    case LWND_DCC_UPDATE_WND: {
-        /* Update the windows framebuffer to the frontbuffer
-         */
-
-        uintptr_t current_offset = 0;
-
-        for (uint32_t y = 0; y < _active_grpx_app.height; y++) {
-            for (uint32_t x = 0; x < _active_grpx_app.width; x++) {
-                kterm_draw_pixel_raw(_active_grpx_app.startx + x, _active_grpx_app.starty + y, *(uint32_t*)(_active_grpx_app.c_fb + current_offset));
-
-                current_offset++;
-            }
-        }
-        break;
-    }
-    case LWND_DCC_GETKEY:
-        /* Give the graphical process information about any keyevents
-         */
-        if (size != sizeof(*uwnd))
-            return DRV_STAT_INVAL;
-
-        uwnd = buffer;
-
-        lkey_event_t* u_event;
-        hid_event_t* event = hid_event_buffer_read(&_keybuffer, &_keybuffer_app_r_ptr);
-
-        if (!event)
-            return DRV_STAT_INVAL;
-
-        /*
-         * TODO: create functions that handle with this reading and writing to user keybuffers
-         */
-
-        /* Grab a buffer entry */
-        u_event = &uwnd->keyevent_buffer[uwnd->keyevent_buffer_write_idx++];
-
-        /* Write the data */
-        u_event->keycode = event->key.scancode;
-        u_event->pressed_char = event->key.pressed_char;
-        u_event->pressed = (event->key.flags & HID_EVENT_KEY_FLAG_PRESSED) == HID_EVENT_KEY_FLAG_PRESSED;
-        u_event->mod_flags = ((event->key.flags & HID_EVENT_KEY_FLAG_MOD_MASK) >> HID_EVENT_KEY_FLAG_MOD_BITSHIFT);
-
-        /* Make sure we cycle the index */
-        uwnd->keyevent_buffer_write_idx %= uwnd->keyevent_buffer_capacity;
 
         break;
     }

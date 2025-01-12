@@ -1,11 +1,11 @@
 #include "stdio.h"
 #include "errno.h"
 #include "lightos/handle.h"
-#include "lightos/sysvar/shared.h"
+#include "lightos/api/sysvar.h"
 #include "lightos/sysvar/var.h"
 #include "stdarg.h"
 #include "sys/types.h"
-#include <lightos/handle_def.h>
+#include <lightos/api/handle.h>
 #include <lightos/syscall.h>
 #include <lightos/system.h>
 #include <stddef.h>

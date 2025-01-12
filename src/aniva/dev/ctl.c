@@ -1,5 +1,5 @@
 #include "ctl.h"
-#include "lightos/dev/shared.h"
+#include "lightos/api/device.h"
 #include "libk/flow/error.h"
 #include "mem/heap.h"
 #include <string.h>

@@ -1,7 +1,0 @@
-{
-  "name": "gfx_test",
-  "linking": "dynamic",
-  "type": "process",
-  "libs": [
-  ]
-}

@@ -1,7 +1,7 @@
 #include "memmap.h"
 #include "lightos/handle.h"
-#include "lightos/handle_def.h"
-#include "lightos/memory/memory.h"
+#include "lightos/api/handle.h"
+#include "lightos/api/memory.h"
 #include "lightos/syscall.h"
 #include "stdlib.h"
 

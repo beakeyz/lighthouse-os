@@ -1,6 +1,6 @@
 
 #include "libk/flow/error.h"
-#include "lightos/handle_def.h"
+#include "lightos/api/handle.h"
 #include "oss/obj.h"
 #include "proc/hdrv/driver.h"
 

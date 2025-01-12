@@ -1,1 +1,0 @@
-{"name": "installer", "linking": "static", "type": "process", "libs": ["LibC"]}

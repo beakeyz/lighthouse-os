@@ -1,6 +1,6 @@
 #include "dev/device.h"
 #include "dev/driver.h"
-#include "lightos/dev/shared.h"
+#include "lightos/api/device.h"
 #include "logging/log.h"
 #include <dev/core.h>
 #include <dev/driver.h>

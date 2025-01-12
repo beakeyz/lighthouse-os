@@ -1,10 +1,10 @@
 #include "dev/core.h"
 #include "libk/flow/error.h"
-#include "lightos/handle_def.h"
+#include "lightos/api/handle.h"
 #include "proc/handle.h"
 #include "proc/hdrv/driver.h"
 #include <dev/driver.h>
-#include <lightos/driver/loader.h>
+#include <lightos/api/dynldr.h>
 
 /*
  * TODO:

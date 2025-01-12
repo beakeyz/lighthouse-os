@@ -4,7 +4,7 @@
 #include "dev/core.h"
 #include "dev/ctl.h"
 #include "dev/group.h"
-#include "lightos/dev/shared.h"
+#include "lightos/api/device.h"
 #include "libk/flow/error.h"
 #include "sync/mutex.h"
 #include <libk/stddef.h>

@@ -2,7 +2,7 @@
 #define __ANIVA_FS_DIR__
 
 #include "libk/flow/error.h"
-#include "lightos/fs/shared.h"
+#include "lightos/api/filesystem.h"
 #include "sync/atomic_ptr.h"
 #include "sync/mutex.h"
 #include <libk/stddef.h>

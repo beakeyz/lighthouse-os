@@ -1,7 +1,7 @@
 #ifndef __LIGHTENV_SYSTEM__
 #define __LIGHTENV_SYSTEM__
 
-#include <lightos/handle_def.h>
+#include <lightos/api/handle.h>
 #include <sys/types.h>
 
 /*

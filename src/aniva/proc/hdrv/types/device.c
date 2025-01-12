@@ -1,6 +1,6 @@
 
 #include "dev/device.h"
-#include "lightos/dev/shared.h"
+#include "lightos/api/device.h"
 #include "libk/flow/error.h"
 #include "proc/hdrv/driver.h"
 

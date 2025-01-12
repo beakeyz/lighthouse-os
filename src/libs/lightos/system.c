@@ -1,7 +1,7 @@
 #include "system.h"
-#include "lightos/sysvar/shared.h"
+#include "lightos/api/sysvar.h"
 #include "syscall.h"
-#include <lightos/handle_def.h>
+#include <lightos/api/handle.h>
 
 extern syscall_result_t syscall_0(syscall_id_t id);
 extern syscall_result_t syscall_1(syscall_id_t id, uintptr_t arg0);

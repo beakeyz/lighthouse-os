@@ -6,7 +6,7 @@
 #include "entry/entry.h"
 #include "libk/flow/error.h"
 #include "libk/multiboot.h"
-#include "lightos/dev/shared.h"
+#include "lightos/api/device.h"
 #include "logging/log.h"
 #include "mem/kmem.h"
 #include "mem/phys.h"

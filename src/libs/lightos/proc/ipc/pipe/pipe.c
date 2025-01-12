@@ -1,123 +1,69 @@
 #include "pipe.h"
+#include "lightos/api/handle.h"
+#include "lightos/api/ipc/pipe.h"
 #include "lightos/handle.h"
-#include "lightos/handle_def.h"
-#include "lightos/proc/ipc/pipe/shared.h"
+#include "stdlib.h"
 #include "time.h"
 #include "unistd.h"
 #include <errno.h>
-#include <lightos/driver/drv.h>
 #include <stdio.h>
 #include <string.h>
 
-static HANDLE upi_handle = HNDL_INVAL;
-
-/*!
- * @brief: Checks if the UPI driver is loaded and opens it
- *
- * Should be called every time we call upi functions
- */
-static inline int __check_upi()
-{
-    /* We already have a valid handle to the driver */
-    if (handle_verify(upi_handle))
-        return 0;
-
-    if (!open_driver(LIGHTOS_UPIPE_DRIVER, HNDL_FLAG_RW, NULL, &upi_handle))
-        return -ENODEV;
-
-    return 0;
-}
-
 static inline int _lightos_pipe_create(lightos_pipe_t* ppipe)
 {
-    if (__check_upi())
-        return -ENODEV;
-
-    if (driver_send_msg(upi_handle, LIGHTOS_UPI_MSG_CREATE_PIPE, 0, ppipe, sizeof(*ppipe)))
-        return 0;
-
+    exit_noimpl("_lightos_pipe_create");
     return -1;
 }
 
 static inline int _lightos_pipe_destroy(HANDLE pipe)
 {
-    if (__check_upi())
-        return -ENODEV;
-
-    if (driver_send_msg(upi_handle, LIGHTOS_UPI_MSG_DESTROY_PIPE, 0, &pipe, sizeof(pipe)))
-        return 0;
-
+    exit_noimpl("_lightos_pipe_destroy");
     return -1;
 }
 
 static inline int _lightos_pipe_connect(lightos_pipe_t* pipe)
 {
-    if (__check_upi())
-        return -ENODEV;
-
-    if (driver_send_msg(upi_handle, LIGHTOS_UPI_MSG_CONNECT_PIPE, 0, pipe, sizeof(*pipe)))
-        return 0;
-
+    exit_noimpl("_lightos_pipe_connect");
     return -1;
 }
 
 static inline int _lightos_pipe_disconnect(HANDLE pipe)
 {
-    if (__check_upi())
-        return -ENODEV;
-
-    if (driver_send_msg(upi_handle, LIGHTOS_UPI_MSG_DISCONNECT_PIPE, 0, &pipe, sizeof(pipe)))
-        return 0;
-
+    exit_noimpl("_lightos_pipe_disconnect");
     return -1;
 }
 
 static inline int _lightos_pipe_send(lightos_pipe_ft_t* ft)
 {
-    if (__check_upi())
-        return -ENODEV;
-
-    if (driver_send_msg(upi_handle, LIGHTOS_UPI_MSG_SEND_TRANSACT, 0, ft, sizeof(*ft)))
-        return 0;
+    exit_noimpl("_lightos_pipe_send");
 
     return -1;
 }
 
 static inline int _lightos_pipe_accept(lightos_pipe_accept_t* accept)
 {
-    if (__check_upi())
-        return -ENODEV;
-
-    if (driver_send_msg(upi_handle, LIGHTOS_UPI_MSG_ACCEPT_TRANSACT, 0, accept, sizeof(*accept)))
-        return 0;
+    exit_noimpl("_lightos_pipe_accept");
 
     return -1;
 }
 
 static inline int _lightos_pipe_deny(HANDLE pipe)
 {
-    if (__check_upi())
-        return -ENODEV;
-
-    if (driver_send_msg(upi_handle, LIGHTOS_UPI_MSG_DENY_TRANSACT, 0, &pipe, sizeof(pipe)))
-        return 0;
+    exit_noimpl("_lightos_pipe_deny");
 
     return -1;
 }
 
 static inline int _lightos_pipe_preview(lightos_pipe_ft_t* ft)
 {
-    if (driver_send_msg(upi_handle, LIGHTOS_UPI_MSG_PREVIEW_TRANSACT, 0, ft, sizeof(*ft)))
-        return 0;
+    exit_noimpl("_lightos_pipe_preview");
 
     return -1;
 }
 
 static inline int _lightos_pipe_dump(lightos_pipe_dump_t* dump)
 {
-    if (driver_send_msg(upi_handle, LIGHTOS_UPI_MSG_DUMP_PIPE, 0, dump, sizeof(*dump)))
-        return 0;
-
+    exit_noimpl("_lightos_pipe_dump");
     return -1;
 }
 

@@ -1,5 +1,5 @@
 #include "dev/device.h"
-#include "lightos/dev/shared.h"
+#include "lightos/api/device.h"
 #include "libk/flow/error.h"
 #include "system/acpi/acpica/acexcep.h"
 #include "system/acpi/acpica/acnames.h"

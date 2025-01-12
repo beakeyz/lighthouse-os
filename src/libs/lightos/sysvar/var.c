@@ -1,9 +1,9 @@
 #include "var.h"
 #include "lightos/handle.h"
-#include "lightos/handle_def.h"
+#include "lightos/api/handle.h"
 #include "lightos/proc/profile.h"
 #include "lightos/syscall.h"
-#include "lightos/sysvar/shared.h"
+#include "lightos/api/sysvar.h"
 
 HANDLE open_sysvar_ex(HANDLE handle, char* key, u32 flags)
 {

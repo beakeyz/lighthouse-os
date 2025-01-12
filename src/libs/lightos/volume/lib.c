@@ -1,10 +1,9 @@
-#include "lightos/dev/shared.h"
+#include "lightos/api/device.h"
+#include "lightos/api/handle.h"
+#include "lightos/api/volume.h"
 #include "lightos/handle.h"
-#include "lightos/handle_def.h"
-#include "lightos/volume/shared.h"
 #include "string.h"
 #include "volumeio.h"
-#include <errno.h>
 #include <lightos/dev/device.h>
 #include <lightos/lightos.h>
 #include <stdlib.h>
@@ -34,18 +33,19 @@ void close_volume(VOLUME_HNDL handle)
 /* Functions to interface with volumes on a low level */
 uint64_t volume_read(VOLUME_HNDL volume, uintptr_t offset, void* buffer, size_t size)
 {
-    return device_read(volume, buffer, size, offset);
+    exit_noimpl("volume_read");
+    return 0;
 }
 
 uint64_t volume_write(VOLUME_HNDL volume, uintptr_t offset, void* buffer, size_t size)
 {
-    return device_write(volume, buffer, size, offset);
+    exit_noimpl("volume_write");
+    return 0;
 }
 
 int volume_flush(VOLUME_HNDL volume)
 {
-    if (!device_send_ctl(volume, DEVICE_CTLC_FLUSH))
-        return -ENODEV;
+    exit_noimpl("volume_flush");
 
     return 0;
 }
@@ -59,9 +59,7 @@ int volume_get(VOLUME_HNDL handle, lightos_volume_t* pvolume)
     devinfo.dev_specific_size = sizeof(volume_info_t);
     devinfo.dev_specific_info = &volume_info;
 
-    /* Query the device for it's context info */
-    if (!device_query_info(handle, &devinfo))
-        return -ENODEV;
+    exit_noimpl("volume_get");
 
     pvolume->handle = handle;
     /* Dangerous */

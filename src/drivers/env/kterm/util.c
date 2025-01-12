@@ -5,7 +5,7 @@
 #include "dev/disk/device.h"
 #include "dev/disk/volume.h"
 #include "dev/driver.h"
-#include "lightos/dev/shared.h"
+#include "lightos/api/device.h"
 #include "drivers/env/kterm/kterm.h"
 #include "entry/entry.h"
 #include "libk/data/linkedlist.h"
@@ -21,7 +21,7 @@
 #include "proc/proc.h"
 #include "system/acpi/acpi.h"
 #include "system/acpi/parser.h"
-#include "lightos/volume/shared.h"
+#include "lightos/api/volume.h"
 #include <dev/loader.h>
 #include <proc/env.h>
 

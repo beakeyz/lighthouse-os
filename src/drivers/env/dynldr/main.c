@@ -4,7 +4,7 @@
 #include "kevent/types/thread.h"
 #include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"
-#include "lightos/driver/loader.h"
+#include "lightos/api/dynldr.h"
 #include "logging/log.h"
 #include "mem/kmem.h"
 #include "priv.h"
@@ -14,7 +14,7 @@
 #include "sync/mutex.h"
 #include <dev/core.h>
 #include <dev/driver.h>
-#include <lightos/handle_def.h>
+#include <lightos/api/handle.h>
 
 /*
  * Driver to dynamically load programs that were linked against shared binaries

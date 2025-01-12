@@ -1,6 +1,0 @@
-{
-  "name": "lwnd.drv",
-  "linking": "static",
-  "type": "driver"
-}
-

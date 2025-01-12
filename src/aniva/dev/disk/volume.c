@@ -3,7 +3,7 @@
 #include "dev/disk/device.h"
 #include "dev/driver.h"
 #include "dev/group.h"
-#include "lightos/dev/shared.h"
+#include "lightos/api/device.h"
 #include "fs/core.h"
 #include "libk/flow/error.h"
 #include "logging/log.h"
@@ -11,7 +11,7 @@
 #include "mem/kmem.h"
 #include "sched/scheduler.h"
 #include "sync/mutex.h"
-#include "lightos/volume/shared.h"
+#include "lightos/api/volume.h"
 #include <oss/core.h>
 #include <oss/node.h>
 

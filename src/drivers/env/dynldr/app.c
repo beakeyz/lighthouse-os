@@ -2,7 +2,7 @@
 #include "libk/data/hashmap.h"
 #include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"
-#include "lightos/handle_def.h"
+#include "lightos/api/handle.h"
 #include "lightos/lightos.h"
 #include "logging/log.h"
 #include "mem/heap.h"
@@ -109,15 +109,20 @@ static inline error_t lightos_ctx_find_main(lightos_appctx_t* ctx, loaded_app_t*
     idx = 0;
 
     while (possible_entry_symbols[idx]) {
+        KLOG_DBG("Trying to find entry symbol: %s\n", possible_entry_symbols[idx]);
         /* Make sure we only look inside the symbols of the app itself */
         sym = loaded_app_find_symbol_in_app(app, possible_entry_symbols[idx]);
 
         if (sym)
             break;
+
+        idx++;
     }
 
     if (!sym)
         return -ENOENT;
+
+    KLOG_DBG("found entry symbol: %s (addr=0x%llx)\n", possible_entry_symbols[idx], sym->uaddr);
 
     /* Set the entry to the first symbol we find matching this shit */
     ctx->entry = (f_light_entry)sym->uaddr;

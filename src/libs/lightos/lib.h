@@ -1,7 +1,7 @@
 #ifndef __LIGHTOS_LIB_H__
 #define __LIGHTOS_LIB_H__
 
-#include "handle_def.h"
+#include "lightos/api/handle.h"
 #include "lightos/system.h"
 #include "sys/types.h"
 

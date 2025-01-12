@@ -1,7 +1,0 @@
-{
-    "name": "upi",
-    "path": "System/Lib",
-    "linking": "dynamic",
-    "type": "library",
-    "libs": []
-}

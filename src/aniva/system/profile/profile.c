@@ -4,7 +4,7 @@
 #include "fs/file.h"
 #include "kevent/types/profile.h"
 #include "libk/flow/error.h"
-#include "lightos/sysvar/shared.h"
+#include "lightos/api/sysvar.h"
 #include "mem/heap.h"
 #include "oss/core.h"
 #include "oss/node.h"

@@ -1,6 +1,6 @@
 #include "memory.h"
 #include "lightos/memory/alloc.h"
-#include "lightos/memory/memory.h"
+#include "lightos/api/memory.h"
 #include <assert.h>
 #include <lightos/system.h>
 #include <stdio.h>

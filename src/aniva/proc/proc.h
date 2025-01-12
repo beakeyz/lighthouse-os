@@ -3,7 +3,7 @@
 
 #include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"
-#include "lightos/sysvar/shared.h"
+#include "lightos/api/sysvar.h"
 #include "mem/kmem.h"
 #include "mem/page_dir.h"
 #include "mem/tracker/tracker.h"
