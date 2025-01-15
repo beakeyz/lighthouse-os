@@ -13,13 +13,11 @@ struct penv;
 struct thread;
 struct kevent;
 struct device;
-struct oss_obj;
-struct oss_node;
+struct oss_object;
 struct kevent_hook;
 struct sysvar;
 struct user_profile;
 struct driver;
-struct virtual_namespace;
 
 /*
  * A kernel-side handle.
@@ -41,8 +39,7 @@ typedef struct kernel_handle {
         struct driver* driver;
         struct proc* process;
         struct thread* thread;
-        struct virtual_namespace* namespace;
-        struct oss_obj* oss_obj;
+        struct oss_object* object;
         struct user_profile* profile;
         struct sysvar* pvar;
         struct penv* penv;
@@ -65,12 +62,10 @@ void init_khandle_ex(khandle_t* bHandle, HANDLE_TYPE type, u32 flags, void* ref)
 void destroy_khandle(khandle_t* handle);
 void khandle_set_flags(khandle_t* handle, uint32_t flags);
 
-struct oss_node* khandle_get_relative_node(khandle_t* handle);
-
 #define KHNDL_MAX_ENTRIES (1024) /* The current maximum amount of handles (same as linux) */
 #define KHNDL_DEFAULT_ENTRIES (512)
 
-#define KHNDL_INVALID_INDEX (uint32_t) - 1
+#define KHNDL_INVALID_INDEX (uint32_t)-1
 
 /*
  * Map that stores the handles for a specific entity
@@ -99,7 +94,7 @@ kerror_t bind_khandle_at(khandle_map_t* map, khandle_t* handle, uint32_t index);
 kerror_t try_bind_khandle_at(khandle_map_t* map, khandle_t* handle, uint32_t index);
 
 /* NOTE: mutates the handle to clear the index */
-kerror_t unbind_khandle(khandle_map_t* map, khandle_t* handle);
+kerror_t unbind_khandle(khandle_map_t* map, u32 handle);
 kerror_t khandle_map_remove(khandle_map_t* map, HANDLE_TYPE type, void* addr);
 
 khandle_t* find_khandle(khandle_map_t* map, uint32_t index);

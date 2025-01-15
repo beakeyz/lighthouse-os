@@ -7,6 +7,7 @@
 #include "mem/kmem.h"
 #include "mem/page_dir.h"
 #include "mem/tracker/tracker.h"
+#include "oss/object.h"
 #include "proc/core.h"
 #include "proc/handle.h"
 #include <libk/string.h>
@@ -14,9 +15,9 @@
 struct penv;
 struct mutex;
 struct thread;
-struct oss_obj;
 struct kresource;
 struct proc_image;
+struct user_profile;
 
 /*
  * proc.h
@@ -61,12 +62,12 @@ inline void proc_image_align(proc_image_t* image)
  */
 typedef struct proc {
     const char* m_name;
-    struct oss_obj* obj;
+    struct oss_object* obj;
     uint32_t m_flags;
     uint32_t m_dt_since_boot;
 
     /* This is used to compare a processes status in relation to other processes */
-    struct penv* m_env;
+    struct user_profile* profile;
     struct proc* m_parent;
     struct mutex* m_lock;
 

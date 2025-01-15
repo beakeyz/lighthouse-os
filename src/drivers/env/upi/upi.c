@@ -107,8 +107,6 @@ upi_listener_t* create_upi_listener(proc_t* proc, upi_pipe_t* pipe, HANDLE pipe_
  */
 void destroy_upi_listener(upi_pipe_t* pipe, upi_listener_t* listener)
 {
-    khandle_t* handle;
-
     if (!listener || !listener->proc)
         return;
 
@@ -117,12 +115,7 @@ void destroy_upi_listener(upi_pipe_t* pipe, upi_listener_t* listener)
 
     mutex_lock(listener->proc->m_handle_map.lock);
 
-    handle = find_khandle(&listener->proc->m_handle_map, listener->pipe_handle);
-
-    if (!handle)
-        goto free_and_exit;
-
-    if (unbind_khandle(&listener->proc->m_handle_map, handle))
+    if (unbind_khandle(&listener->proc->m_handle_map, listener->pipe_handle))
         goto free_and_exit;
 
 free_and_exit:

@@ -311,7 +311,7 @@ int ramfs_destroy(oss_node_t* node)
     return 0;
 }
 
-static struct oss_node_ops ramfs_node_ops = {
+static sruct oss_node_ops ramfs_node_ops = {
     .f_open = ramfs_find,
     .f_close = ramfs_close,
     .f_open_node = ramfs_open_node,

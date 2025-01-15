@@ -45,7 +45,7 @@ bool kterm_is_logged_in();
 int kterm_set_login(struct user_profile* profile);
 int kterm_get_login(struct user_profile** profile);
 
-int kterm_set_cwd(const char* path, struct oss_node* node);
+int kterm_set_cwd(const char* path, sruct oss_node* node);
 
 bool kterm_ismode(enum kterm_mode mode);
 

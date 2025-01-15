@@ -751,7 +751,7 @@ bool kterm_is_logged_in()
 /*!
  * @brief: Set the current working directory
  */
-int kterm_set_cwd(const char* path, struct oss_node* node)
+int kterm_set_cwd(const char* path, sruct oss_node* node)
 {
     int error = 0;
 

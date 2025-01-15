@@ -1,38 +1,18 @@
-# OSS (Object Separation System)
+# OSS (Object Storage System)
 
 A single subsystem that manages path-organised systems like filesystems, events, drivers, devices, ect.
 
-NOTE: this is a concept, it's not yet ready to replace the current classic vfs
+Our kernel needs a way to present its resources and possibilities in a pleasant manner to its processes, just 
+like any kernel. Systems in the past have done this through the philosophy of 'everything is a file' like Unix.
+Unix-like systems provide a unified vfs through which pretty much any part of the system is accessible. Windows
+does... Something? They are weird imo. We're going to attempt to Modernize the idea of a vfs, since we're in 2025
+at the time of writing this and I don't think we need to pretend my keyboard is actually a file, even though it
+is a super elegant way to generalize the system into a consistent whole.
 
 ## System layout
 
-During system runtime it is possible to register oss_nodes that function as the root for a specific type of object. Where a 
-typical vfs consisted of nodes that 'generate' vobjects, we will take a little different approach here.
+NOTE 1: This file has been restructured on the 12th of january; 2025.
+NOTE 2: This system acts as the border between userspace and kernel objects like files or drivers, which is why we need this
+guy to be as stable as possible.
 
-Take the user-available filesystem for example. The oss core will now expose an api similar to vfs_resolve (Which would simply walk
-the vfs tree until it found a node it could query for a vobj) which walks the oss nodes. We want to easily support relative paths,
-so we'll make sure that there is a good API for that. When dealing with absolute paths the following rules apply:
 
-Consider a path that points to a random file on disk. It would look something like this:
-
-```:/Root/System/kterm.drv```
-
-Let's look at how the path is structured:
- - :/ : Specifies that this is an absolute path on the local system
- - Root: The first 'token' of an oss path specifies which oss_node to talk to
- - System/kterm.drv: The oss_node at Root implements a filesystem, so we'll directly pass the rest of the path to this filesystem so it can give us a vobj
-
-This was an example of a classical filesystem access that simply asks for the location of a certain file. Now what if we want
-to access a particular process-provided event? No problem! We can do it with this path:
-
-```:/Events/<proc name>/<event name>```
-
-Structure:
- - :/ : Absolute path specifier
- - Events: The events oss_node. Since this does not specify a autonomous filesystem, we need to keep walking the oss nodes
- - <proc name> : process-provided events are grouped by process name
- - <event name> : and finally the actual eventname we're interested in. This will be vobj that's directly stored on the oss_node
-
- Following this logic, here are a few more quick examples of valid paths:
- (Direct driver access) : ':/Drv/<driver category>/<driver name>'
- (Direct device access) : ':/Dev/<driver category>/<driver name>/<device name>'

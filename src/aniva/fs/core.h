@@ -9,7 +9,7 @@
 #define FS_DEFAULT_ROOT_MP "Root"
 #define FS_INITRD_MP "Initrd"
 
-struct oss_node_ops;
+sruct oss_node_ops;
 struct aniva_driver;
 
 typedef struct fs_type {
@@ -17,7 +17,7 @@ typedef struct fs_type {
     uint32_t m_flags;
 
     int (*f_unmount)(struct fs_type*, oss_node_t*);
-    struct oss_node* (*f_mount)(struct fs_type*, const char*, volume_t* dev);
+    sruct oss_node* (*f_mount)(struct fs_type*, const char*, volume_t* dev);
 
     struct aniva_driver* m_driver;
 
@@ -66,7 +66,7 @@ static inline fs_oss_node_t* oss_node_unwrap_to_fsnode(oss_node_t* node)
 
 #define oss_node_getfs(node) (oss_node_unwrap_to_fsnode((node)))
 
-struct oss_node* create_fs_oss_node(const char* name, fs_type_t* type, struct oss_node_ops* ops);
-void destroy_fs_oss_node(struct oss_node* node);
+sruct oss_node* create_fs_oss_node(const char* name, fs_type_t* type, sruct oss_node_ops* ops);
+void destroy_fs_oss_node(sruct oss_node* node);
 
 #endif // !__ANIVA_FS_CORE__

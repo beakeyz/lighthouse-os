@@ -6,7 +6,7 @@
 #include <fs/core.h>
 #include <libk/stddef.h>
 
-struct oss_node;
+sruct oss_node;
 struct fat_file;
 struct fat_file_ops;
 
@@ -174,7 +174,7 @@ typedef struct {
  * TODO: should this hold caches?
  */
 typedef struct fat_fs_info {
-    struct oss_node* node;
+    sruct oss_node* node;
 
     uint8_t fats, fat_type; /* FAT count and bits of this FAT fs (12, 16, 32) */
     uint8_t fat_file_shift, has_dirty;

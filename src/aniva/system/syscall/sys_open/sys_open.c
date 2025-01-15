@@ -1,7 +1,6 @@
 #include "dev/core.h"
 #include "libk/flow/error.h"
 #include "lightos/api/dynldr.h"
-#include <lightos/types.h>
 #include "lightos/api/handle.h"
 #include "lightos/syscall.h"
 #include "mem/kmem.h"
@@ -9,6 +8,7 @@
 #include "proc/hdrv/driver.h"
 #include "proc/proc.h"
 #include "sched/scheduler.h"
+#include <lightos/types.h>
 #include <proc/env.h>
 
 /*
@@ -97,19 +97,13 @@ void* sys_get_function(HANDLE lib_handle, const char __user* path)
 
 error_t sys_close(HANDLE handle)
 {
-    khandle_t* c_handle;
     kerror_t error;
     proc_t* current_process;
 
     current_process = get_current_proc();
 
-    c_handle = find_khandle(&current_process->m_handle_map, handle);
-
-    if (!c_handle)
-        return EINVAL;
-
     /* Destroying the khandle */
-    error = unbind_khandle(&current_process->m_handle_map, c_handle);
+    error = unbind_khandle(&current_process->m_handle_map, handle);
 
     if (error)
         return EINVAL;

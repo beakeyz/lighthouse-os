@@ -1,16 +1,11 @@
 #include "handle.h"
-#include "fs/dir.h"
-#include "fs/file.h"
 #include "libk/flow/error.h"
 #include "lightos/api/handle.h"
 #include "logging/log.h"
-#include "oss/obj.h"
 #include "proc/hdrv/driver.h"
 #include "sync/mutex.h"
-#include "system/sysvar/var.h"
 #include <dev/driver.h>
 #include <mem/kmem.h>
-#include <proc/env.h>
 #include <proc/proc.h>
 
 void init_khandle(khandle_t* out_handle, HANDLE_TYPE* type, void* ref)
@@ -67,28 +62,6 @@ void khandle_set_flags(khandle_t* handle, uint32_t flags)
         return;
 
     handle->flags = flags;
-}
-
-struct oss_node* khandle_get_relative_node(khandle_t* handle)
-{
-    switch (handle->type) {
-    case HNDL_TYPE_PROC:
-        if (!handle->reference.process->m_env)
-            return NULL;
-
-        return handle->reference.process->m_env->node;
-    case HNDL_TYPE_PROC_ENV:
-        return handle->reference.penv->node;
-    case HNDL_TYPE_DIR:
-        return handle->reference.dir->node;
-    case HNDL_TYPE_PROFILE:
-        return handle->reference.profile->node;
-        break;
-    default:
-        break;
-    }
-
-    return NULL;
 }
 
 /*
@@ -332,7 +305,7 @@ unlock_and_success:
 }
 
 /* NOTE: mutates the handle to clear the index */
-kerror_t unbind_khandle(khandle_map_t* map, khandle_t* handle)
+kerror_t unbind_khandle(khandle_map_t* map, u32 handle)
 {
     khandle_t* _handle;
 
@@ -341,18 +314,19 @@ kerror_t unbind_khandle(khandle_map_t* map, khandle_t* handle)
     if (!map || !handle)
         goto error_and_unlock;
 
-    _handle = &map->handles[handle->index];
-
-    /* WTF */
-    if (_handle != handle)
+    /* Make sure this guy fits inside our map */
+    if (handle >= map->max_count)
         goto error_and_unlock;
 
-    /*
-    map->next_free_index ^= _handle->index;
-    _handle->index ^= map->next_free_index;
-    map->next_free_index ^= _handle->index;
-    */
+    /* Check the handle thats currently here */
+    _handle = &map->handles[handle];
 
+    /* Swap the indices */
+    // map->next_free_index ^= _handle->index;
+    //  _handle->index ^= map->next_free_index;
+    //  map->next_free_index ^= _handle->index;
+
+    /* Store the thing here */
     map->next_free_index = _handle->index;
 
     /*

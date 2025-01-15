@@ -3,13 +3,12 @@
 #include "kevent/types/proc.h"
 #include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"
-#include "logging/log.h"
+#include "lightos/api/objects.h"
 #include "mem/kmem.h"
 #include "mem/zalloc/zalloc.h"
+#include "oss/connection.h"
 #include "oss/core.h"
-#include "oss/node.h"
-#include "oss/obj.h"
-#include "proc/env.h"
+#include "oss/object.h"
 #include "proc/hdrv/driver.h"
 #include "proc/proc.h"
 #include "proc/thread.h"
@@ -23,6 +22,7 @@
 
 // TODO: fix this mechanism, it sucks
 static zone_allocator_t* __thread_allocator;
+static oss_object_t* __proc_root_obj;
 
 struct thread* spawn_thread(char* name, enum SCHEDULER_PRIORITY prio, FuncPtr entry, uint64_t arg0)
 {
@@ -57,57 +57,32 @@ struct thread* spawn_thread(char* name, enum SCHEDULER_PRIORITY prio, FuncPtr en
 /*!
  * @brief: Find a process through oss
  *
- * Processes get attached to oss at the Runtime/ rootnode, under the node of the
- * userprofile they where created under, and inside the process environment they
- * have for themselves. Environment have the name of the process that created them
- * and are suffixed with the process_id of that process, in order to avoid duplicate
- * environment names
+ * Processes live in oss under the Proc root object. They are simply attached to this node
+ * by name and any sysvars will be directly connected to them
  */
 proc_t* find_proc(const char* path)
 {
-    oss_obj_t* obj;
+    oss_object_t* obj;
 
-    if (!path)
+    /* Try to find this object in oss */
+    if (oss_open_object(path, &obj))
         return nullptr;
 
-    obj = nullptr;
-
-    if (KERR_ERR(oss_resolve_obj(path, &obj)))
+    if (!obj || obj->type != OT_PROCESS) {
+        oss_object_close(obj);
         return nullptr;
+    }
 
-    if (!obj)
-        return nullptr;
-
-    if (obj->type != OSS_OBJ_TYPE_PROC)
-        return nullptr;
-
-    /* Yay this object contains our thing =D */
-    return oss_obj_unwrap(obj, proc_t);
+    /*
+     * This object is a process object! Return the private field which
+     * (hopefully still) contains our process object
+     */
+    return obj->private;
 }
 
 uint32_t get_proc_count()
 {
     return runtime_get_proccount();
-}
-
-static bool __env_itterate(oss_node_t* node, oss_obj_t* obj, void* param)
-{
-    bool (*f_callback)(struct proc*) = param;
-
-    if (!obj || obj->type != OSS_OBJ_TYPE_PROC)
-        return true;
-
-    return f_callback(obj->priv);
-}
-
-static bool __profile_itterate(oss_node_t* node, oss_obj_t* obj, void* param)
-{
-    if (!node)
-        return true;
-
-    oss_node_itterate(node, __env_itterate, param);
-
-    return true;
 }
 
 /*!
@@ -123,15 +98,40 @@ static bool __profile_itterate(oss_node_t* node, oss_obj_t* obj, void* param)
  */
 bool foreach_proc(bool (*f_callback)(struct proc*), struct proc** presult)
 {
-    user_profile_t* profiles[2] = {
-        get_user_profile(),
-        get_admin_profile(),
-    };
+    bool result;
+    oss_connection_t* conn;
+    oss_object_t* proc_obj;
 
-    for (int i = 0; i < arrlen(profiles); i++)
-        oss_node_itterate(profiles[i]->node, __profile_itterate, f_callback);
+    if (oss_open_object("Proc", &proc_obj))
+        return false;
 
-    return true;
+    mutex_lock(proc_obj->lock);
+
+    /* Loop over all this guys connections */
+    FOREACH(i, proc_obj->connections)
+    {
+        conn = i->data;
+
+        /* Skip any upstream connections (How thefuck would that happen but sure) */
+        if (oss_connection_is_upstream(conn, proc_obj))
+            continue;
+
+        if (conn->child->type != OT_PROCESS)
+            continue;
+
+        /* Call the callback here */
+        result = f_callback(conn->child->private);
+
+        /* Just dip if the callback returns false */
+        if (!result)
+            break;
+    }
+
+    mutex_unlock(proc_obj->lock);
+
+    oss_object_close(proc_obj);
+
+    return result;
 }
 
 thread_t* find_thread(proc_t* proc, thread_id_t tid)
@@ -153,31 +153,6 @@ thread_t* find_thread(proc_t* proc, thread_id_t tid)
     return nullptr;
 }
 
-static int _assign_penv(proc_t* proc, user_profile_t* profile)
-{
-    int error;
-    penv_t* env;
-
-    /* If at this point we don't have a profile, default to user */
-    if (!profile)
-        profile = get_user_profile();
-
-    /* Create a environment in the user profile */
-    env = proc->m_env;
-
-    if (!env)
-        return -1;
-
-    /* Add to the profile */
-    error = profile_add_penv(profile, env);
-
-    /* Can't add this environment to the profile (duplicate?) */
-    if (error)
-        return error;
-
-    return 0;
-}
-
 /*!
  * @brief: Register a process to the kernel
  */
@@ -189,8 +164,9 @@ kerror_t proc_register(struct proc* proc, user_profile_t* profile)
 
     mutex_lock(proc->m_lock);
 
-    /* Try to assign a process environment */
-    error = _assign_penv(proc, profile);
+    error = oss_object_connect(__proc_root_obj, proc->obj);
+
+    proc->profile = profile;
 
     mutex_unlock(proc->m_lock);
 
@@ -279,6 +255,8 @@ void deallocate_thread(thread_t* thread)
 ANIVA_STATUS init_proc_core()
 {
     __thread_allocator = create_zone_allocator(128 * Kib, sizeof(thread_t), NULL);
+
+    oss_open_object("Proc", &__proc_root_obj);
 
     /*
      * System variables are an integral part of the process core,

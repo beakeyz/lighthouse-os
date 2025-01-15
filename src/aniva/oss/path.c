@@ -8,8 +8,15 @@ int oss_parse_path(const char* path, oss_path_t* p_path)
     return oss_parse_path_ex(path, p_path, _OSS_PATH_SLASH);
 }
 
+static inline bool __should_count_subpath(const char* start_ptr, const char* end_ptr)
+{
+    return ((u64)(end_ptr - start_ptr) >= 1 && *start_ptr != _OSS_PATH_SKIP);
+}
+
 /*!
  * @brief: Function to parse a path into tokens
+ *
+ * @returns: A negative error code if the error had to with path integity
  */
 int oss_parse_path_ex(const char* path, oss_path_t* p_path, char seperator)
 {
@@ -35,7 +42,7 @@ int oss_parse_path_ex(const char* path, oss_path_t* p_path, char seperator)
          */
         if (*c_char_ptr == seperator || *c_char_ptr == NULL) {
 
-            if ((u64)(c_char_ptr - delta_ptr) >= 1)
+            if (__should_count_subpath(delta_ptr, c_char_ptr))
                 n_subpath++;
 
             /* Update the delta pointer to our location */
@@ -43,6 +50,10 @@ int oss_parse_path_ex(const char* path, oss_path_t* p_path, char seperator)
         }
 
     } while (*c_char_ptr);
+
+    /* No subpaths. exit */
+    if (!n_subpath)
+        return ENOENT;
 
     p_path->subpath_vec = kmalloc(n_subpath * sizeof(const char*));
 
@@ -65,28 +76,29 @@ int oss_parse_path_ex(const char* path, oss_path_t* p_path, char seperator)
          */
         if (*c_char_ptr == seperator || *c_char_ptr == NULL) {
 
+            if (!__should_count_subpath(delta_ptr, c_char_ptr))
+                goto skip_subpath;
+
             /* Compute the delta between the pointers */
             c_delta = (u32)(c_char_ptr - delta_ptr);
 
-            /* If there is more than one byte between the two pointers, we can save a subpath */
-            if (c_delta >= 1) {
-                /* Allocate space */
-                p_path->subpath_vec[n_subpath] = kmalloc(c_delta + 1);
+            /* Allocate space */
+            p_path->subpath_vec[n_subpath] = kmalloc(c_delta + 1);
 
-                /* Fuck, abort */
-                if (!p_path->subpath_vec[n_subpath])
-                    break;
+            /* Fuck, abort */
+            if (!p_path->subpath_vec[n_subpath])
+                break;
 
-                /* Copy the subpath */
-                strncpy(p_path->subpath_vec[n_subpath], delta_ptr, c_delta);
+            /* Copy the subpath */
+            strncpy(p_path->subpath_vec[n_subpath], delta_ptr, c_delta);
 
-                /* Terminate the string */
-                p_path->subpath_vec[n_subpath][c_delta] = NULL;
+            /* Terminate the string */
+            p_path->subpath_vec[n_subpath][c_delta] = NULL;
 
-                /* Increment the counter */
-                n_subpath++;
-            }
+            /* Increment the counter */
+            n_subpath++;
 
+        skip_subpath:
             /* Update the delta pointer to our location */
             delta_ptr = c_char_ptr + 1;
         }

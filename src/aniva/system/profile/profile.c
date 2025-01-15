@@ -231,7 +231,7 @@ int profiles_unlock_activation(uint32_t key)
     return 0;
 }
 
-int profile_find_from(struct oss_node* rel_node, const char* name, user_profile_t** bprofile)
+int profile_find_from(sruct oss_node* rel_node, const char* name, user_profile_t** bprofile)
 {
     int error;
     user_profile_t* profile;

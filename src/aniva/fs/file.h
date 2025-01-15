@@ -1,7 +1,9 @@
 #ifndef __ANIVA_FIL_IMPL__
 #define __ANIVA_FIL_IMPL__
 #include "dev/disk/shared.h"
+#include "lightos/api/objects.h"
 #include "mem/page_dir.h"
+#include "oss/object.h"
 #include <sync/mutex.h>
 
 /*
@@ -21,11 +23,10 @@
  */
 
 struct file;
-struct oss_obj;
-struct oss_node;
 
 typedef struct file_ops {
     int (*f_sync)(struct file* file);
+    /* TODO: Standardize the offset-buffer-size order of read/write functions */
     int (*f_read)(struct file* file, void* buffer, size_t* size, uintptr_t offset);
     int (*f_write)(struct file* file, void* buffer, size_t* size, uintptr_t offset);
     /* Allocate a part of the file into a buffer and map that buffer to the specefied page dir */
@@ -78,7 +79,7 @@ typedef struct file {
     uintptr_t m_scatter_count;
 
     /* The files parent object */
-    struct oss_obj* m_obj;
+    oss_object_t* m_obj;
 
     file_ops_t* m_ops;
 
@@ -97,8 +98,12 @@ typedef struct file {
     size_t m_logical_size;
 } file_t;
 
-file_t* create_file(struct oss_node* parent, uint32_t flags, const char* path);
-void destroy_file(file_t* file);
+static inline file_t* get_file_from_object(oss_object_t* object)
+{
+    return ((object && object->type == OT_FILE) ? object->private : nullptr);
+}
+
+file_t* create_file(oss_object_t* parent, uint32_t flags, const char* path);
 
 void file_set_ops(file_t* file, file_ops_t* ops);
 
@@ -107,7 +112,7 @@ size_t file_write(file_t* file, void* buffer, size_t size, uintptr_t offset);
 int file_sync(file_t* file);
 
 file_t* file_open(const char* path);
-file_t* file_open_from(struct oss_node* node, const char* path);
+file_t* file_open_from(oss_object_t* node, const char* path);
 int file_close(file_t* file);
 
 /*!

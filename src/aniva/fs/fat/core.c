@@ -929,7 +929,7 @@ static int fat_destroy(oss_node_t* node)
     return 0;
 }
 
-static struct oss_node_ops fat_node_ops = {
+static sruct oss_node_ops fat_node_ops = {
     .f_msg = fat_msg,
     .f_create_entry = fat_create,
     .f_open = fat_open,

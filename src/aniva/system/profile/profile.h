@@ -1,6 +1,7 @@
 #ifndef __ANIVA_PROC_PROFILE__
 #define __ANIVA_PROC_PROFILE__
 
+#include "oss/object.h"
 #include "sync/mutex.h"
 #include "system/profile/attr.h"
 #include "system/sysvar/map.h"
@@ -8,7 +9,6 @@
 #include <libk/stddef.h>
 
 struct proc;
-struct oss_node;
 struct pattr;
 
 /*
@@ -65,7 +65,7 @@ typedef struct user_profile {
     const char* name;
     const char* image_path;
     /* This node holds both the environments of this profile AND the variables local to the profile */
-    struct oss_node* node;
+    oss_object_t* node;
 
     /* Privilege attributes for this profile */
     struct pattr attr;
@@ -106,7 +106,7 @@ int profiles_lock_activation(uint32_t* key);
 int profiles_unlock_activation(uint32_t key);
 
 int profile_find(const char* name, user_profile_t** bprofile);
-int profile_find_from(struct oss_node* node, const char* name, user_profile_t** bprofile);
+int profile_find_from(oss_object_t* node, const char* name, user_profile_t** bprofile);
 int profile_find_var(const char* path, struct sysvar** var);
 int profile_get_var(user_profile_t* profile, const char* key, struct sysvar** var);
 int profile_add_penv(user_profile_t* profile, struct penv* env);

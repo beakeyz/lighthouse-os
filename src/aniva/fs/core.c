@@ -108,7 +108,7 @@ fs_type_t* get_fs_type(const char* name)
     return ret;
 }
 
-struct oss_node* create_fs_oss_node(const char* name, fs_type_t* type, struct oss_node_ops* ops)
+sruct oss_node* create_fs_oss_node(const char* name, fs_type_t* type, sruct oss_node_ops* ops)
 {
     oss_node_t* node;
     fs_oss_node_t* fsnode;
@@ -151,7 +151,7 @@ dealloc_and_fail:
  *
  * This assumes that the internals of the fsnode are already destroyed
  */
-void destroy_fs_oss_node(struct oss_node* node)
+void destroy_fs_oss_node(sruct oss_node* node)
 {
     fs_oss_node_t* fsnode;
 

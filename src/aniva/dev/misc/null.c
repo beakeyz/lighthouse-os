@@ -2,9 +2,7 @@
 #include "dev/device.h"
 #include "dev/driver.h"
 #include "lightos/api/device.h"
-#include "oss/node.h"
-#include "oss/obj.h"
-#include "system/profile/attr.h"
+#include "oss/object.h"
 #include <libk/string.h>
 
 device_t* null_device;
@@ -43,7 +41,7 @@ static device_ctl_node_t null_ctl[] = {
     DEVICE_CTL_END,
 };
 
-void init_null_device(oss_node_t* dev_node)
+void init_null_device(oss_object_t* dev_node)
 {
     /* ??? */
     if (!dev_node)
@@ -55,8 +53,8 @@ void init_null_device(oss_node_t* dev_node)
         return;
 
     /* Reset the priv level, so anyone can access this device */
-    oss_obj_set_priv_levels(null_device->obj, PROFILE_TYPE_LIMITED, NULL);
+    // oss_obj_set_priv_levels(null_device->obj, PROFILE_TYPE_LIMITED, NULL);
 
     /* Add this object to the %/Dev node */
-    oss_node_add_obj(dev_node, null_device->obj);
+    oss_object_connect(dev_node, null_device->obj);
 }

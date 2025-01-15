@@ -1,15 +1,15 @@
 #ifndef __ANIVA_VARIABLE__
 #define __ANIVA_VARIABLE__
 
+#include "oss/object.h"
 #include <libk/stddef.h>
+#include <lightos/api/sysvar.h>
+#include <mem/tracker/tracker.h>
 #include <sync/atomic_ptr.h>
 #include <system/profile/attr.h>
-#include <mem/tracker/tracker.h>
-#include <lightos/api/sysvar.h>
 
 struct user_profile;
 struct penv;
-struct oss_obj;
 
 /*
  * Profile variables
@@ -29,7 +29,7 @@ struct oss_obj;
  * of it's key
  */
 typedef struct sysvar {
-    struct oss_obj* obj;
+    oss_object_t* object;
     const char* key;
     union {
         /* Most basic values of a sysvar. These can be read almost directly, without having to do weird buffer shit */
@@ -49,8 +49,7 @@ typedef struct sysvar {
     };
     enum SYSVAR_TYPE type;
     uint32_t flags;
-    uint32_t len;
-    uint32_t refc;
+    size_t len;
 } sysvar_t;
 
 void init_sysvars(void);
@@ -69,8 +68,6 @@ u16 sysvar_read_u16(sysvar_t* var);
 u8 sysvar_read_u8(sysvar_t* var);
 
 const char* sysvar_read_str(sysvar_t* var);
-
-struct penv* sysvar_get_parent_env(sysvar_t* var);
 
 /* These routines enable anyone to read/write anything to a sysvar, as long as it's inside the bounds of its size */
 error_t sysvar_write(sysvar_t* var, void* buffer, size_t length);

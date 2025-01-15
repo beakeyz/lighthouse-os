@@ -5,25 +5,28 @@
 #include "dev/group.h"
 #include "dev/misc/null.h"
 #include "dev/usb/usb.h"
-#include "lightos/api/device.h"
 #include "libk/flow/error.h"
-#include "libk/stddef.h"
+#include "lightos/api/device.h"
+#include "lightos/api/objects.h"
 #include "mem/heap.h"
 #include "oss/core.h"
-#include "oss/node.h"
-#include "oss/obj.h"
+#include "oss/object.h"
 #include "sync/mutex.h"
 #include "system/acpi/acpi.h"
 #include <libk/string.h>
 
-static oss_node_t* _device_node;
+static oss_object_t* _device_object;
 
-static void __destroy_device(device_t* device);
+static int __destroy_device(oss_object_t* device);
 
 device_t* create_device(driver_t* parent, char* name, void* priv)
 {
     return create_device_ex(parent, name, priv, DEVICE_CTYPE_SOFTDEV, NULL, NULL);
 }
+
+static oss_object_ops_t device_oss_ops = {
+    .f_Destroy = __destroy_device,
+};
 
 /*!
  * @brief: Allocate memory for a device on @path
@@ -51,7 +54,7 @@ device_t* create_device_ex(struct driver* parent, char* name, void* priv, enum D
     ret->name = strdup(name);
     ret->lock = create_mutex(NULL);
     ret->ep_lock = create_mutex(NULL);
-    ret->obj = create_oss_obj(ret->name);
+    ret->obj = create_oss_object(ret->name, OF_NO_DISCON, OT_DEVICE, &device_oss_ops, ret);
     ret->drivers[0] = parent;
     ret->flags = flags;
     ret->private = priv;
@@ -60,9 +63,6 @@ device_t* create_device_ex(struct driver* parent, char* name, void* priv, enum D
 
     if (ctl_list)
         device_impl_ctl_n(ret, parent, ctl_list);
-
-    /* Make sure the object knows about us */
-    oss_obj_register_child(ret->obj, ret, OSS_OBJ_TYPE_DEVICE, __destroy_device);
 
     /* Make sure we register ourselves to the driver */
     if (parent)
@@ -89,8 +89,15 @@ device_t* create_device_ex(struct driver* parent, char* name, void* priv, enum D
  * NOTE: devices don't have ownership of the memory of their parents EVER, thus
  * we don't destroy device->parent
  */
-void __destroy_device(device_t* device)
+int __destroy_device(oss_object_t* object)
 {
+    device_t* device;
+
+    if (!object || !object->private || object->type != OT_DEVICE)
+        return -EINVAL;
+
+    device = object->private;
+
     /* Let the system know that there was a driver removed */
     device_clear_drivers(device);
 
@@ -102,6 +109,7 @@ void __destroy_device(device_t* device)
     memset(device, 0, sizeof(*device));
 
     kfree(device);
+    return 0;
 }
 
 /*!
@@ -112,11 +120,11 @@ void destroy_device(device_t* device)
     /* Send a destroy control code to the driver */
     (void)device_send_ctl(device, DEVICE_CTLC_DESTROY);
 
-    if (device->obj->parent)
-        device_unregister(device);
+    /* Unregister the device */
+    device_unregister(device);
 
-    /* Destroy the parent object */
-    destroy_oss_obj(device->obj);
+    /* Close the parent object */
+    oss_object_close(device->obj);
 }
 
 /*!
@@ -184,15 +192,15 @@ kerror_t device_clear_drivers(device_t* device)
 /*!
  * @brief: Add a new dgroup to the device node
  */
-int device_node_add_group(struct oss_node* node, dgroup_t* group)
+int device_node_add_group(oss_object_t* node, dgroup_t* group)
 {
-    if (!group || !group->node)
+    if (!group || !group->object)
         return -1;
 
     if (!node)
-        node = _device_node;
+        node = _device_object;
 
-    return oss_node_add_node(node, group->node);
+    return oss_object_connect(node, group->object);
 }
 
 /*!
@@ -202,14 +210,23 @@ int device_node_add_group(struct oss_node* node, dgroup_t* group)
  */
 int device_register(device_t* dev, dgroup_t* group)
 {
-    oss_node_t* node;
+    error_t error;
+    oss_object_t* node;
 
-    node = _device_node;
+    node = _device_object;
 
     if (group)
-        node = group->node;
+        node = group->object;
 
-    return oss_node_add_obj(node, dev->obj);
+    error = oss_object_connect(node, dev->obj);
+
+    if (error)
+        return error;
+
+    /* Yes, do the thing lol */
+    dev->group = group;
+
+    return 0;
 }
 
 /*!
@@ -291,38 +308,6 @@ int device_move_to_bus(device_t* dev, device_t* newbus)
     return device_move(dev, newbus->bus_group);
 }
 
-static bool __device_itterate(oss_node_t* node, oss_obj_t* obj, void* arg)
-{
-    DEVICE_ITTERATE ittr;
-
-    if (!arg)
-        return false;
-
-    ittr = arg;
-
-    /* If we have an object, we hope for it to be a device */
-    if (obj && obj->type == OSS_OBJ_TYPE_DEVICE)
-        return ittr(oss_obj_unwrap(obj, device_t));
-
-    return true;
-}
-
-int device_for_each(struct dgroup* root, DEVICE_ITTERATE callback)
-{
-    oss_node_t* this;
-
-    if (!callback)
-        return -KERR_INVAL;
-
-    /* Start itteration from the device root if there is no itteration root given through @root */
-    this = _device_node;
-
-    if (root)
-        this = root->node;
-
-    return oss_node_itterate(this, __device_itterate, callback);
-}
-
 /*!
  * @brief: Open a device from oss
  *
@@ -331,30 +316,26 @@ int device_for_each(struct dgroup* root, DEVICE_ITTERATE callback)
 device_t* device_open(const char* path)
 {
     int error;
-    oss_obj_t* obj;
-    device_t* ret;
+    oss_object_t* obj;
 
-    error = oss_resolve_obj(path, &obj);
+    error = oss_open_object(path, &obj);
 
     if (error || !obj)
         return nullptr;
 
-    ret = oss_obj_get_device(obj);
+    if (obj->private && obj->type == OT_DEVICE)
+        return obj->private;
 
-    /* If the object is invalid we have to close it */
-    if (!ret) {
-        oss_obj_close(obj);
-        /* Make sure we return NULL no matter what */
-        ret = nullptr;
-    }
+    /* Close the bastard again =( */
+    oss_object_close(obj);
 
-    return ret;
+    return nullptr;
 }
 
 int device_close(device_t* dev)
 {
     /* TODO: ... */
-    return oss_obj_close(dev->obj);
+    return oss_object_close(dev->obj);
 }
 
 /*!
@@ -403,11 +384,14 @@ kerror_t device_rename(device_t* dev, const char* newname)
 {
     kerror_t error;
 
+    kernel_panic("TODO: impl device_rename");
+
     if (!dev || !newname)
         return -KERR_INVAL;
 
     /* Rename the object */
-    error = oss_obj_rename(dev->obj, newname);
+    // error = oss_obj_rename(dev->obj, newname);
+    error = 0;
 
     /* This would be bad lololololol */
     if (error)
@@ -432,18 +416,10 @@ kerror_t device_rename(device_t* dev, const char* newname)
  */
 int device_get_group(device_t* dev, struct dgroup** group_out)
 {
-    oss_node_t* dev_parent_node;
+    if (!dev->group)
+        return -ENOENT;
 
-    if (!dev || !group_out)
-        return -1;
-
-    dev_parent_node = dev->obj->parent;
-
-    if (dev_parent_node->type != OSS_GROUP_NODE)
-        return -2;
-
-    /* This node is of type group node, so we may assume it's private field is a devicegroup */
-    *group_out = dev_parent_node->priv;
+    *group_out = dev->group;
     return 0;
 }
 
@@ -682,29 +658,9 @@ int device_disable(device_t* dev)
     return error;
 }
 
-static void print_obj_path(oss_node_t* node)
-{
-    if (node) {
-        print_obj_path(node->parent);
-        printf("/%s", node->name);
-    }
-}
-
-static bool _itter(device_t* dev)
-{
-    oss_obj_t* obj = dev->obj;
-
-    if (obj) {
-        print_obj_path(obj->parent);
-        printf("/%s\n", obj->name);
-    }
-
-    return true;
-}
-
 void debug_devices()
 {
-    device_for_each(NULL, _itter);
+    // device_for_each(NULL, _itter);
 
     kernel_panic("debug_devices");
 }
@@ -721,13 +677,11 @@ void debug_devices()
 void init_devices()
 {
     /* Initialize an OSS endpoint for device access and storage */
-    _device_node = create_oss_node("Dev", OSS_OBJ_STORE_NODE, NULL, NULL);
-
-    ASSERT_MSG(oss_attach_rootnode(_device_node) == 0, "Failed to attach device node");
+    oss_open_object("Devices", &_device_object);
 
     init_dgroups();
 
-    init_null_device(_device_node);
+    init_null_device(_device_object);
 
     /* Enumerate devices */
 }

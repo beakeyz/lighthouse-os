@@ -3,10 +3,11 @@
 #include "driver.h"
 #include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"
+#include "lightos/api/objects.h"
 #include "logging/log.h"
 #include "mem/zalloc/zalloc.h"
 #include "oss/core.h"
-#include "oss/obj.h"
+#include "oss/object.h"
 #include "proc/core.h"
 #include "proc/thread.h"
 #include "sched/scheduler.h"
@@ -14,10 +15,13 @@
 #include "system/processor/processor.h"
 #include <entry/entry.h>
 #include <mem/heap.h>
-#include <oss/node.h>
 
-static oss_node_t* __driver_node;
+/* Object where all driver objects will be connected to */
+static oss_object_t* __driver_object;
+/* Allocator where we get our drivers from */
 static zone_allocator_t* __driver_allocator;
+/* List where we store all driver objects for linearity or sm */
+static list_t* __driver_list;
 
 /* This lock protects the core driver registry */
 static mutex_t* __core_driver_lock;
@@ -109,18 +113,18 @@ static dev_constraint_t __dev_constraints[DRIVER_TYPE_COUNT] = {
 
 static list_t* __deferred_driver_drivers;
 
-static bool __load_precompiled_driver(driver_t* driver)
+static error_t __load_precompiled_driver(driver_t* driver)
 {
     if (!driver)
-        return false;
+        return -EINVAL;
 
     /* Trust that this will be loaded later */
-    if (driver->m_flags & DRV_DEFERRED)
-        return true;
+    if ((driver->m_flags & DRV_DEFERRED) == DRV_DEFERRED)
+        return 0;
 
     /* Skip already loaded drivers */
     if ((driver->m_flags & DRV_LOADED) == DRV_LOADED)
-        return true;
+        return 0;
 
     driver_gather_dependencies(driver);
 
@@ -133,17 +137,19 @@ static bool __load_precompiled_driver(driver_t* driver)
     return true;
 }
 
-static bool walk_precompiled_drivers_to_load(oss_node_t* node, oss_obj_t* data, void* arg)
+static error_t __load_precompiled_drivers()
 {
-    driver_t* driver;
+    driver_t* drv;
 
-    /* Walk recursively */
-    if (node)
-        return !oss_node_itterate(node, walk_precompiled_drivers_to_load, arg);
+    FOREACH(i, __driver_list)
+    {
+        drv = i->data;
 
-    driver = oss_obj_unwrap(data, driver_t);
+        if (__load_precompiled_driver(drv))
+            return -ENODRV;
+    }
 
-    return __load_precompiled_driver(driver);
+    return 0;
 }
 
 driver_t* allocate_ddriver()
@@ -220,16 +226,17 @@ kerror_t install_driver(driver_t* driver)
     if (is_driver_installed(driver))
         goto fail_and_exit;
 
-    error = oss_attach_obj_rel(__driver_node, driver->m_url, driver->m_obj);
+    error = oss_object_connect(__driver_object, driver->m_obj);
 
     if (error)
         goto fail_and_exit;
 
     /* Mark this driver as deferred, so that we can delay its loading */
-    if (__deferred_driver_drivers && __should_defer(driver)) {
-        list_append(__deferred_driver_drivers, driver);
+    if (__deferred_driver_drivers && __should_defer(driver))
         driver->m_flags |= DRV_DEFERRED;
-    }
+
+    /* Add this driver to our giant driver list */
+    list_append(__driver_list, driver);
 
     return (0);
 
@@ -379,14 +386,14 @@ kerror_t unload_driver(dev_url_t url)
 {
     int error;
     driver_t* driver;
-    oss_obj_t* obj;
+    oss_object_t* obj;
 
-    error = oss_resolve_obj_rel(__driver_node, url, &obj);
+    error = oss_open_object_from(url, __driver_object, &obj);
 
-    if (error && !obj)
+    if (error || !obj || obj->type != OT_DRIVER)
         return -1;
 
-    driver = oss_obj_unwrap(obj, driver_t);
+    driver = obj->private;
 
     if (!verify_driver(driver))
         return -1;
@@ -422,16 +429,16 @@ bool is_driver_loaded(driver_t* driver)
 bool is_driver_installed(driver_t* driver)
 {
     bool is_installed;
-    oss_obj_t* entry;
+    oss_object_t* entry;
 
-    if (!__driver_node || !driver)
+    if (!driver)
         return false;
 
     entry = nullptr;
 
-    is_installed = (oss_resolve_obj_rel(__driver_node, driver->m_url, &entry) == 0 && entry != nullptr);
+    is_installed = (oss_open_object_from(driver->m_url, __driver_object, &entry) == 0 && entry != nullptr);
 
-    (void)oss_obj_close(entry);
+    (void)oss_object_close(entry);
 
     return is_installed;
 }
@@ -447,18 +454,18 @@ bool is_driver_installed(driver_t* driver)
 driver_t* get_driver(dev_url_t url)
 {
     int error;
-    oss_obj_t* obj;
+    oss_object_t* obj;
 
-    if (!__driver_node || !url)
+    if (!url)
         return nullptr;
 
-    error = oss_resolve_obj_rel(__driver_node, url, &obj);
+    error = oss_open_object_from(url, __driver_object, &obj);
 
-    if (error || !obj)
+    if (error || !obj || obj->type != OT_DRIVER)
         return nullptr;
 
     /* driver should be packed into the object */
-    return oss_obj_unwrap(obj, driver_t);
+    return obj->private;
 }
 
 size_t get_driver_type_count(enum DRIVER_TYPE type)
@@ -486,23 +493,9 @@ struct __drv_from_addr_info {
     vaddr_t addr;
 };
 
-static bool __get_drv_from_addr_cb(oss_node_t* node, oss_obj_t* obj, void* arg)
+static bool __get_drv_from_addr_cb(driver_t* driver, void* arg)
 {
-    driver_t* driver;
     struct __drv_from_addr_info* info = arg;
-
-    if (node)
-        return !oss_node_itterate(node, __get_drv_from_addr_cb, arg);
-
-    if (!obj)
-        return true;
-
-    /* Grab the driver */
-    driver = oss_obj_unwrap(obj, driver_t);
-
-    /* Check if this object even is a driver */
-    if (obj->type != OSS_OBJ_TYPE_DRIVER || !driver)
-        return true;
 
     /* If this address is not in the drivers range, go next */
     if (info->addr < driver->load_base || info->addr > (driver->load_base + driver->load_size))
@@ -573,11 +566,8 @@ kerror_t driver_set_ready(const char* path)
     return (0);
 }
 
-kerror_t foreach_driver(bool (*callback)(oss_node_t* h, oss_obj_t* obj, void* arg0), void* arg0)
+kerror_t foreach_driver(bool (*callback)(struct driver* drv, void* arg), void* arg)
 {
-    if (oss_node_itterate(__driver_node, callback, arg0))
-        return -1;
-
     return (0);
 }
 
@@ -717,18 +707,14 @@ exit_fail:
  */
 void init_aniva_driver_registry()
 {
-    __driver_node = create_oss_node("Drv", OSS_OBJ_STORE_NODE, NULL, NULL);
+    oss_open_object("Drivers", &__driver_object);
+
     __driver_allocator = create_zone_allocator_ex(nullptr, NULL, driver_SOFTMAX * sizeof(driver_t), sizeof(driver_t), NULL);
+    __driver_list = init_list();
     __deferred_driver_drivers = init_list();
 
     __driver_constraint_lock = create_mutex(NULL);
     __core_driver_lock = create_mutex(NULL);
-
-    /*
-     * Attach the node to the rootmap
-     * Access is now granted through Drv/<type>/<name>
-     */
-    oss_attach_rootnode(__driver_node);
 
     FOREACH_CORE_DRV(ptr)
     {
@@ -746,7 +732,7 @@ void init_aniva_driver_registry()
     }
 
     /* First load pass */
-    oss_node_itterate(__driver_node, walk_precompiled_drivers_to_load, NULL);
+    __load_precompiled_drivers();
 
     // Install exported drivers
     FOREACH_PCDRV(ptr)
@@ -770,7 +756,7 @@ void init_aniva_driver_registry()
     }
 
     /* Second load pass, with the core drivers already loaded */
-    oss_node_itterate(__driver_node, walk_precompiled_drivers_to_load, NULL);
+    __load_precompiled_drivers();
 
     FOREACH(i, __deferred_driver_drivers)
     {

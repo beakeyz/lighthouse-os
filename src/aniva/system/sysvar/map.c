@@ -1,13 +1,16 @@
 #include "map.h"
+#include "libk/data/linkedlist.h"
+#include "lightos/api/objects.h"
 #include "mem/heap.h"
-#include "oss/node.h"
-#include "oss/obj.h"
+#include "oss/connection.h"
+#include "oss/core.h"
+#include "oss/object.h"
 #include "system/profile/attr.h"
 #include "system/sysvar/var.h"
 
-bool oss_node_can_contain_sysvar(oss_node_t* node)
+bool oss_object_can_contain_sysvar(oss_object_t* node)
 {
-    return (node->type == OSS_PROFILE_NODE || node->type == OSS_PROC_ENV_NODE || node->type == OSS_VMEM_NODE);
+    return (node->type == OT_PROCESS || node->type == OT_PROFILE);
 }
 
 /*!
@@ -15,79 +18,49 @@ bool oss_node_can_contain_sysvar(oss_node_t* node)
  *
  * Try to find a sysvar at @key inside @node
  */
-sysvar_t* sysvar_get(oss_node_t* node, const char* key)
+sysvar_t* sysvar_get(oss_object_t* object, const char* key)
 {
     sysvar_t* ret;
-    oss_obj_t* obj;
-    oss_node_entry_t* entry;
+    oss_object_t* obj;
 
-    if (!node || !key)
+    if (!object || !key)
         return nullptr;
 
-    if (KERR_ERR(oss_node_find(node, key, &entry)))
+    /*
+     * Make sure to use the object function, which doesn't touch the reference
+     */
+    if (oss_object_open(object, key, &obj))
         return nullptr;
 
-    if (entry->type != OSS_ENTRY_OBJECT)
+    /* Verify that the object is actually valid */
+    if (!obj || obj->type != OT_SYSVAR || !obj->private)
         return nullptr;
 
-    obj = entry->obj;
-
-    if (obj->type != OSS_OBJ_TYPE_VAR)
-        return nullptr;
-
-    ret = oss_obj_unwrap(obj, sysvar_t);
+    /* Grab the private field */
+    ret = obj->private;
 
     /* Return with a taken reference */
     return get_sysvar(ret);
 }
 
-/*!
- * @brief: Itterator function for counting the amount of variables for sysvar_dump
- *
- * @node: Null if the current item is not a node, otherwise current item
- * @obj: Null if the current item is not an obj, otherwise current item
- * @param: pointer to the size variable
- */
-static bool sysvar_node__count_itter(oss_node_t* node, oss_obj_t* obj, void* param)
+static size_t __get_nr_sysvar_objects(oss_object_t* rel)
 {
-    if (!obj)
-        return true;
+    oss_connection_t* conn;
+    size_t nr = 0;
 
-    if (obj->type != OSS_OBJ_TYPE_VAR)
-        return true;
+    FOREACH(i, rel->connections)
+    {
+        conn = i->data;
 
-    /* Increase the node count */
-    (*(size_t*)param)++;
-    return true;
-}
+        /* Skip upstream connections */
+        if (oss_connection_is_upstream(conn, rel))
+            continue;
 
-/*!
- * @brief: Itterator function for adding variables to a list
- *
- * @node: Null if the current item is not a node, otherwise current item
- * @obj: Null if the current item is not an obj, otherwise current item
- * @param: pointer to the variable list
- */
-static bool sysvar_node__add_itter(oss_node_t* node, oss_obj_t* obj, void* param)
-{
-    sysvar_t*** p_arr;
+        if (conn->child->type == OT_SYSVAR)
+            nr++;
+    }
 
-    if (!obj)
-        return true;
-
-    if (obj->type != OSS_OBJ_TYPE_VAR)
-        return true;
-
-    p_arr = param;
-
-    /* Set this entry */
-    **p_arr = obj->priv;
-
-    /* Move the pointer 'head' */
-    (*p_arr)++;
-
-    /* Go next */
-    return true;
+    return nr;
 }
 
 /*!
@@ -95,23 +68,15 @@ static bool sysvar_node__add_itter(oss_node_t* node, oss_obj_t* obj, void* param
  *
  * Leaks weak references to the variables. This function expects @node to be locked
  */
-int sysvar_dump(struct oss_node* node, struct sysvar*** barr, size_t* bsize)
+int sysvar_dump(struct oss_object* node, struct sysvar*** barr, size_t* bsize)
 {
-    int error;
-    sysvar_t** var_arr_start;
     sysvar_t** var_arr;
 
     if (!node || !barr || !bsize)
         return -1;
 
-    /* Quick reset */
-    *bsize = NULL;
-
     /* First, count the variables on this node */
-    error = oss_node_itterate(node, sysvar_node__count_itter, bsize);
-
-    if (error)
-        return error;
+    *bsize = __get_nr_sysvar_objects(node);
 
     if (!(*bsize))
         return -KERR_NOT_FOUND;
@@ -122,33 +87,36 @@ int sysvar_dump(struct oss_node* node, struct sysvar*** barr, size_t* bsize)
     if (!(*barr))
         return -KERR_NOMEM;
 
-    /* Keep the beginning of the array here, since var_arr will get mutated */
-    var_arr_start = var_arr;
+    size_t nr = 0;
+    oss_connection_t* conn;
 
-    /* Try to itterate */
-    error = oss_node_itterate(node, sysvar_node__add_itter, var_arr);
+    FOREACH(i, node->connections)
+    {
+        conn = i->data;
 
-    /* Yikes */
-    if (error) {
-        kfree(var_arr_start);
-        return error;
+        /* Skip upstream connections */
+        if (oss_connection_is_upstream(conn, node))
+            continue;
+
+        if (conn->child->type == OT_SYSVAR)
+            var_arr[nr++] = conn->child->private;
     }
 
     /* Set the param */
-    *barr = var_arr_start;
+    *barr = var_arr;
     return 0;
 }
 
-int sysvar_attach(struct oss_node* node, struct sysvar* var)
+int sysvar_attach(struct oss_object* node, struct sysvar* var)
 {
     if (!var)
         return -EINVAL;
 
     /* Only these types may have sysvars */
-    if (node->type != OSS_OBJ_STORE_NODE && node->type != OSS_VMEM_NODE && node->type != OSS_PROFILE_NODE && node->type != OSS_PROC_ENV_NODE)
+    if (!oss_object_can_contain_sysvar(node))
         return -EINVAL;
 
-    return oss_node_add_obj(node, var->obj);
+    return oss_object_connect(node, var->object);
 }
 
 /*!
@@ -156,7 +124,7 @@ int sysvar_attach(struct oss_node* node, struct sysvar* var)
  *
  *
  */
-int sysvar_attach_ex(struct oss_node* node, const char* key, enum PROFILE_TYPE ptype, enum SYSVAR_TYPE type, uint8_t flags, void* buffer, size_t bsize)
+int sysvar_attach_ex(struct oss_object* node, const char* key, enum PROFILE_TYPE ptype, enum SYSVAR_TYPE type, uint8_t flags, void* buffer, size_t bsize)
 {
     error_t error;
     sysvar_t* target;
@@ -191,35 +159,35 @@ int sysvar_attach_ex(struct oss_node* node, const char* key, enum PROFILE_TYPE p
 /*!
  * @brief: Remove a sysvar through its oss obj
  */
-int sysvar_detach(struct oss_node* node, const char* key, struct sysvar** bvar)
+int sysvar_detach(struct oss_object* node, const char* key, struct sysvar** bvar)
 {
-    int error;
     sysvar_t* var;
-    oss_node_entry_t* entry = NULL;
+    oss_object_t* obj;
 
-    error = oss_node_remove_entry(node, key, &entry);
+    if (oss_open_object_from(key, node, &obj))
+        return -ENOENT;
 
-    if (error)
-        return error;
+    /* Immediately lose the reference lol */
+    oss_object_close(obj);
 
-    if (entry->type != OSS_ENTRY_OBJECT)
-        return -KERR_NOT_FOUND;
+    if (obj->type != OT_SYSVAR)
+        return -EINVAL;
 
-    var = oss_obj_unwrap(entry->obj, sysvar_t);
+    /* At this point this call should never fail */
+    ASSERT_MSG(oss_object_disconnect(node, obj) == 0, "oss_object_disconnect failed in sysvar_detach");
+
+    var = obj->private;
 
     sysvar_lock(var);
 
     /* Only return the reference if this variable is still referenced */
-    if (var->refc > 1 && bvar)
+    if (var->object->nr_references > 1 && bvar)
         *bvar = var;
 
     sysvar_unlock(var);
 
     /* Release a reference */
     release_sysvar(var);
-
-    /* Destroy the middleman */
-    destroy_oss_node_entry(entry);
 
     return 0;
 }

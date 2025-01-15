@@ -4,13 +4,11 @@
 #include "libk/flow/error.h"
 #include <libk/stddef.h>
 
-struct oss_obj;
-struct oss_node;
 struct aniva_driver;
 struct driver;
 
 #define DRIVER_URL_SEPERATOR '/'
-#define DRIVER_WAIT_UNTIL_READY (size_t) - 1
+#define DRIVER_WAIT_UNTIL_READY (size_t)-1
 #define DRIVER_MAX_DEV_COUNT 64
 
 enum DRIVER_TYPE {
@@ -81,7 +79,7 @@ typedef driver_control_code_t dcc_t;
 #define MAX_DRIVER_NAME_LENGTH 128
 #define MAX_DRIVER_DESCRIPTOR_LENGTH 64 /* Descriptions should be short, simple and effective */
 
-#define SOCKET_VERIFY_RESPONSE_SIZE(size) ((size) != ((size_t) - 1))
+#define SOCKET_VERIFY_RESPONSE_SIZE(size) ((size) != ((size_t)-1))
 
 #define EXPORT_DRIVER_PTR(name) USED SECTION(".kpcdrvs") aniva_driver_t* exported_##name = (aniva_driver_t*)&name
 #define EXPORT_CORE_DRIVER(name) USED SECTION(".core_drvs") aniva_driver_t* exported_core_##name = (aniva_driver_t*)&name
@@ -142,7 +140,7 @@ struct driver* get_driver(dev_url_t url);
 struct driver* get_driver_from_type(enum DRIVER_TYPE type, uint32_t index);
 struct driver* get_driver_from_address(vaddr_t addr);
 size_t get_driver_type_count(enum DRIVER_TYPE type);
-kerror_t foreach_driver(bool (*callback)(struct oss_node* h, struct oss_obj* obj, void* arg), void* arg);
+kerror_t foreach_driver(bool (*callback)(struct driver* drv, void* arg), void* arg);
 bool verify_driver(struct driver* driver);
 
 /*

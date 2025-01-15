@@ -4,8 +4,9 @@
 #include "dev/core.h"
 #include "dev/ctl.h"
 #include "dev/group.h"
-#include "lightos/api/device.h"
 #include "libk/flow/error.h"
+#include "lightos/api/device.h"
+#include "oss/object.h"
 #include "sync/mutex.h"
 #include <libk/stddef.h>
 
@@ -50,7 +51,6 @@
  * (It's ofcourse not advised) in order to enable freedom on the system.
  */
 
-struct oss_obj;
 struct device;
 struct dgroup;
 struct pci_device;
@@ -120,7 +120,8 @@ typedef struct device {
      * so having space for 5 should be more than enough
      */
     struct driver* drivers[DEVICE_DRIVER_LIMIT];
-    struct oss_obj* obj;
+    oss_object_t* obj;
+    struct dgroup* group;
     /* If this device is a bus, this node contains it's children */
     struct dgroup* bus_group;
 
@@ -196,8 +197,7 @@ int device_move_to_bus(device_t* dev, device_t* newbus);
 
 /* Device-group interfacing */
 int device_get_group(device_t* dev, struct dgroup** group);
-int device_node_add_group(struct oss_node* node, struct dgroup* group);
-int device_for_each(struct dgroup* root, DEVICE_ITTERATE callback);
+int device_node_add_group(oss_object_t* node, struct dgroup* group);
 
 /* DRV-API functions */
 kerror_t device_alloc_memory(device_t* dev, uintptr_t start, size_t size);

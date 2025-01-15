@@ -17,10 +17,10 @@
  * (Which are oss nodes) or raw devices (Which are oss objects).
  */
 
+#include "oss/object.h"
 #include <libk/stddef.h>
 
 struct device;
-struct oss_node;
 
 /* What type of group is this? */
 enum DGROUP_TYPE {
@@ -56,12 +56,13 @@ typedef struct dgroup {
     enum DGROUP_TYPE type;
 
     void* priv;
-    struct oss_node* node;
+    oss_object_t* object;
+    oss_object_t* parent;
 } dgroup_t;
 
 void init_dgroups();
 
-dgroup_t* register_dev_group(enum DGROUP_TYPE type, const char* name, uint32_t flags, struct oss_node* parent);
+dgroup_t* register_dev_group(enum DGROUP_TYPE type, const char* name, uint32_t flags, oss_object_t* parent);
 int unregister_dev_group(dgroup_t* group);
 
 int dev_group_get(const char* path, dgroup_t** out);

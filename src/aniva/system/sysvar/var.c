@@ -1,17 +1,15 @@
 #include "var.h"
 #include "libk/flow/error.h"
+#include "lightos/api/objects.h"
 #include "lightos/api/sysvar.h"
 #include "logging/log.h"
 #include "mem/heap.h"
 #include "mem/zalloc/zalloc.h"
-#include "oss/node.h"
-#include "oss/obj.h"
-#include "proc/env.h"
+#include "oss/object.h"
 #include "proc/proc.h"
 #include "sched/scheduler.h"
 #include "sync/mutex.h"
 #include "system/profile/attr.h"
-#include "system/sysvar/map.h"
 #include <libk/math/math.h>
 #include <libk/string.h>
 
@@ -54,30 +52,25 @@ static inline error_t sysvar_set_len(sysvar_t* var, size_t len)
 
 void sysvar_lock(sysvar_t* var)
 {
-    mutex_lock(var->obj->lock);
+    mutex_lock(var->object->lock);
 }
 
 void sysvar_unlock(sysvar_t* var)
 {
-    mutex_unlock(var->obj->lock);
-}
-
-/*!
- * @brief: Deallocates a variables memory and removes it from its profile if it still has one
- *
- * Should not be called directly, but only by release_profile_var once its refcount has dropped to zero.
- * Variables have lifetimes like this, because we don't want to remove variables that are being used
- */
-static void destroy_sysvar(sysvar_t* var)
-{
-    destroy_oss_obj(var->obj);
+    mutex_unlock(var->object->lock);
 }
 
 /*!
  * Called by the destruction of the oss object
  */
-static void __destroy_sysvar(sysvar_t* var)
+static int __destroy_sysvar(oss_object_t* object)
 {
+    sysvar_t* var;
+
+    ASSERT(object->type == OT_SYSVAR);
+
+    var = object->private;
+
     /* Release strduped key */
     kfree((void*)var->key);
 
@@ -97,6 +90,8 @@ static void __destroy_sysvar(sysvar_t* var)
     }
 
     zfree_fixed(&__var_allocator, var);
+
+    return 0;
 }
 
 static const char* __sysvar_fmt_key(char* str)
@@ -159,6 +154,10 @@ static error_t __sysvar_allocate_value(sysvar_t* var, enum SYSVAR_TYPE type, voi
     return 0;
 }
 
+oss_object_ops_t sysvar_oss_ops = {
+    .f_Destroy = __destroy_sysvar,
+};
+
 /*!
  * @brief: Creates a profile variable
  *
@@ -198,7 +197,11 @@ sysvar_t* create_sysvar(const char* key, pattr_t* pattr, enum SYSVAR_TYPE type, 
         return nullptr;
     }
 
-    /* Allocate the rest */
+    /*
+     * Allocate the rest
+     * FIXME: the oss object already strdups it's key. We can just reference that
+     * string dadoink
+     */
     var->key = __sysvar_fmt_key(strdup(key));
 
     KLOG_DBG("Creating sysvar: %s\n", var->key);
@@ -207,43 +210,9 @@ sysvar_t* create_sysvar(const char* key, pattr_t* pattr, enum SYSVAR_TYPE type, 
      * Set the refcount to one in order to preserve the variable for multiple gets
      * and releases
      */
-    var->refc = 1;
-    var->obj = create_oss_obj_ex(
-        var->key,
-        pattr ? pattr->ptype : PROFILE_TYPE_USER,
-        pattr ? pattr->pflags : nullptr);
-
-    /* Register this sysvar to its object */
-    oss_obj_register_child(var->obj, var, OSS_OBJ_TYPE_VAR, __destroy_sysvar);
+    var->object = create_oss_object(var->key, NULL, OT_SYSVAR, &sysvar_oss_ops, var);
 
     return var;
-}
-
-penv_t* sysvar_get_parent_env(sysvar_t* var)
-{
-    penv_t* env = nullptr;
-    oss_node_t* parent_node;
-
-    /* Lock this fucker */
-    sysvar_lock(var);
-
-    /* Weird but ok */
-    if (!var || !var->obj)
-        goto unlock_and_return;
-
-    /* Grab the parent node */
-    parent_node = var->obj->parent;
-
-    /* Check this */
-    if (!oss_node_can_contain_sysvar(parent_node))
-        goto unlock_and_return;
-
-    /* Unwrap, since nodes with OSS_VMEM_NODE inherit their private field with their parent */
-    env = (penv_t*)oss_node_unwrap(parent_node);
-
-unlock_and_return:
-    sysvar_unlock(var);
-    return env;
 }
 
 sysvar_t* get_sysvar(sysvar_t* var)
@@ -251,32 +220,14 @@ sysvar_t* get_sysvar(sysvar_t* var)
     if (!var)
         return nullptr;
 
-    sysvar_lock(var);
-
-    var->refc++;
-
-    sysvar_unlock(var);
+    oss_object_ref(var->object);
 
     return var;
 }
 
 void release_sysvar(sysvar_t* var)
 {
-    u32 c_refc;
-
-    sysvar_lock(var);
-
-    c_refc = var->refc;
-
-    if (c_refc)
-        c_refc = c_refc - 1;
-
-    if (!c_refc)
-        return destroy_sysvar(var);
-
-    var->refc = c_refc;
-
-    sysvar_unlock(var);
+    oss_object_unref(var->object);
 }
 
 /*!
@@ -321,7 +272,7 @@ u8 sysvar_read_u8(sysvar_t* var)
  */
 const char* sysvar_read_str(sysvar_t* var)
 {
-    if (var->type != SYSVAR_TYPE_STRING || !mutex_is_locked_by_current_thread(var->obj->lock))
+    if (var->type != SYSVAR_TYPE_STRING || !mutex_is_locked_by_current_thread(var->object->lock))
         return nullptr;
 
     return var->str_value;

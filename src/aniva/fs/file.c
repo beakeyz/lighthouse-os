@@ -1,9 +1,9 @@
 #include "file.h"
+#include "lightos/api/objects.h"
 #include "mem/heap.h"
 #include "mem/page_dir.h"
 #include "oss/core.h"
-#include "oss/node.h"
-#include "oss/obj.h"
+#include "oss/object.h"
 #include <libk/flow/error.h>
 #include <libk/string.h>
 
@@ -63,32 +63,7 @@ int f_write(file_t* file, void* buffer, size_t* size, uintptr_t offset)
  */
 int generic_f_sync(file_t* file)
 {
-
-    int result;
-    oss_obj_t* object;
-    oss_node_t* parent_node;
-
-    if (!file)
-        return -1;
-
-    object = file->m_obj;
-
-    if (!object)
-        return -1;
-
-    parent_node = object->parent;
-
-    if (!parent_node || !parent_node->ops || !parent_node->ops->f_force_obj_sync)
-        return -1;
-
-    /* Just force the node to sync this object */
-    result = parent_node->ops->f_force_obj_sync(file->m_obj);
-
-    if (result) {
-        kernel_panic("FIXME: Could not sync file! (Implement handler)");
-    }
-
-    return result;
+    return 0;
 }
 
 file_ops_t generic_file_ops = {
@@ -97,6 +72,62 @@ file_ops_t generic_file_ops = {
     .f_read = f_read,
     .f_write = f_write,
     .f_kmap = f_kmap,
+};
+
+static int destroy_file(oss_object_t* object)
+{
+    file_t* file = get_file_from_object(object);
+
+    if (!file)
+        return -EINVAL;
+
+    /* Try to close the file */
+    (void)_file_close(file);
+
+    /* Free the file memory */
+    kfree(file);
+
+    return 0;
+}
+
+static int __file_oss_read(oss_object_t* object, u64 offset, void* buffer, size_t size)
+{
+    file_t* file = get_file_from_object(object);
+
+    if (!file)
+        return -EINVAL;
+
+    /* Call the internal file read function */
+    return file_read(file, buffer, size, offset);
+}
+
+static int __file_oss_write(oss_object_t* object, u64 offset, void* buffer, size_t size)
+{
+    file_t* file = get_file_from_object(object);
+
+    if (!file)
+        return -EINVAL;
+
+    /* Call the internal file read function */
+    return file_write(file, buffer, size, offset);
+}
+
+static int __file_oss_flush(oss_object_t* object)
+{
+    file_t* file = get_file_from_object(object);
+
+    if (!file)
+        return -EINVAL;
+
+    /* Call the internal file read function */
+    return file_sync(file);
+}
+
+static oss_object_ops_t file_oss_ops = {
+    .f_Destroy = destroy_file,
+    .f_Read = __file_oss_read,
+    .f_Write = __file_oss_write,
+    .f_Flush = __file_oss_flush,
 };
 
 /*
@@ -114,7 +145,7 @@ file_t f_kmap(file_t* file, page_dir_t* dir, size_t size, uint32_t custom_flags,
  * This also creates a vobject, which is responsible for managing the lifetime
  * of the files memory
  */
-file_t* create_file(struct oss_node* parent, uint32_t flags, const char* path)
+file_t* create_file(oss_object_t* parent, uint32_t flags, const char* path)
 {
     const char* name;
     file_t* ret;
@@ -124,25 +155,18 @@ file_t* create_file(struct oss_node* parent, uint32_t flags, const char* path)
     if (!ret)
         return nullptr;
 
-    name = oss_get_objname(path);
+    name = oss_get_endpoint_key(path);
 
     if (!name)
         goto exit_and_dealloc;
 
     ret->m_flags = flags;
-    ret->m_obj = create_oss_obj(name);
+    ret->m_obj = create_oss_object(name, NULL, OT_FILE, &file_oss_ops, ret);
 
     kfree((void*)name);
 
     if (!ret->m_obj)
         goto exit_and_dealloc;
-
-    /*
-     * Register this file to its child object
-     * When the object gets closed, destroy_file will be called,
-     * which will be responsible for calling its own private destroy callback
-     */
-    oss_obj_register_child(ret->m_obj, ret, OSS_OBJ_TYPE_FILE, destroy_file);
 
     ret->m_ops = &generic_file_ops;
 
@@ -166,23 +190,12 @@ void file_set_ops(file_t* file, file_ops_t* ops)
 }
 
 /*!
- * @brief: Get that file object off of the heap
- */
-void destroy_file(file_t* file)
-{
-    /* Try to close the file */
-    (void)_file_close(file);
-
-    kfree(file);
-}
-
-/*!
  * @brief: Read data from a file
  */
 size_t file_read(file_t* file, void* buffer, size_t size, uintptr_t offset)
 {
     kerror_t error;
-    oss_obj_t* file_obj;
+    oss_object_t* file_obj;
 
     if (!file || !file->m_ops || !file->m_ops->f_read)
         return 0;
@@ -213,7 +226,7 @@ size_t file_read(file_t* file, void* buffer, size_t size, uintptr_t offset)
 size_t file_write(file_t* file, void* buffer, size_t size, uintptr_t offset)
 {
     kerror_t error;
-    oss_obj_t* file_obj;
+    oss_object_t* file_obj;
 
     if (!file || !file->m_ops || !file->m_ops->f_write)
         return 0;
@@ -241,7 +254,7 @@ size_t file_write(file_t* file, void* buffer, size_t size, uintptr_t offset)
 int file_sync(file_t* file)
 {
     int error;
-    oss_obj_t* file_obj;
+    oss_object_t* file_obj;
 
     if (!file || !file->m_ops || !file->m_ops->f_sync)
         return -1;
@@ -271,7 +284,7 @@ int file_sync(file_t* file)
 static int _file_close(file_t* file)
 {
     int error;
-    oss_obj_t* file_obj;
+    oss_object_t* file_obj;
 
     if (!file || !file->m_ops || !file->m_ops->f_close)
         return -1;
@@ -291,27 +304,20 @@ static int _file_close(file_t* file)
     return error;
 }
 
-file_t* file_open_from(struct oss_node* node, const char* path)
+file_t* file_open_from(oss_object_t* node, const char* path)
 {
     int error;
-    file_t* ret;
-    oss_obj_t* obj;
+    oss_object_t* obj;
 
     /*
      * File gets created by the filesystem driver
      */
-    error = oss_resolve_obj_rel(node, path, &obj);
+    error = oss_open_object_from(path, node, &obj);
 
-    if (error || !obj)
+    if (error || !obj || obj->type != OT_FILE || !obj->private)
         return nullptr;
 
-    /* Try to recieve the file created by the fs */
-    ret = oss_obj_get_file(obj);
-
-    if (!ret)
-        oss_obj_close(obj);
-
-    return ret;
+    return obj->private;
 }
 
 file_t* file_open(const char* path)
@@ -324,5 +330,5 @@ int file_close(file_t* file)
     if (!file)
         return -1;
 
-    return oss_obj_close(file->m_obj);
+    return oss_object_close(file->m_obj);
 }

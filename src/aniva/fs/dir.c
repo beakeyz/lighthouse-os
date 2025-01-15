@@ -139,7 +139,7 @@ dir_t* create_dir(oss_node_t* root, const char* path, struct dir_ops* ops, void*
     return dir;
 }
 
-dir_t* create_dir_on_node(struct oss_node* node, struct dir_ops* ops, void* priv, uint32_t flags)
+dir_t* create_dir_on_node(sruct oss_node* node, struct dir_ops* ops, void* priv, uint32_t flags)
 {
     dir_t* ret;
 
@@ -271,7 +271,7 @@ int dir_remove_child(dir_t* dir, const char* name)
     return dir->ops->f_remove_child(dir, name);
 }
 
-struct oss_obj* dir_find(dir_t* dir, const char* path)
+sruct oss_obj* dir_find(dir_t* dir, const char* path)
 {
     if (!dir || !path)
         return nullptr;

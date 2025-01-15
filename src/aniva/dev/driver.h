@@ -5,9 +5,9 @@
 #include "libk/data/linkedlist.h"
 #include "libk/data/vector.h"
 #include "mem/tracker/tracker.h"
+#include "oss/object.h"
 #include <libk/stddef.h>
 
-struct oss_obj;
 struct device;
 struct dgroup;
 struct driver;
@@ -202,7 +202,7 @@ typedef struct driver {
      * the driver is created */
     struct device* m_ctl_device;
 
-    struct oss_obj* m_obj;
+    oss_object_t* m_obj;
     /* Any data that's specific to the kind of driver this is */
     // void* m_private;
 

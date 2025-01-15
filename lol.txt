@@ -1,0 +1,46 @@
+//
+// Template for how we might structure a new not-vfs-like system
+//
+
+// dir +1 ref (2) (since this object already existed, it had a floating reference)
+Object dir = OpenObject("Storage/Temp")
+// f +1 ref (1) (object didn't exist yet; it gets its only reference )
+Object f = CreateObject("Test");
+
+// term +1 ref(2) Open the main terminal
+Object term = OpenObject("Terminals/Main");
+
+// Connect the object to the terminal
+// f +1 ref(2) the terminal is now also 'connected' to our test object
+term.Connect(&term, &f)
+
+// Write data to the object
+f.Write(&f, 0, "hello", 6);
+
+// Disconnect the object from the terminal
+term.Disconnect(&term, &f);
+
+// Connect the object to the other object
+// dir.Connect -> sys_obj_cmd -> 
+dir.Connect(&dir, &f);
+
+f.Close(&f);
+dir.Close(&dir);
+
+
+// This session gave me the following insight:
+// Maybe we can restructure our object storage system to simply be a graph of objects
+// This means we can either connect or disconnect two given objects and we are not really limited
+// by how we connect objects, until we limit ourselves for the sake of system stability and usability.
+// (we could essentially have a 'circular' filesystem xD; dirA -> [fileA, dirB], where dirB -> [dirA, fileB])
+// This means objects are always 'doubly' connected. If dirA -> dirB -> dirC, then we can be sure that dirC -> dirB -> dirA
+// is the same length and gets us to the same place we started: dirA.
+//
+// The following 'root' objects:
+// 1) 'Storage' : Holds the main filesystem
+// 2) 'Terminals' : Holds active terminal objects
+// 3) 'Devices' : Holds device objects (may be connected to certain runtime objects to expose device statistics or functions)
+// 4) 'Drivers' : Holds driver objects
+// 5) 'Process' : Holds process objects (may be connected to the corresponding runtime object)
+// 6) 'Runtime' : Holds runtime-depending or user-specific sysvar objects
+// 7) <any name> : Processes may create any root object by calling the special ConnectRoot routine on the object

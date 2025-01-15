@@ -2,6 +2,7 @@
 #include "libk/flow/error.h"
 #include "lightos/api/handle.h"
 #include "oss/node.h"
+#include "oss/obj.h"
 #include "proc/handle.h"
 #include <proc/hdrv/driver.h>
 
@@ -81,11 +82,25 @@ static int profile_khdriver_open_from(khandle_driver_t* driver, khandle_t* rel_h
     return 0;
 }
 
+static int profile_khdriver_close(khandle_driver_t* driver, khandle_t* handle)
+{
+    user_profile_t* profile;
+
+    if (!driver || !handle)
+        return -EINVAL;
+
+    profile = handle->reference.profile;
+
+    oss_node_unref(profile->node);
+    return 0;
+}
+
 khandle_driver_t profile_khdriver = {
     .name = "profiles",
     .handle_type = HNDL_TYPE_PROFILE,
-    .function_flags = KHDRIVER_FUNC_OPEN | KHDRIVER_FUNC_OPEN_REL,
+    .function_flags = KHDRIVER_FUNC_OPEN | KHDRIVER_FUNC_OPEN_REL | KHDRIVER_FUNC_CLOSE,
     .f_open = profile_khdriver_open,
     .f_open_relative = profile_khdriver_open_from,
+    .f_close = profile_khdriver_close,
 };
 EXPORT_KHANDLE_DRIVER(profile_khdriver);

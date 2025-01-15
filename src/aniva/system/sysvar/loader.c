@@ -4,7 +4,6 @@
 #include "lightos/api/sysvar.h"
 #include "mem/heap.h"
 #include "mem/kmem.h"
-#include "oss/node.h"
 #include "sync/mutex.h"
 #include "system/sysvar/map.h"
 #include "system/sysvar/var.h"
@@ -69,7 +68,7 @@ static inline const char* get_str(struct file* file, pvr_file_header_t* hdr, uin
     return key_buffer;
 }
 
-int sysvarldr_load_variables(struct oss_node* node, enum PROFILE_TYPE ptype, struct file* file)
+int sysvarldr_load_variables(oss_object_t* obj, enum PROFILE_TYPE ptype, struct file* file)
 {
     uintptr_t c_var_offset;
     uintptr_t c_var_count;
@@ -95,11 +94,11 @@ int sysvarldr_load_variables(struct oss_node* node, enum PROFILE_TYPE ptype, str
     c_var_offset = hdr.varbuf_offset + sizeof(c_varbuf);
 
     /* Fully lock the map during this opperation */
-    mutex_lock(node->lock);
+    mutex_lock(obj->lock);
 
     file_read(file, &c_varbuf, sizeof(c_varbuf), hdr.varbuf_offset);
 
-    printf("Trying to parse %d/%d vars from %s!\n", c_varbuf.var_count, c_varbuf.var_capacity, file->m_obj->name);
+    printf("Trying to parse %d/%d vars from %s!\n", c_varbuf.var_count, c_varbuf.var_capacity, file->m_obj->key);
 
     for (uint32_t i = 0; c_var_count < c_varbuf.var_count && i < c_varbuf.var_capacity; i++) {
         file_read(file, &c_var, sizeof(c_var), c_var_offset);
@@ -125,7 +124,7 @@ int sysvarldr_load_variables(struct oss_node* node, enum PROFILE_TYPE ptype, str
         }
 
         /* Try to grab this variable */
-        loaded_var = sysvar_get(node, key_buffer);
+        loaded_var = sysvar_get(obj, key_buffer);
 
         /* Ik this is very confusing, future me, but trust me on this one (Gr. past you) */
         c_value = (uintptr_t)val_buffer;
@@ -143,7 +142,7 @@ int sysvarldr_load_variables(struct oss_node* node, enum PROFILE_TYPE ptype, str
         }
 
         /* Put the variable */
-        (void)sysvar_attach_ex(node,
+        (void)sysvar_attach_ex(obj,
             key_buffer,
             ptype,
             c_var.var_type,
@@ -159,7 +158,7 @@ int sysvarldr_load_variables(struct oss_node* node, enum PROFILE_TYPE ptype, str
         c_var_offset += sizeof(c_var);
     }
 
-    mutex_unlock(node->lock);
+    mutex_unlock(obj->lock);
     return 0;
 }
 
@@ -181,7 +180,7 @@ static inline void write_str(file_t* file, pvr_file_header_t* hdr, uint16_t len,
     *c_strtab_offset += total_len;
 }
 
-int sysvarldr_save_variables(struct oss_node* node, enum PROFILE_TYPE ptype, struct file* file)
+int sysvarldr_save_variables(oss_object_t* obj, enum PROFILE_TYPE ptype, struct file* file)
 {
     int error;
     /* Buffer element sizes */
@@ -204,7 +203,7 @@ int sysvarldr_save_variables(struct oss_node* node, enum PROFILE_TYPE ptype, str
         return -1;
 
     /* Dump the variables into an array */
-    error = sysvar_dump(node, &var_array, &var_array_len);
+    error = sysvar_dump(obj, &var_array, &var_array_len);
 
     if (error)
         return error;

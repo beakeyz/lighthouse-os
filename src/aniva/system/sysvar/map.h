@@ -6,18 +6,18 @@
 #include <libk/stddef.h>
 
 struct sysvar;
-struct oss_node;
+struct oss_object;
 
 /*
- * Variables are mapped using the oss. They are either attached to OSS_PROFILE_NODE and OSS_PROC_ENV_NODE nodes.
+ * Variables are mapped using the oss.
  */
 
-bool oss_node_can_contain_sysvar(struct oss_node* node);
+bool oss_object_can_contain_sysvar(struct oss_object* node);
 
-struct sysvar* sysvar_get(struct oss_node* node, const char* key);
-int sysvar_dump(struct oss_node* node, struct sysvar*** barr, size_t* bsize);
-int sysvar_attach(struct oss_node* node, struct sysvar* var);
-int sysvar_attach_ex(struct oss_node* node, const char* key, enum PROFILE_TYPE ptype, enum SYSVAR_TYPE type, uint8_t flags, void* value, size_t bsize);
-int sysvar_detach(struct oss_node* node, const char* key, struct sysvar** var);
+struct sysvar* sysvar_get(struct oss_object* object, const char* key);
+int sysvar_dump(struct oss_object* object, struct sysvar*** barr, size_t* bsize);
+int sysvar_attach(struct oss_object* object, struct sysvar* var);
+int sysvar_attach_ex(struct oss_object* object, const char* key, enum PROFILE_TYPE ptype, enum SYSVAR_TYPE type, uint8_t flags, void* value, size_t bsize);
+int sysvar_detach(struct oss_object* object, const char* key, struct sysvar** var);
 
 #endif // !__ANIVA_SYSVAR_MAP__

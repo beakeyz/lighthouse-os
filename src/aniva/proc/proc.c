@@ -10,17 +10,16 @@
 #include "libk/flow/error.h"
 #include "libk/stddef.h"
 #include "lightos/api/dynldr.h"
+#include "lightos/api/objects.h"
+#include "lightos/api/sysvar.h"
 #include "lightos/error.h"
 #include "lightos/syscall.h"
-#include "lightos/api/sysvar.h"
 #include "logging/log.h"
 #include "mem/kmem.h"
 #include "mem/phys.h"
 #include "mem/tracker/tracker.h"
-#include "oss/node.h"
-#include "oss/obj.h"
+#include "oss/object.h"
 #include "oss/path.h"
-#include "proc/env.h"
 #include "proc/handle.h"
 #include "proc/kprocs/reaper.h"
 #include "sched/scheduler.h"
@@ -28,6 +27,7 @@
 #include "sys/types.h"
 #include "system/processor/processor.h"
 #include "system/profile/profile.h"
+#include "system/sysvar/map.h"
 #include "thread.h"
 #include "time/core.h"
 #include <libk/string.h>
@@ -35,7 +35,7 @@
 
 #define PROC_DEFAULT_PAGE_TRACKER_BSIZE 0x8000
 
-static void __destroy_proc(proc_t* p);
+static int __destroy_proc(oss_object_t* object);
 
 static int _proc_init_pagemap(proc_t* proc)
 {
@@ -102,6 +102,10 @@ static inline int __proc_destroy_page_tracker(proc_t* proc)
     return kmem_kernel_dealloc((u64)buffer, bsize);
 }
 
+static oss_object_ops_t proc_oss_ops = {
+    .f_Destroy = __destroy_proc,
+};
+
 /*!
  * @brief Allocate memory for a process and prepare it for execution
  *
@@ -139,15 +143,13 @@ proc_t* create_proc(proc_t* parent, struct user_profile* profile, char* name, Fu
     proc->m_thread_count = 1;
     proc->m_threads = init_list();
     proc->m_lock = create_mutex(NULL);
-    proc->obj = create_oss_obj(name);
-    proc->m_name = proc->obj->name;
+    proc->obj = create_oss_object(name, OF_NO_DISCON, OT_PROCESS, &proc_oss_ops, proc);
+    proc->m_name = proc->obj->key;
+    proc->profile = profile;
 
     /* Set the process launch time */
     if (time_get_system_time(&time) == 0)
         proc->m_dt_since_boot = time.s_since_boot;
-
-    /* Register ourselves */
-    oss_obj_register_child(proc->obj, proc, OSS_OBJ_TYPE_PROC, __destroy_proc);
 
     /* Create a pagemap */
     _proc_init_pagemap(proc);
@@ -157,10 +159,6 @@ proc_t* create_proc(proc_t* parent, struct user_profile* profile, char* name, Fu
 
     /* Initialize this fucker */
     __proc_init_page_tracker(proc, PROC_DEFAULT_PAGE_TRACKER_BSIZE);
-
-    /* Okay to pass a reference, since resource bundles should NEVER own this memory */
-    // proc->m_resource_bundle = create_resource_bundle(&proc->m_root_pd);
-    proc->m_env = create_penv(proc->m_name, proc, NULL, NULL);
 
     init_thread = create_thread_for_proc(proc, entry, args, "main");
 
@@ -251,11 +249,8 @@ int proc_clone(proc_t* p, FuncPtr clone_entry, const char* clone_name, proc_t** 
     cloneproc->m_thread_count = 1;
     cloneproc->m_threads = init_list();
     cloneproc->m_lock = create_mutex(NULL);
-    cloneproc->obj = create_oss_obj(clone_name);
-    cloneproc->m_name = cloneproc->obj->name;
-
-    /* Register ourselves */
-    oss_obj_register_child(cloneproc->obj, cloneproc, OSS_OBJ_TYPE_PROC, __destroy_proc);
+    cloneproc->obj = create_oss_object(clone_name, OF_NO_DISCON, OT_PROCESS, &proc_oss_ops, cloneproc);
+    cloneproc->m_name = cloneproc->obj->key;
 
     /* Copy the pagemap */
     kmem_copy_page_dir(&cloneproc->m_root_pd, &p->m_root_pd);
@@ -270,7 +265,7 @@ int proc_clone(proc_t* p, FuncPtr clone_entry, const char* clone_name, proc_t** 
     _userproc_wrap_entry(cloneproc, clone_entry);
 
     /* Yikes */
-    if ((proc_register(cloneproc, p->m_env->profile))) {
+    if ((proc_register(cloneproc, p->profile))) {
         destroy_proc(cloneproc);
         return -KERR_INVAL;
     }
@@ -340,10 +335,6 @@ proc_t* proc_exec(const char* cmd, sysvar_vector_t vars, struct user_profile* pr
     /* Fuck, could not create process */
     if (!p)
         return nullptr;
-
-    /* Add the vars to the environments vectors */
-    if (vars)
-        penv_add_vector(p->m_env, vars);
 
     if ((flags & PROC_SYNC) == PROC_SYNC)
         error = proc_schedule_and_await(p, profile, cmd, NULL, NULL, SCHED_PRIO_HIGH);
@@ -431,11 +422,20 @@ static inline void __proc_kill_threads(proc_t* proc)
     destroy_list(proc->m_threads);
 }
 
-/*
- * Caller should ensure proc != zero
+/*!
+ * @brief: The oss function for when a process gets destroyed
+ *
+ * Only gets called when the process object runs out of references.
  */
-void __destroy_proc(proc_t* proc)
+static int __destroy_proc(oss_object_t* object)
 {
+    proc_t* proc;
+
+    if (!object || object->type != OT_PROCESS || !object->private)
+        return -EINVAL;
+
+    proc = object->private;
+
     /* Yeet threads */
     __proc_kill_threads(proc);
 
@@ -462,24 +462,21 @@ void __destroy_proc(proc_t* proc)
     if (get_current_processor()->m_page_dir != &proc->m_root_pd)
         kmem_destroy_page_dir(proc->m_root_pd.m_root);
 
-    KLOG_DBG("Doing penv\n");
-
-    /* Kill the environment */
-    destroy_penv(proc->m_env);
-
-    /* Clear it out */
-    proc->m_env = nullptr;
-
     kfree(proc);
+    return 0;
 }
 
 void destroy_proc(proc_t* proc)
 {
-    /* Unregister from the global register store */
+    /*
+     * Unregister from the global register store
+     * This releases the object reference that the process core has gained
+     * when a process gets registered
+     */
     ASSERT_MSG(proc_unregister(proc) == 0, "Failed to unregister proc");
 
-    /* Calls __destroy_proc */
-    destroy_oss_obj(proc->obj);
+    /* Release the processes object reference */
+    oss_object_close(proc->obj);
 }
 
 static bool _await_proc_term_hook_condition(kevent_ctx_t* ctx, void* param)
@@ -508,7 +505,6 @@ static bool _await_proc_term_hook_condition(kevent_ctx_t* ctx, void* param)
 int proc_schedule_and_await(proc_t* proc, struct user_profile* profile, const char* cmd, const char* stdio_path, HANDLE_TYPE stdio_type, enum SCHEDULER_PRIORITY prio)
 {
     int error;
-    const char* hook_name;
 
     /*
      * If we can't find the process here, that probably means its already
@@ -520,9 +516,7 @@ int proc_schedule_and_await(proc_t* proc, struct user_profile* profile, const ch
     /* Pause the scheduler so we don't get fucked while registering the hook */
     pause_scheduler();
 
-    hook_name = oss_obj_get_fullpath(proc->obj);
-
-    kevent_add_poll_hook("proc", hook_name, _await_proc_term_hook_condition, proc);
+    kevent_add_poll_hook("proc", proc->m_name, _await_proc_term_hook_condition, proc);
 
     /* Do an instant rescedule */
     error = proc_schedule(proc, profile, cmd, stdio_path, stdio_type, prio);
@@ -537,14 +531,11 @@ int proc_schedule_and_await(proc_t* proc, struct user_profile* profile, const ch
     resume_scheduler();
 
     /* Wait for the process to be bopped */
-    error = kevent_await_hook_fire("proc", hook_name, NULL, NULL);
+    error = kevent_await_hook_fire("proc", proc->m_name, NULL, NULL);
 
 remove_hook_and_fail:
     /* Remove the hook */
-    kevent_remove_hook("proc", hook_name);
-
-    /* Free the hook name */
-    kfree((void*)hook_name);
+    kevent_remove_hook("proc", proc->m_name);
 
     return error;
 }
@@ -556,9 +547,9 @@ remove_hook_and_fail:
  */
 int proc_schedule(proc_t* proc, struct user_profile* profile, const char* cmd, const char* stdio_path, HANDLE_TYPE stdio_type, enum SCHEDULER_PRIORITY prio)
 {
-    oss_node_t* env_node;
+    oss_object_t* proc_obj;
 
-    if (!proc || !proc->m_env)
+    if (!proc)
         return -KERR_INVAL;
 
     /* Default to the null device in this case */
@@ -570,14 +561,10 @@ int proc_schedule(proc_t* proc, struct user_profile* profile, const char* cmd, c
     if (!cmd)
         cmd = proc->m_name;
 
-    env_node = proc->m_env->node;
+    proc_obj = proc->obj;
 
-    if (!env_node)
+    if (!proc_obj)
         return -KERR_INVAL;
-
-    /* Add the process to a profile, if this hasn't been done yet */
-    if (profile && profile != proc->m_env->profile)
-        profile_add_penv(profile, proc->m_env);
 
     sysvar_vector_t sys_vec = {
         SYSVAR_VEC_STR(SYSVAR_CMDLINE, cmd),
@@ -587,8 +574,9 @@ int proc_schedule(proc_t* proc, struct user_profile* profile, const char* cmd, c
         SYSVAR_VEC_END,
     };
 
+    (void)sys_vec;
     /* Add this vec */
-    penv_add_vector(proc->m_env, sys_vec);
+    // penv_add_vector(proc->m_env, sys_vec);
 
     /* Try to add all threads of this process to the scheduler */
     return scheduler_add_proc(proc, prio);
@@ -787,14 +775,18 @@ void proc_add_async_task_thread(proc_t* proc, FuncPtr entry, uintptr_t args)
 
 const char* proc_try_get_symname(proc_t* proc, uintptr_t addr)
 {
-    const char* proc_path;
-    const char* buffer;
     kerror_t error;
+    char* proc_path;
+    const char* buffer;
 
     if (!proc || !addr)
         return nullptr;
 
-    proc_path = oss_obj_get_fullpath(proc->obj);
+    /* Malloc a page just to process this path lol */
+    proc_path = kmalloc(0x1000);
+
+    /* Format the path. We know process objects are always attached to Proc/<proc_name> */
+    sfmt_sz(proc_path, 0x1000, "Proc/%s", proc->m_name);
 
     dynldr_getfuncname_msg_t msg_block = {
         .proc_path = proc_path,
