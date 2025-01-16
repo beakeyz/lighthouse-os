@@ -150,9 +150,9 @@
 #define ERESTARTSYS 512
 
 /* A few macros to handle error codes in a more verbose way */
-#define HAS_ERROR(err) ((err) < 0)
+#define IS_FATAL(err) ((err) < 0)
 #define IS_OK(err) ((err) == 0)
-#define HAS_VALUE(err) ((err) >= 0)
-#define GET_VALUE(err) (HAS_ERROR(err) ? 0 : (err))
+#define HAS_WARNING(err) ((err) >= 0)
+#define GET_WARNING(err) (IS_FATAL(err) ? 0 : (err))
 
 #endif // !__LIGHTOS_ERROR_H__

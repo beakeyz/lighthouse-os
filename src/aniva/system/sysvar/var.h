@@ -30,6 +30,7 @@ struct penv;
  */
 typedef struct sysvar {
     oss_object_t* object;
+    oss_object_t* parent;
     const char* key;
     union {
         /* Most basic values of a sysvar. These can be read almost directly, without having to do weird buffer shit */

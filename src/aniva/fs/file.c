@@ -145,25 +145,20 @@ file_t f_kmap(file_t* file, page_dir_t* dir, size_t size, uint32_t custom_flags,
  * This also creates a vobject, which is responsible for managing the lifetime
  * of the files memory
  */
-file_t* create_file(oss_object_t* parent, uint32_t flags, const char* path)
+file_t* create_file(uint32_t flags, const char* key)
 {
-    const char* name;
     file_t* ret;
+
+    if (!key)
+        return nullptr;
 
     ret = kmalloc(sizeof(file_t));
 
     if (!ret)
         return nullptr;
 
-    name = oss_get_endpoint_key(path);
-
-    if (!name)
-        goto exit_and_dealloc;
-
     ret->m_flags = flags;
-    ret->m_obj = create_oss_object(name, NULL, OT_FILE, &file_oss_ops, ret);
-
-    kfree((void*)name);
+    ret->m_obj = create_oss_object(key, NULL, OT_FILE, &file_oss_ops, ret);
 
     if (!ret->m_obj)
         goto exit_and_dealloc;

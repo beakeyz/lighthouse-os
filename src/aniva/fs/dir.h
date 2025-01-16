@@ -2,32 +2,27 @@
 #define __ANIVA_FS_DIR__
 
 #include "libk/flow/error.h"
-#include "lightos/api/filesystem.h"
-#include "sync/atomic_ptr.h"
+#include "oss/object.h"
 #include "sync/mutex.h"
 #include <libk/stddef.h>
 
-sruct oss_node;
-sruct oss_obj;
 struct dir;
-struct direntry;
 struct file;
+struct oss_object;
 
 typedef struct dir_ops {
     int (*f_destroy)(struct dir*);
-    int (*f_create_child)(struct dir*, const char* name);
+    int (*f_create_child)(struct dir*, struct oss_object* child);
     int (*f_remove_child)(struct dir*, const char* name);
-    int (*f_read)(struct dir*, uint64_t idx, struct direntry* bentry);
-    sruct oss_obj* (*f_find)(struct dir*, const char* path);
+    struct oss_object* (*f_find_idx)(struct dir*, uint64_t idx);
+    struct oss_object* (*f_find)(struct dir*, const char* path);
 } dir_ops_t;
 
 typedef struct dir {
-    sruct oss_node* node;
-    /* Object generation node */
-    sruct oss_node* rootnode;
+    struct oss_object* object;
     struct dir_ops* ops;
 
-    const char* name;
+    const char* key;
 
     size_t mtime;
     size_t ctime;
@@ -37,48 +32,24 @@ typedef struct dir {
     uint32_t flags;
     uint32_t size;
 
-    atomic_ptr_t ref;
-
     mutex_t* lock;
 
+    /* Private field for directory implementors */
     void* priv;
 } dir_t;
 
-dir_t* create_dir(sruct oss_node* root, const char* path, struct dir_ops* ops, void* priv, uint32_t flags);
-dir_t* create_dir_on_node(sruct oss_node* node, struct dir_ops* ops, void* priv, uint32_t flags);
-void destroy_dir(dir_t* dir);
+dir_t* create_dir(const char* key, struct dir_ops* ops, void* priv, uint32_t flags);
 
-int dir_do_attach(dir_t* dir, const char* path);
+int dir_do_attach(dir_t* dir, oss_object_t* parent);
 
-int dir_create_child(dir_t* dir, const char* name);
-int dir_remove_child(dir_t* dir, const char* name);
+int dir_create_child(dir_t* dir, oss_object_t* child);
+int dir_remove_child(dir_t* dir, oss_object_t* child);
 
-void dir_ref(dir_t* dir);
-void dir_unref(dir_t* dir);
-
-sruct oss_obj* dir_find(dir_t* dir, const char* path);
-int dir_read(dir_t* dir, uint64_t idx, struct direntry* bentry);
+struct oss_object* dir_find(dir_t* dir, const char* path);
+struct oss_object* dir_find_idx(dir_t* dir, uint64_t idx);
 
 dir_t* dir_open(const char* path);
-dir_t* dir_open_from(sruct oss_node* rel, const char* path);
+dir_t* dir_open_from(struct oss_object* rel, const char* path);
 kerror_t dir_close(dir_t* dir);
-
-/*
- * Wraps all possible outcomes from dir_read
- *
- * Should never be allocated on the heap
- */
-typedef struct direntry {
-    union {
-        struct file* file;
-        struct dir* dir;
-        sruct oss_obj* obj;
-        void* _entry;
-    };
-    enum LIGHTOS_DIRENT_TYPE type;
-} direntry_t;
-
-kerror_t init_direntry(direntry_t* dirent, void* entry, enum LIGHTOS_DIRENT_TYPE type);
-kerror_t close_direntry(direntry_t* entry);
 
 #endif // !__ANIVA_FS_DIR__

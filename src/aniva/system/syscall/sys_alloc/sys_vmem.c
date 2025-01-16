@@ -2,17 +2,15 @@
 #include "libk/math/math.h"
 #include "lightos/api/handle.h"
 #include "lightos/api/memory.h"
-#include "lightos/syscall.h"
+#include "lightos/api/objects.h"
 #include "lightos/api/sysvar.h"
-#include "mem/phys.h"
-#include "proc/env.h"
+#include "lightos/syscall.h"
+#include "oss/object.h"
 #include "proc/handle.h"
 #include "proc/proc.h"
 #include "sched/scheduler.h"
 #include "sys/types.h"
-#include "system/profile/attr.h"
 #include <mem/kmem.h>
-#include <oss/obj.h>
 #include <system/sysvar/var.h>
 
 static void _apply_memory_flags(uint32_t userflags, uint32_t* customflags, uint32_t* kmem_flags)
@@ -86,13 +84,18 @@ error_t sys_dealloc_vmem(vaddr_t buffer, size_t size)
     return 0;
 }
 
+/*
+ * TODO: Implement object permissions again xD
+ */
+
 static inline bool __can_proc_delete_vmem(khandle_t* handle, proc_t* c_proc, proc_t* target_proc, sysvar_t* var)
 {
     if ((handle->flags & HNDL_FLAG_W) != HNDL_FLAG_W)
         return false;
 
     /* Processes can always delete their own memory, but other processes only can if  */
-    return (c_proc == target_proc || pattr_hasperm(&var->obj->attr, &c_proc->m_env->attr, PATTR_WRITE));
+    // return (c_proc == target_proc || pattr_hasperm(&var->obj->attr, &c_proc->m_env->attr, PATTR_WRITE));
+    return true;
 }
 
 static inline bool __can_proc_map_vmem(khandle_t* handle, proc_t* c_proc, proc_t* target_proc, sysvar_t* var)
@@ -101,7 +104,8 @@ static inline bool __can_proc_map_vmem(khandle_t* handle, proc_t* c_proc, proc_t
     if ((handle->flags & HNDL_FLAG_W) != HNDL_FLAG_W)
         return false;
 
-    return (c_proc == target_proc || (pattr_hasperm(&var->obj->attr, &c_proc->m_env->attr, PATTR_WRITE)));
+    // return (c_proc == target_proc || (pattr_hasperm(&var->obj->attr, &c_proc->m_env->attr, PATTR_WRITE)));
+    return true;
 }
 
 static inline bool __can_proc_remap_vmem(khandle_t* handle, proc_t* c_proc, proc_t* target_proc, sysvar_t* var)
@@ -111,7 +115,8 @@ static inline bool __can_proc_remap_vmem(khandle_t* handle, proc_t* c_proc, proc
         return false;
 
     /* When remapping, we only read the range from the var, hence why we need read permissions */
-    return (c_proc == target_proc || (pattr_hasperm(&var->obj->attr, &c_proc->m_env->attr, PATTR_READ)));
+    // return (c_proc == target_proc || (pattr_hasperm(&var->obj->attr, &c_proc->m_env->attr, PATTR_READ)));
+    return true;
 }
 
 static inline void* __sys_delete_local_vmem(proc_t* c_proc, void* addr, size_t len)
@@ -132,7 +137,6 @@ static void* __sys_delete_vmem(khandle_t* khandle, proc_t* c_proc, void* addr, s
 {
     void* ret;
     sysvar_t* var;
-    penv_t* target_penv;
     proc_t* target_proc;
     page_range_t range = { 0 };
 
@@ -146,10 +150,12 @@ static void* __sys_delete_vmem(khandle_t* khandle, proc_t* c_proc, void* addr, s
     if (var->type != SYSVAR_TYPE_MEM_RANGE)
         return nullptr;
 
-    /* Get the parent environment so we can check permissions */
-    target_penv = sysvar_get_parent_env(var);
     /* Get the environments process */
-    target_proc = target_penv->p;
+    target_proc = oss_object_unwrap(var->parent, OT_PROCESS);
+
+    /* Invalid probably */
+    if (!target_proc)
+        return nullptr;
 
     /* Check if our process can act on the target */
     if (!__can_proc_delete_vmem(khandle, c_proc, target_proc, var))
@@ -197,7 +203,6 @@ static void* __sys_remap_vmem(khandle_t* khandle, proc_t* c_proc, void* addr, si
 {
     void* result = nullptr;
     sysvar_t* var;
-    penv_t* target_penv;
     proc_t* target_proc;
     page_range_t range = { 0 };
     vaddr_t target_addr;
@@ -218,10 +223,12 @@ static void* __sys_remap_vmem(khandle_t* khandle, proc_t* c_proc, void* addr, si
     if (var->type != SYSVAR_TYPE_MEM_RANGE)
         return nullptr;
 
-    /* Get the environment of this sysvar */
-    target_penv = sysvar_get_parent_env(var);
     /* Get the process accociated with it */
-    target_proc = target_penv->p;
+    target_proc = oss_object_unwrap(var->parent, OT_PROCESS);
+
+    /* Probably inval */
+    if (!target_proc)
+        return nullptr;
 
     /* Can't remap. Dip */
     if (!__can_proc_remap_vmem(khandle, c_proc, target_proc, var))
@@ -280,7 +287,6 @@ static void* __sys_map_local_vmem(proc_t* c_proc, void* addr, size_t len, u32 fl
 static void* __sys_map_vmem(khandle_t* khandle, proc_t* c_proc, void* addr, size_t len, u32 flags)
 {
     sysvar_t* var;
-    penv_t* target_penv;
     proc_t* target_proc;
     page_range_t range = { 0 };
 
@@ -300,10 +306,8 @@ static void* __sys_map_vmem(khandle_t* khandle, proc_t* c_proc, void* addr, size
     if (var->type != SYSVAR_TYPE_MEM_RANGE)
         return nullptr;
 
-    /* Get the environment of this sysvar */
-    target_penv = sysvar_get_parent_env(var);
     /* Get the process accociated with it */
-    target_proc = target_penv->p;
+    target_proc = oss_object_unwrap(var->parent, OT_PROCESS);
 
     /* Can't map. Dip */
     if (!__can_proc_map_vmem(khandle, c_proc, target_proc, var))
@@ -343,7 +347,6 @@ static void* __sys_bind_vmem(khandle_t* khandle, proc_t* c_proc, void* addr, siz
 {
     sysvar_t* var;
     proc_t* target_proc;
-    penv_t* target_penv;
     page_range_t range = { 0 };
 
     /* Can't bind to an invalid handle */
@@ -360,14 +363,12 @@ static void* __sys_bind_vmem(khandle_t* khandle, proc_t* c_proc, void* addr, siz
     if (var->type != SYSVAR_TYPE_MEM_RANGE)
         return nullptr;
 
-    target_penv = sysvar_get_parent_env(var);
-
-    /* ??? */
-    if (!target_penv)
-        return nullptr;
-
     /* Get this */
-    target_proc = target_penv->p;
+    target_proc = oss_object_unwrap(var->parent, OT_PROCESS);
+
+    /* Probably invalid */
+    if (!target_proc)
+        return nullptr;
 
     /* For binding, the same privileges are needed as for mapping */
     if (!__can_proc_map_vmem(khandle, c_proc, target_proc, var))

@@ -1012,7 +1012,7 @@ int kmem_user_realloc(void** p_result, struct proc* c_proc, struct proc* target,
         if (!kmem_map_page(c_proc->m_root_pd.m_root, (vaddr_t)result + (i << PAGE_SHIFT), paddrs[i], custom_flags, page_flags))
             error = -ENOMEM;
 
-    if (HAS_ERROR(error))
+    if (IS_FATAL(error))
         kernel_panic("kmem_user_realloc => TODO: find out waht to do when mapping failed =(");
 
     /* Export the result pointer */

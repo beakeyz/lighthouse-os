@@ -83,8 +83,6 @@ typedef struct file {
 
     file_ops_t* m_ops;
 
-    void* m_private;
-
     /* Every file has an 'offset' or 'address' for where it starts */
     disk_offset_t m_buffer_offset;
 
@@ -96,6 +94,8 @@ typedef struct file {
     size_t m_total_size;
     /* Logical size of the file */
     size_t m_logical_size;
+
+    void* m_private;
 } file_t;
 
 static inline file_t* get_file_from_object(oss_object_t* object)
@@ -103,7 +103,7 @@ static inline file_t* get_file_from_object(oss_object_t* object)
     return ((object && object->type == OT_FILE) ? object->private : nullptr);
 }
 
-file_t* create_file(oss_object_t* parent, uint32_t flags, const char* path);
+file_t* create_file(uint32_t flags, const char* key);
 
 void file_set_ops(file_t* file, file_ops_t* ops);
 

@@ -27,5 +27,6 @@ enum OSS_OBJECT_TYPE {
 #define OF_PROPEGATE 0x0001 // Propegate some object calls
 #define OF_NO_DISCON 0x0002 // Object can't be disconnected by anyone
 #define OF_NO_CON 0x0004 // Object can't be connected by anyone
+// #define OF_TEMPLATE 0x0008 // This object acts as a template. It can still be populated by any subsystem
 
 #endif // !__LIGHTOS_OBJECTS_H__

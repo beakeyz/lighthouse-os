@@ -191,7 +191,7 @@ sysvar_t* create_sysvar(const char* key, pattr_t* pattr, enum SYSVAR_TYPE type, 
     var->flags = flags;
 
     /* Placeholder value set */
-    if (HAS_ERROR(__sysvar_allocate_value(var, type, buffer, bsize, &var->value))) {
+    if (IS_FATAL(__sysvar_allocate_value(var, type, buffer, bsize, &var->value))) {
         /* Free the var */
         zfree_fixed(&__var_allocator, var);
         return nullptr;

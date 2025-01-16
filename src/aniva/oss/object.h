@@ -105,6 +105,14 @@ typedef struct oss_object {
     void* private;
 } oss_object_t;
 
+static inline void* oss_object_unwrap(oss_object_t* object, enum OSS_OBJECT_TYPE required_type)
+{
+    if (!object || object->type != required_type)
+        return nullptr;
+
+    return object->private;
+}
+
 oss_object_t* create_oss_object(const char* key, u16 flags, enum OSS_OBJECT_TYPE type, oss_object_ops_t* ops, void* private);
 
 /* Take an object, increase the reference count */
@@ -115,6 +123,7 @@ error_t oss_object_unref(oss_object_t* object);
 oss_connection_t* oss_object_get_connection(oss_object_t* object, const char* key);
 oss_connection_t* oss_object_get_connection_down(oss_object_t* object, const char* key);
 oss_connection_t* oss_object_get_connection_up(oss_object_t* object, const char* key);
+oss_connection_t* oss_object_get_connection_up_nr(oss_object_t* object, u32 idx);
 
 /* Interface functions for talking with oss objects */
 error_t oss_object_connect(oss_object_t* parent, oss_object_t* child);

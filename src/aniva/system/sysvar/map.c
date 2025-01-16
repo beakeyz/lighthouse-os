@@ -109,6 +109,8 @@ int sysvar_dump(struct oss_object* node, struct sysvar*** barr, size_t* bsize)
 
 int sysvar_attach(struct oss_object* node, struct sysvar* var)
 {
+    error_t error;
+
     if (!var)
         return -EINVAL;
 
@@ -116,7 +118,16 @@ int sysvar_attach(struct oss_object* node, struct sysvar* var)
     if (!oss_object_can_contain_sysvar(node))
         return -EINVAL;
 
-    return oss_object_connect(node, var->object);
+    error = oss_object_connect(node, var->object);
+
+    if (error)
+        return error;
+
+    /* Make sure the var knows what it's original parent is */
+    if (!var->parent)
+        var->parent = node;
+
+    return error;
 }
 
 /*!
@@ -158,6 +169,8 @@ int sysvar_attach_ex(struct oss_object* node, const char* key, enum PROFILE_TYPE
 
 /*!
  * @brief: Remove a sysvar through its oss obj
+ *
+ * NOTE: Right now this also releases the reference the caller has
  */
 int sysvar_detach(struct oss_object* node, const char* key, struct sysvar** bvar)
 {
@@ -183,6 +196,13 @@ int sysvar_detach(struct oss_object* node, const char* key, struct sysvar** bvar
     /* Only return the reference if this variable is still referenced */
     if (var->object->nr_references > 1 && bvar)
         *bvar = var;
+
+    if (var->parent == node) {
+        /* Check if there is another upstream connection that becomes the parent now */
+        oss_connection_t* conn = oss_object_get_connection_up_nr(var->object, 0);
+
+        var->parent = (!conn) ? nullptr : conn->parent;
+    }
 
     sysvar_unlock(var);
 

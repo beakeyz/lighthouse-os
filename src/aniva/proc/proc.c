@@ -68,7 +68,7 @@ static inline int __proc_init_page_tracker(proc_t* proc, size_t bsize)
     /* TODO: have this work */
     // error = page_tracker_alloc(&proc->m_virtual_tracker, 0, 256, PAGE_RANGE_FLAG_UNBACKED);
 
-    // if (HAS_ERROR(error))
+    // if (IS_FATAL(error))
     // goto dealloc_and_exit;
 
     /* Algood, let's exit */

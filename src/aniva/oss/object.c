@@ -2,6 +2,7 @@
 #include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"
 #include "lightos/api/objects.h"
+#include "lightos/error.h"
 #include "mem/zalloc/zalloc.h"
 #include "oss/connection.h"
 #include "sync/mutex.h"
@@ -119,34 +120,45 @@ error_t oss_object_unref(oss_object_t* object)
  * Marco to get a connection from an object, based on a condition
  * and a key
  */
-#define __OSS_OBJECT_GET_CONN(object, conn, key, condition)              \
-    size_t key_len = strlen(key);                                        \
-    oss_connection_t* conn;                                              \
-                                                                         \
-    FOREACH(i, object->connections)                                      \
-    {                                                                    \
-        conn = i->data;                                                  \
-        if ((condition) && strncmp(conn->child->key, key, key_len) == 0) \
-            return conn;                                                 \
-    }                                                                    \
+#define __OSS_OBJECT_GET_CONN(object, conn, key, condition) \
+    oss_connection_t* conn;                                 \
+                                                            \
+    FOREACH(i, object->connections)                         \
+    {                                                       \
+        conn = i->data;                                     \
+        if ((condition))                                    \
+            return conn;                                    \
+    }                                                       \
     return nullptr
 
 oss_connection_t* oss_object_get_connection(oss_object_t* object, const char* key)
 {
+    size_t key_len = strlen(key);
+
     /* Just get all the connections on this object (unfiltered) */
-    __OSS_OBJECT_GET_CONN(object, conn, key, true);
+    __OSS_OBJECT_GET_CONN(object, conn, key, strncmp(conn->child->key, key, key_len) == 0);
 }
 
 oss_connection_t* oss_object_get_connection_down(oss_object_t* object, const char* key)
 {
+    size_t key_len = strlen(key);
+
     /* Get all the connections where @object is the parent, in order to get all the downstream connections with this object */
-    __OSS_OBJECT_GET_CONN(object, conn, key, (conn->parent == object));
+    __OSS_OBJECT_GET_CONN(object, conn, key, conn->parent == object && strncmp(conn->child->key, key, key_len) == 0);
 }
 
 oss_connection_t* oss_object_get_connection_up(oss_object_t* object, const char* key)
 {
+    size_t key_len = strlen(key);
+
     /* Get all the connections where @object is the child, in order to get all the upstream connections with this object */
-    __OSS_OBJECT_GET_CONN(object, conn, key, (conn->child == object));
+    __OSS_OBJECT_GET_CONN(object, conn, key, conn->child == object && strncmp(conn->child->key, key, key_len) == 0);
+}
+
+oss_connection_t* oss_object_get_connection_up_nr(oss_object_t* object, u32 idx)
+{
+    /* Get all the connections where @object is the child, in order to get all the upstream connections with this object */
+    __OSS_OBJECT_GET_CONN(object, conn, nullptr, conn->child == object && idx-- == 0);
 }
 
 /*!
@@ -173,7 +185,7 @@ error_t oss_object_connect(oss_object_t* parent, oss_object_t* child)
         error = parent->ops->f_Connect(parent, child);
 
     /* Check if the f_Connect call might have failed */
-    if (error)
+    if (IS_FATAL(error))
         return error;
 
     /* Call the function to actually connect @child to @parent */
@@ -251,6 +263,12 @@ error_t oss_object_disconnect(oss_object_t* parent, oss_object_t* child)
     /* Call the parents disconnect routine if it has one */
     if (parent->ops->f_Disconnect)
         error = parent->ops->f_Disconnect(parent, child);
+
+    /*
+     * If we couldn't actually disconnect on the backend, just dip lol
+     */
+    if (IS_FATAL(error))
+        return error;
 
     /* Call the pertaining disconnection function for the subsystem */
     return oss_disconnect(parent_conn);

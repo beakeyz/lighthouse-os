@@ -85,7 +85,7 @@ error_t oss_open_object(const char* path, struct oss_object** pobj)
     if (!path || !pobj)
         return -EINVAL;
 
-    if (HAS_ERROR(oss_parse_path(path, &oss_path)))
+    if (IS_FATAL(oss_parse_path(path, &oss_path)))
         return -EINVAL;
 
     /* Try and grab a root node */
