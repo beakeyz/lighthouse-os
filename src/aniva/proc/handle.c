@@ -17,7 +17,7 @@ void init_khandle(khandle_t* out_handle, HANDLE_TYPE* type, void* ref)
 
     out_handle->index = KHNDL_INVALID_INDEX;
     out_handle->type = *type;
-    out_handle->reference.kobj = ref;
+    out_handle->kobj = ref;
 }
 
 void init_khandle_ex(khandle_t* bHandle, HANDLE_TYPE type, u32 flags, void* ref)
@@ -69,7 +69,7 @@ void khandle_set_flags(khandle_t* handle, uint32_t flags)
  */
 static bool __is_khandle_bound(khandle_t* handle)
 {
-    return (handle != nullptr && ((handle->index != KHNDL_INVALID_INDEX) && handle->reference.kobj != nullptr));
+    return (handle != nullptr && ((handle->index != KHNDL_INVALID_INDEX) && handle->kobj != nullptr));
 }
 
 int init_khandle_map(khandle_map_t* ret, uint32_t max_count)
@@ -356,7 +356,7 @@ kerror_t khandle_map_remove(khandle_map_t* map, HANDLE_TYPE type, void* addr)
     mutex_lock(map->lock);
 
     for (u32 i = 0; i < map->max_count; i++) {
-        if (map->handles[i].type != type || map->handles[i].reference.kobj != addr)
+        if (map->handles[i].type != type || map->handles[i].kobj != addr)
             continue;
 
         __destroy_khandle(&map->handles[i]);

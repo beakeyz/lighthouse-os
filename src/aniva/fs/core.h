@@ -2,22 +2,23 @@
 #define __ANIVA_FS_CORE__
 
 #include "dev/disk/volume.h"
-#include "oss/node.h"
+#include "lightos/api/filesystem.h"
+#include "oss/object.h"
 #include <libk/flow/error.h>
 #include <libk/stddef.h>
 
-#define FS_DEFAULT_ROOT_MP "Root"
-#define FS_INITRD_MP "Initrd"
-
-sruct oss_node_ops;
+struct dir;
+struct dir_ops;
 struct aniva_driver;
+struct fs_root_object;
 
 typedef struct fs_type {
     const char* m_name;
     uint32_t m_flags;
+    enum LIGHTOS_FSTYPE fstype;
 
-    int (*f_unmount)(struct fs_type*, oss_node_t*);
-    sruct oss_node* (*f_mount)(struct fs_type*, const char*, volume_t* dev);
+    int (*f_unmount)(struct fs_type*, oss_object_t*);
+    oss_object_t* (*f_mount)(struct fs_type*, const char*, volume_t* dev);
 
     struct aniva_driver* m_driver;
 
@@ -34,7 +35,18 @@ fs_type_t* get_fs_type(const char* name);
 kerror_t register_filesystem(fs_type_t* fs);
 kerror_t unregister_filesystem(fs_type_t* fs);
 
-typedef struct fs_oss_node {
+/*
+ * Filesystem root object
+ *
+ * This guy is created once when a filesystem is mounted. It keeps track of the filesystem-
+ * specific information in one place. Every filesystem-based object has a reference to the
+ * root object, since they all need to know stuff about their filesystem.
+ *
+ * When a filesystem is unmounted, all downstream references are dropped, since unmounting
+ * is a forcefull opperation. We need to see if we can kill the responsible (non-kernel)
+ * processes when they still hold filesystem object references when a fsroot is unmounted
+ */
+typedef struct fs_root_object {
     fs_type_t* m_type;
     volume_t* m_device;
 
@@ -50,23 +62,18 @@ typedef struct fs_oss_node {
     uintptr_t m_first_usable_block;
     uintptr_t m_max_filesize;
 
+    /* Directory at the fs root */
+    struct dir* rootdir;
+
     void* m_fs_priv;
-} fs_oss_node_t;
+} fs_root_object_t;
 
-static inline fs_oss_node_t* oss_node_unwrap_to_fsnode(oss_node_t* node)
-{
-    while (node->type != OSS_OBJ_GEN_NODE && !node->priv)
-        node = node->parent;
+fs_root_object_t* create_fs_root_object(const char* name, fs_type_t* type, struct dir_ops* fsroot_ops);
+void destroy_fsroot_object(fs_root_object_t* object);
 
-    if (!node)
-        return nullptr;
+fs_root_object_t* oss_object_get_fsobj(oss_object_t* object);
 
-    return (fs_oss_node_t*)node->priv;
-}
-
-#define oss_node_getfs(node) (oss_node_unwrap_to_fsnode((node)))
-
-sruct oss_node* create_fs_oss_node(const char* name, fs_type_t* type, sruct oss_node_ops* ops);
-void destroy_fs_oss_node(sruct oss_node* node);
+error_t fsroot_mount(oss_object_t* mountpoint, fs_root_object_t* object);
+error_t fsroot_unmount(fs_root_object_t* object);
 
 #endif // !__ANIVA_FS_CORE__

@@ -1,17 +1,16 @@
 #include "dev/core.h"
 #include "dev/device.h"
-#include "fs/file.h"
 #include "libk/flow/error.h"
-#include <lightos/types.h>
 #include "lightos/api/handle.h"
+#include "lightos/api/objects.h"
 #include "lightos/syscall.h"
 #include "mem/kmem.h"
-#include "oss/obj.h"
+#include "oss/object.h"
 #include "proc/handle.h"
 #include "proc/proc.h"
 #include "sched/scheduler.h"
 #include <dev/driver.h>
-#include <proc/env.h>
+#include <lightos/types.h>
 
 #include <lightos/api/driver.h>
 
@@ -19,6 +18,7 @@ error_t sys_send_msg(HANDLE handle, dcc_t code, u64 offset, void* buffer, size_t
 {
     kerror_t error;
     khandle_t* c_hndl;
+    oss_object_t* object;
     proc_t* c_proc;
 
     c_proc = get_current_proc();
@@ -30,29 +30,23 @@ error_t sys_send_msg(HANDLE handle, dcc_t code, u64 offset, void* buffer, size_t
     /* Find the handle */
     c_hndl = find_khandle(&c_proc->m_handle_map, handle);
 
-    if (!c_hndl)
+    if (!c_hndl || c_hndl->type != HNDL_TYPE_OBJECT)
         return EINVAL;
+
+    object = c_hndl->object;
 
     error = (0);
 
-    switch (c_hndl->type) {
-    case HNDL_TYPE_DRIVER:
+    switch (object->type) {
+    case OT_DRIVER:
         /* NOTE: this call does not lock the driver */
-        error = driver_send_msg_ex(c_hndl->reference.driver, code, buffer, size, NULL, NULL);
+        error = driver_send_msg_ex(oss_object_unwrap(object, OT_DRIVER), code, buffer, size, NULL, NULL);
         break;
-    case HNDL_TYPE_DEVICE:
-        error = device_send_ctl_ex(c_hndl->reference.device, code, NULL, buffer, size);
+    case OT_DEVICE:
+        error = device_send_ctl_ex(oss_object_unwrap(object, OT_DEVICE), code, NULL, buffer, size);
         break;
-    case HNDL_TYPE_FILE: {
-        file_t* file = c_hndl->reference.file;
-
-        /* TODO: follow unix? */
-        (void)file;
-        error = -1;
-        break;
-    }
     default:
-        return EINVAL;
+        return ENOIMPL;
     }
 
     if (error)
@@ -80,14 +74,12 @@ error_t sys_send_ctl(HANDLE handle, enum DEVICE_CTLC code, u64 offset, void* buf
         return -EINVAL;
 
     switch (c_hndl->type) {
-    case HNDL_TYPE_DEVICE:
-        if (!c_hndl->reference.device)
-            return -EINVAL;
-
-        if (!oss_obj_can_proc_access(c_hndl->reference.device->obj, c_proc))
-            return EPERM;
-
-        error = device_send_ctl_ex(c_hndl->reference.device, code, offset, buffer, bsize);
+    case HNDL_TYPE_OBJECT:
+        /*
+         * Check if we can get a device from this object. If we can't, device_send_ctl_ex will return
+         * an error, since it null-checks parameters
+         */
+        error = device_send_ctl_ex(oss_object_unwrap(c_hndl->object, OT_DEVICE), code, offset, buffer, bsize);
         break;
     default:
         error = -KERR_NOT_FOUND;

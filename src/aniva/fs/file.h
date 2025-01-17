@@ -1,6 +1,7 @@
 #ifndef __ANIVA_FIL_IMPL__
 #define __ANIVA_FIL_IMPL__
 #include "dev/disk/shared.h"
+#include "fs/core.h"
 #include "lightos/api/objects.h"
 #include "mem/page_dir.h"
 #include "oss/object.h"
@@ -94,6 +95,9 @@ typedef struct file {
     size_t m_total_size;
     /* Logical size of the file */
     size_t m_logical_size;
+
+    /* Filesystem root object. This guy holds all the fs-specific information */
+    fs_root_object_t* fsroot;
 
     void* m_private;
 } file_t;

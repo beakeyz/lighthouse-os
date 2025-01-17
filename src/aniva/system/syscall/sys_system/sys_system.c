@@ -1,9 +1,10 @@
 #include "lightos/api/handle.h"
 #include "lightos/api/sysvar.h"
-#include "oss/node.h"
+#include "oss/object.h"
 #include "proc/handle.h"
 #include "proc/proc.h"
 #include "sched/scheduler.h"
+#include "system/sysvar/map.h"
 #include "system/sysvar/var.h"
 
 enum HANDLE_TYPE sys_handle_get_type(HANDLE handle)
@@ -34,11 +35,11 @@ enum SYSVAR_TYPE sys_get_sysvar_type(HANDLE pvar_handle)
     /* Find the khandle */
     handle = find_khandle(&current_proc->m_handle_map, pvar_handle);
 
-    if (handle->type != HNDL_TYPE_SYSVAR)
+    if (handle->type != HNDL_TYPE_OBJECT)
         return SYSVAR_TYPE_INVAL;
 
     /* Extract the profile variable */
-    var = handle->reference.pvar;
+    var = oss_object_unwrap(handle->object, OT_SYSVAR);
 
     if (!var)
         return SYSVAR_TYPE_INVAL;
@@ -61,47 +62,52 @@ enum SYSVAR_TYPE sys_get_sysvar_type(HANDLE pvar_handle)
 HANDLE sys_create_sysvar(const char* key, handle_flags_t flags, enum SYSVAR_TYPE type, void* buffer, size_t len)
 {
     proc_t* proc;
-    khandle_t* khandle;
-    enum PROFILE_TYPE target_prv_lvl;
-    oss_node_t* target_node;
+    sysvar_t* var;
+    HANDLE ret;
+    khandle_t* target_khandle;
+    khandle_t new_khandle;
+    oss_object_t* target_object;
 
     proc = get_current_proc();
 
     if ((kmem_validate_ptr(proc, (uintptr_t)key, 1)))
-        return false;
+        return HNDL_INVAL;
 
     if ((kmem_validate_ptr(proc, (uintptr_t)buffer, 1)))
-        return false;
+        return HNDL_INVAL;
 
-    khandle = find_khandle(&proc->m_handle_map, flags.s_rel_hndl);
+    target_khandle = find_khandle(&proc->m_handle_map, flags.s_rel_hndl);
 
     /* Invalid handle =/ */
-    if (!khandle)
-        return false;
+    if (!target_khandle)
+        return HNDL_INVAL;
 
     /* Can't write to this handle =/ */
-    if ((khandle->flags & HNDL_FLAG_W) != HNDL_FLAG_W)
-        return false;
+    if (target_khandle->type != HNDL_TYPE_OBJECT || (target_khandle->flags & HNDL_FLAG_W) != HNDL_FLAG_W)
+        return HNDL_INVAL;
 
-    switch (khandle->type) {
-    case HNDL_TYPE_PROFILE:
-        target_node = khandle->reference.profile->node;
-        target_prv_lvl = khandle->reference.profile->attr.ptype;
-        break;
-    case HNDL_TYPE_PROC_ENV:
-        target_node = khandle->reference.penv->node;
-        target_prv_lvl = khandle->reference.penv->attr.ptype;
-        break;
-    default:
-        target_node = nullptr;
-        break;
-    }
+    target_object = target_khandle->object;
 
-    if (!target_node)
-        return false;
+    /* Try to create a sysvar */
+    var = create_sysvar(key, NULL, type, flags.s_flags, buffer, len);
 
-    if (KERR_ERR(sysvar_attach_ex(target_node, key, target_prv_lvl, type, flags.s_flags, buffer, len)))
-        return false;
+    if (!var)
+        return HNDL_INVAL;
 
-    return true;
+    /* We can put sysvars anywhere lol */
+    if (KERR_ERR(sysvar_attach(target_object, var)))
+        goto close_and_return_error;
+
+    /* Inherit the target handles flags lol */
+    init_khandle_ex(&new_khandle, HNDL_TYPE_OBJECT, target_khandle->flags, var->object);
+
+    /* Try to bind the khandle */
+    if (bind_khandle(&proc->m_handle_map, &new_khandle, (u32*)&ret))
+        goto close_and_return_error;
+
+    return ret;
+
+close_and_return_error:
+    oss_object_close(var->object);
+    return HNDL_INVAL;
 }

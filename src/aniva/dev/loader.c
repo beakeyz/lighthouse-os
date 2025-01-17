@@ -10,7 +10,6 @@
 #include "logging/log.h"
 #include "mem/heap.h"
 #include "mem/kmem.h"
-#include "oss/obj.h"
 #include "system/profile/profile.h"
 #include "system/sysvar/var.h"
 
@@ -528,7 +527,7 @@ driver_t* load_external_driver_ex(file_t* file)
     ctx.size = read_size;
     ctx.driver = out;
     /* NOTE: This strdups the full path */
-    ctx.path = oss_obj_get_fullpath(file->m_obj);
+    ctx.path = oss_object_get_abs_path(file->m_obj);
 
     error = __load_ext_driver(&ctx, false);
 
@@ -641,7 +640,7 @@ fail_and_deallocate:
 static const char* _get_driver_path(const char* varpath)
 {
     char* ret = nullptr;
-    size_t driver_root_sz; 
+    size_t driver_root_sz;
     size_t driver_name_sz;
     sysvar_t* driver_root_var = nullptr;
     sysvar_t* driver_name_var = nullptr;
@@ -671,7 +670,7 @@ static const char* _get_driver_path(const char* varpath)
     /* First read the root path into the buffer */
     if (sysvar_read(driver_root_var, (void*)ret, driver_root_sz))
         goto dealloc_and_error;
-    
+
     /* Check if it ends with a slash */
     if (ret[strlen(ret) - 1] != '/')
         goto dealloc_and_error;

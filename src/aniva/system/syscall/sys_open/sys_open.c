@@ -9,7 +9,6 @@
 #include "proc/proc.h"
 #include "sched/scheduler.h"
 #include <lightos/types.h>
-#include <proc/env.h>
 
 /*
  * Generic open syscall
@@ -63,7 +62,7 @@ HANDLE sys_open(const char __user* path, handle_flags_t flags, enum HNDL_MODE mo
      */
 
     /* Check if the handle was really initialized */
-    if (!handle.reference.kobj)
+    if (!handle.kobj)
         return HNDL_NOT_FOUND;
 
     /* Copy the handle into the map */

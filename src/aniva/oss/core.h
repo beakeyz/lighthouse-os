@@ -15,6 +15,18 @@ struct oss_object;
 void init_oss();
 void oss_test();
 
+enum OSS_ROOTOBJ_TYPE {
+    ORT_STORAGE_MAIN,
+    ORT_DEVICES,
+    ORT_DRIVERS,
+    ORT_TERMINALS,
+    ORT_PROCESSES,
+    ORT_RUNTIME,
+    ORT_RAMIMAGE,
+};
+
+const char* oss_get_default_rootobj_key(enum OSS_ROOTOBJ_TYPE type);
+
 error_t oss_open_root_object(const char* path, struct oss_object** pobj);
 error_t oss_open_object(const char* path, struct oss_object** pobj);
 error_t oss_open_object_from(const char* path, struct oss_object* rel, struct oss_object** pobj);

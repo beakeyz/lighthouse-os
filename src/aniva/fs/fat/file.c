@@ -1,19 +1,21 @@
 #include "file.h"
+#include "fs/core.h"
 #include "fs/dir.h"
 #include "fs/fat/cache.h"
 #include "fs/fat/core.h"
 #include "fs/file.h"
 #include "libk/flow/error.h"
 #include "mem/heap.h"
-#include "oss/obj.h"
 
 static int fat_read(file_t* file, void* buffer, size_t* p_size, uintptr_t offset)
 {
     size_t size;
-    oss_node_t* node = file->m_obj->parent;
+    fs_root_object_t* fsroot;
 
     if (!p_size)
         return -1;
+
+    fsroot = file->fsroot;
 
     size = *p_size;
 
@@ -27,7 +29,7 @@ static int fat_read(file_t* file, void* buffer, size_t* p_size, uintptr_t offset
     /* Update this shit */
     *p_size = size;
 
-    return fat32_read_clusters(node, buffer, file->m_private, offset, size);
+    return fat32_read_clusters(fsroot, buffer, file->m_private, offset, size);
 }
 
 static int fat_write(file_t* file, void* buffer, size_t* p_size, uintptr_t offset)
@@ -35,7 +37,7 @@ static int fat_write(file_t* file, void* buffer, size_t* p_size, uintptr_t offse
     if (!file || !file->m_obj)
         return -KERR_INVAL;
 
-    return fat32_write_clusters(file->m_obj->parent, buffer, file->m_private, offset, *p_size);
+    return fat32_write_clusters(file->fsroot, buffer, file->m_private, offset, *p_size);
 }
 
 static int fat_sync(file_t* file)
@@ -43,7 +45,8 @@ static int fat_sync(file_t* file)
     if (!file || !file->m_obj)
         return -KERR_INVAL;
 
-    return fatfs_flush(file->m_obj->parent);
+    /* FIXME: This currently flushes the entire FATFS xD */
+    return fatfs_flush(file->fsroot);
 }
 
 static int fat_close(file_t* file)
@@ -76,7 +79,7 @@ int fat_dir_destroy(dir_t* dir)
     return 0;
 }
 
-int fat_dir_create_child(dir_t* dir, const char* name)
+int fat_dir_create_child(dir_t* dir, oss_object_t* child)
 {
     kernel_panic("TODO: fat_dir_create_child");
 }
@@ -118,50 +121,46 @@ static void fat_8_3_to_filename(char* fat8_3, char* b_name, uint32_t bsize)
     }
 }
 
-kerror_t fat_dir_read(dir_t* dir, uint64_t idx, direntry_t* bentry)
+oss_object_t* fat_dir_read(dir_t* dir, uint64_t idx)
 {
     fat_dir_entry_t entry;
     file_t* f = NULL;
     dir_t* d = NULL;
     char namebuf[256] = { NULL };
 
-    if (!bentry)
-        return -KERR_NULL;
-
-    if (!KERR_OK(fat32_read_dir_entry(dir->node, dir->priv, &entry, namebuf, sizeof(namebuf), idx, NULL)))
-        return -KERR_INVAL;
+    if (!KERR_OK(fat32_read_dir_entry(dir->priv, &entry, namebuf, sizeof(namebuf), idx, NULL)))
+        return nullptr;
 
     /* If the first byte in the name buffer is still null, we could not find any lfn entries for this index... */
     if (!namebuf[0])
         fat_8_3_to_filename((char*)entry.name, namebuf, sizeof(namebuf));
 
     if ((entry.attr & FAT_ATTR_DIR) == FAT_ATTR_DIR)
-        d = create_fat_dir(GET_FAT_FSINFO(dir->node), NULL, namebuf);
+        d = create_fat_dir(GET_FAT_FSINFO(dir->fsroot), NULL, namebuf);
     else
-        f = create_fat_file(GET_FAT_FSINFO(dir->node), NULL, namebuf);
+        f = create_fat_file(GET_FAT_FSINFO(dir->fsroot), NULL, namebuf);
 
-    if (!d && !f)
-        return -KERR_INVAL;
+    if (d)
+        return d->object;
 
-    return init_direntry(
-        bentry,
-        (d != nullptr) ? (void*)d : (void*)f,
-        (d != nullptr) ? LIGHTOS_DIRENT_TYPE_DIR : LIGHTOS_DIRENT_TYPE_FILE);
-}
+    if (f)
+        return f->m_obj;
 
-oss_obj_t* fat_dir_find(dir_t* dir, const char* path)
-{
-    kernel_panic("TODO: fat_dir_find");
     return nullptr;
 }
 
 dir_ops_t fat_dir_ops = {
     .f_destroy = fat_dir_destroy,
-    .f_create_child = fat_dir_create_child,
-    .f_remove_child = fat_dir_remove_child,
-    .f_read = fat_dir_read,
-    .f_find = fat_dir_find,
+    .f_connect_child = fat_dir_create_child,
+    .f_disconnect_child = fat_dir_remove_child,
+    .f_open_idx = fat_dir_read,
+    .f_open = __fat_open,
 };
+
+dir_ops_t* get_fat_dir_ops()
+{
+    return &fat_dir_ops;
+}
 
 /*!
  * @brief: Create a file that adheres to the FAT fs
@@ -179,7 +178,7 @@ file_t* create_fat_file(fat_fs_info_t* info, uint32_t flags, const char* path)
     if (!info || !path || !path[0])
         return nullptr;
 
-    ret = create_file(info->node, flags, path);
+    ret = create_file(flags, path);
 
     if (!ret)
         return nullptr;
@@ -194,7 +193,7 @@ file_t* create_fat_file(fat_fs_info_t* info, uint32_t flags, const char* path)
 
     return ret;
 fail_and_exit:
-    destroy_oss_obj(ret->m_obj);
+    oss_object_close(ret->m_obj);
     return nullptr;
 }
 
@@ -206,7 +205,7 @@ dir_t* create_fat_dir(fat_fs_info_t* info, uint32_t flags, const char* path)
     dir_t* ret;
     fat_file_t* ffile;
 
-    ret = create_dir(info->node, path, &fat_dir_ops, NULL, NULL);
+    ret = create_dir(path, &fat_dir_ops, info->fsroot, NULL, NULL);
 
     if (!ret)
         return nullptr;
@@ -218,7 +217,7 @@ dir_t* create_fat_dir(fat_fs_info_t* info, uint32_t flags, const char* path)
 
     return ret;
 dealloc_and_exit:
-    destroy_dir(ret);
+    dir_close(ret);
     return nullptr;
 }
 
@@ -243,21 +242,21 @@ void destroy_fat_file(fat_file_t* file)
  */
 size_t get_fat_file_size(fat_file_t* file)
 {
-    oss_node_t* parent;
+    fs_root_object_t* fsroot;
 
     if (!file || !file->parent)
         return NULL;
 
     switch (file->type) {
     case FFILE_TYPE_FILE:
-        parent = file->file_parent->m_obj->parent;
+        fsroot = file->file_parent->fsroot;
         break;
     case FFILE_TYPE_DIR:
-        parent = file->dir_parent->rootnode;
+        fsroot = file->dir_parent->fsroot;
         break;
     }
 
-    return file->clusters_num * GET_FAT_FSINFO(parent)->cluster_size;
+    return file->clusters_num * GET_FAT_FSINFO(fsroot)->cluster_size;
 }
 
 kerror_t fat_file_update_dir_entries(fat_file_t* file)
@@ -294,7 +293,7 @@ kerror_t fat_file_update_dir_entries(fat_file_t* file)
     }
 
     /* Load all the data into the buffer */
-    if (!KERR_OK(fat32_read_clusters(file->dir_parent->rootnode, (uint8_t*)tmp_buffer, file, 0, fsize)))
+    if (!KERR_OK(fat32_read_clusters(file->dir_parent->fsroot, (uint8_t*)tmp_buffer, file, 0, fsize)))
         return -KERR_IO;
 
     for (uint64_t i = 0; i < n_raw_dirent; i++) {

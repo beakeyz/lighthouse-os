@@ -65,7 +65,7 @@ typedef struct user_profile {
     const char* name;
     const char* image_path;
     /* This node holds both the environments of this profile AND the variables local to the profile */
-    oss_object_t* node;
+    oss_object_t* object;
 
     /* Privilege attributes for this profile */
     struct pattr attr;
@@ -109,8 +109,6 @@ int profile_find(const char* name, user_profile_t** bprofile);
 int profile_find_from(oss_object_t* node, const char* name, user_profile_t** bprofile);
 int profile_find_var(const char* path, struct sysvar** var);
 int profile_get_var(user_profile_t* profile, const char* key, struct sysvar** var);
-int profile_add_penv(user_profile_t* profile, struct penv* env);
-int profile_remove_penv(user_profile_t* profile, struct penv* env);
 
 int profile_set_password(user_profile_t* profile, const char* password);
 int profile_clear_password(user_profile_t* profile);

@@ -8,7 +8,7 @@
 
 static dir_ops_t _generic_dir_ops = {
     .f_destroy = NULL,
-    .f_find_idx = NULL,
+    .f_open_idx = NULL,
 };
 
 static int __destroy_dis(oss_object_t* object)
@@ -45,11 +45,11 @@ static int __oss_dir_open(oss_object_t* object, const char* path, oss_object_t**
     if (!dir)
         return -EINVAL;
 
-    if (!dir->ops->f_find)
+    if (!dir->ops->f_open)
         return -ENOIMPL;
 
     /* Call the directories find function */
-    ret = dir->ops->f_find(dir, path);
+    ret = dir->ops->f_open(dir, path);
 
     if (!ret)
         return -ENOENT;
@@ -76,10 +76,10 @@ static int __oss_dir_connect(oss_object_t* object, oss_object_t* child)
         return -EINVAL;
 
     /* This is okay. A directory doen't need to implement this function */
-    if (!dir->ops->f_create_child)
+    if (!dir->ops->f_connect_child)
         return ENOIMPL;
 
-    return dir->ops->f_create_child(dir, child);
+    return dir->ops->f_connect_child(dir, child);
 }
 
 /*!
@@ -99,11 +99,11 @@ static int __oss_dir_disconnect(oss_object_t* object, oss_object_t* child)
         return -EINVAL;
 
     /* Check if we have this implemented */
-    if (!dir->ops->f_remove_child)
+    if (!dir->ops->f_disconnect_child)
         return EINVAL;
 
     /* Call it if we do */
-    return dir->ops->f_remove_child(dir, child->key);
+    return dir->ops->f_disconnect_child(dir, child->key);
 }
 
 /*!
@@ -122,11 +122,11 @@ static int __oss_dir_read(oss_object_t* object, u64 offset, void* buffer, size_t
     if (!dir)
         return -EINVAL;
 
-    if (!dir->ops->f_find_idx)
+    if (!dir->ops->f_open_idx)
         return ENOIMPL;
 
     /* Ask the driver nicely to find the object at the index for us =) */
-    ret = dir->ops->f_find_idx(dir, offset);
+    ret = dir->ops->f_open_idx(dir, offset);
 
     if (!ret)
         return -ENOENT;
@@ -159,7 +159,7 @@ static oss_object_ops_t dir_oss_ops = {
  * @root: The root node of the filesystem this directory comes from
  * @path: The path relative from @root
  */
-dir_t* create_dir(const char* key, struct dir_ops* ops, void* priv, uint32_t flags)
+dir_t* create_dir(const char* key, struct dir_ops* ops, fs_root_object_t* fsroot, void* priv, uint32_t flags)
 {
     dir_t* dir;
 
@@ -177,6 +177,7 @@ dir_t* create_dir(const char* key, struct dir_ops* ops, void* priv, uint32_t fla
 
     dir->object = create_oss_object(key, NULL, OT_DIR, &dir_oss_ops, dir);
     dir->key = dir->object->key;
+    dir->fsroot = fsroot;
     dir->ops = ops;
     dir->priv = priv;
     dir->flags = flags;

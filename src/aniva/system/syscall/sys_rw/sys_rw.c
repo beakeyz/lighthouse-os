@@ -1,16 +1,16 @@
 #include "fs/dir.h"
 #include "fs/file.h"
-#include "lightos/api/filesystem.h"
+#include "libk/flow/error.h"
 #include "lightos/api/handle.h"
+#include "lightos/api/objects.h"
 #include "lightos/syscall.h"
 #include "mem/kmem.h"
-#include "oss/obj.h"
+#include "oss/object.h"
 #include "proc/handle.h"
 #include "proc/hdrv/driver.h"
 #include "proc/proc.h"
 #include "sched/scheduler.h"
 #include <libk/string.h>
-#include <proc/env.h>
 
 /*
  * When writing to a handle (filediscriptor in unix terms) we have to
@@ -91,6 +91,7 @@ error_t sys_read(HANDLE handle, void* buffer, size_t size, size_t* pread_size)
 size_t sys_seek(handle_t handle, uintptr_t offset, uint32_t type)
 {
     khandle_t* khndl;
+    file_t* file;
     proc_t* curr_prc;
 
     curr_prc = get_current_proc();
@@ -100,7 +101,8 @@ size_t sys_seek(handle_t handle, uintptr_t offset, uint32_t type)
 
     khndl = find_khandle(&curr_prc->m_handle_map, handle);
 
-    if (!khndl)
+    /* Can only seek on objects */
+    if (!khndl || khndl->type != HNDL_TYPE_OBJECT)
         return EINVAL;
 
     switch (type) {
@@ -111,9 +113,15 @@ size_t sys_seek(handle_t handle, uintptr_t offset, uint32_t type)
         khndl->offset += offset;
         break;
     case 2: {
-        switch (khndl->type) {
-        case HNDL_TYPE_FILE:
-            khndl->offset = khndl->reference.file->m_total_size + offset;
+        switch (khndl->object->type) {
+        case OT_FILE:
+            file = oss_object_unwrap(khndl->object, OT_FILE);
+
+            /* This has to be non-null at this point lol */
+            ASSERT(file);
+
+            /* Set the handles offset */
+            khndl->offset = file->m_total_size + offset;
             break;
         default:
             break;
@@ -134,15 +142,12 @@ error_t sys_dir_create(const char* path, i32 mode)
 /*!
  * @brief: Read from a directory at index @idx
  */
-uint64_t sys_dir_read(handle_t handle, uint32_t idx, lightos_direntry_t __user* b_dirent, size_t blen)
+uint64_t sys_dir_read(handle_t handle, uint32_t idx, Object __user* b_dirent, size_t blen)
 {
+    dir_t* dir;
     proc_t* c_proc;
-    khandle_t* khandle;
-    khandle_driver_t* khandle_driver;
-
-    /* No driver to read directories, fuckkk */
-    if (khandle_driver_find(HNDL_TYPE_DIR, &khandle_driver))
-        return EINVAL;
+    khandle_t* dir_khandle;
+    oss_object_t* object;
 
     c_proc = get_current_proc();
 
@@ -155,17 +160,34 @@ uint64_t sys_dir_read(handle_t handle, uint32_t idx, lightos_direntry_t __user* 
         return EINVAL;
 
     /* Find the right underlying dir object */
-    khandle = find_khandle(&c_proc->m_handle_map, handle);
+    dir_khandle = find_khandle(&c_proc->m_handle_map, handle);
 
-    if (!khandle || !khandle->reference.kobj)
+    if (!dir_khandle || dir_khandle->type != HNDL_TYPE_OBJECT)
         return EINVAL;
 
-    if (khandle->type != HNDL_TYPE_DIR)
+    /* Check if we can get a directory from this guy */
+    dir = oss_object_unwrap(dir_khandle->object, OT_DIR);
+
+    if (!dir)
         return EINVAL;
 
     /* Set the right offset */
-    khandle->offset = idx;
+    dir_khandle->offset = idx;
 
-    /* bsize is unused by this syscall */
-    return khandle_driver_read(khandle_driver, khandle, b_dirent, NULL);
+    /* Try to find an object at this index */
+    object = dir_find_idx(dir, idx);
+
+    if (!object)
+        return ENOENT;
+
+    b_dirent->type = object->type;
+    b_dirent->handle = HNDL_INVAL;
+
+    /* (hopefully) Safely copy the key */
+    strncpy((char*)b_dirent->key, object->key, sizeof(b_dirent->key) - 1);
+
+    /* Release the temporary reference again */
+    oss_object_close(object);
+
+    return 0;
 }

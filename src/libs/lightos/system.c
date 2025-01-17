@@ -105,7 +105,7 @@ error_t sys_dir_create(const char* path, i32 mode)
     return syscall_2(SYSID_DIR_CREATE, (u64)path, mode);
 }
 
-size_t sys_dir_read(HANDLE handle, u32 idx, lightos_direntry_t* namebuffer, size_t blen)
+size_t sys_dir_read(HANDLE handle, u32 idx, Object* namebuffer, size_t blen)
 {
     return syscall_4(SYSID_DIR_READ, handle, idx, (u64)namebuffer, blen);
 }

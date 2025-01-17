@@ -1,13 +1,11 @@
 #include "bus.h"
 #include "dev/device.h"
 #include "dev/group.h"
-#include "libk/stddef.h"
 #include "logging/log.h"
 #include "mem/heap.h"
 #include "pci.h"
 #include <libk/string.h>
 #include <mem/kmem.h>
-#include <oss/node.h>
 
 static dgroup_t* _pci_group;
 
@@ -67,7 +65,7 @@ pci_bus_t* create_pci_bus(uint64_t base, uint8_t start, uint8_t end, uint32_t bu
 
     /* Create the device for this bus */
     bus->dev = create_device_ex(NULL, (char*)busname, bus, DEVICE_CTYPE_PCI, NULL, NULL);
-    bus->dev->bus_group = register_dev_group(DGROUP_TYPE_PCI, to_string(busnum), NULL, parent_group->node);
+    bus->dev->bus_group = register_dev_group(DGROUP_TYPE_PCI, to_string(busnum), NULL, parent_group->object);
 
     dev_group_add_device(parent_group, bus->dev);
 

@@ -1,12 +1,12 @@
 #ifndef __ANIVA_GENERIC_FAT__
 #define __ANIVA_GENERIC_FAT__
 #include "dev/disk/shared.h"
+#include "fs/dir.h"
 #include "fs/fat/cache.h"
 #include "sync/mutex.h"
 #include <fs/core.h>
 #include <libk/stddef.h>
 
-sruct oss_node;
 struct fat_file;
 struct fat_file_ops;
 
@@ -174,7 +174,7 @@ typedef struct {
  * TODO: should this hold caches?
  */
 typedef struct fat_fs_info {
-    sruct oss_node* node;
+    fs_root_object_t* fsroot;
 
     uint8_t fats, fat_type; /* FAT count and bits of this FAT fs (12, 16, 32) */
     uint8_t fat_file_shift, has_dirty;
@@ -202,10 +202,9 @@ typedef struct fat_fs_info {
     fat_boot_fsinfo_t boot_fs_info;
 
     fat_sector_cache_t* sector_cache;
-
 } fat_fs_info_t;
 
-#define GET_FAT_FSINFO(node) ((fat_fs_info_t*)(oss_node_getfs((node))->m_fs_priv))
+#define GET_FAT_FSINFO(fsroot) ((fat_fs_info_t*)((fsroot)->m_fs_priv))
 
 static inline bool is_fat32(fat_fs_info_t* finfo)
 {
@@ -222,8 +221,11 @@ static inline bool is_fat12(fat_fs_info_t* finfo)
     return (finfo->fat_type == FTYPE_FAT12);
 }
 
-int fat32_read_clusters(oss_node_t* node, uint8_t* buffer, struct fat_file* file, uint32_t start, size_t size);
-int fat32_write_clusters(oss_node_t* node, uint8_t* buffer, struct fat_file* ffile, uint32_t offset, size_t size);
-int fat32_read_dir_entry(oss_node_t* node, struct fat_file* dir, fat_dir_entry_t* out, char* namebuf, u32 namelen, uint32_t idx, uint32_t* diroffset);
+int fat32_read_clusters(fs_root_object_t* fsroot, uint8_t* buffer, struct fat_file* file, uint32_t start, size_t size);
+int fat32_write_clusters(fs_root_object_t* fsroot, uint8_t* buffer, struct fat_file* ffile, uint32_t offset, size_t size);
+int fat32_read_dir_entry(struct fat_file* dir, fat_dir_entry_t* out, char* namebuf, u32 namelen, uint32_t idx, uint32_t* diroffset);
+
+/* This is the FAT routine for opening objects */
+oss_object_t* __fat_open(dir_t* dir, const char* path);
 
 #endif // !__ANIVA_GENERIC_FAT__

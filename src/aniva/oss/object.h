@@ -135,6 +135,8 @@ error_t oss_object_open(oss_object_t* this, const char* key, oss_object_t** pobj
 error_t oss_object_close(oss_object_t* this);
 error_t oss_object_flush(oss_object_t* this);
 
+const char* oss_object_get_abs_path(oss_object_t* object);
+
 void init_oss_objects();
 
 #endif // !__ANIVA_OSS_OBJECT_H__

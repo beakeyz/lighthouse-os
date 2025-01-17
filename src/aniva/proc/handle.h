@@ -2,22 +2,13 @@
 #define __ANIVA_HANDLE__
 
 #include "libk/flow/error.h"
+#include "lightos/api/dynldr.h"
 #include "lightos/api/handle.h"
 #include "sync/mutex.h"
 #include <libk/stddef.h>
 
-struct file;
-struct dir;
-struct proc;
-struct penv;
 struct thread;
-struct kevent;
-struct device;
 struct oss_object;
-struct kevent_hook;
-struct sysvar;
-struct user_profile;
-struct driver;
 
 /*
  * A kernel-side handle.
@@ -33,22 +24,13 @@ typedef struct kernel_handle {
     uint32_t flags;
     uintptr_t offset;
     union {
-        struct file* file;
-        struct dir* dir;
-        struct device* device;
-        struct driver* driver;
-        struct proc* process;
+        /* TODO: Also move threads to oss objects */
         struct thread* thread;
         struct oss_object* object;
-        struct user_profile* profile;
-        struct sysvar* pvar;
-        struct penv* penv;
-        struct kevent* event;
         struct kevent_hook* hook;
-        struct dynamic_library* dynlib;
-        struct sysvar* vmem_range;
+        dynamic_library_t* dynlib;
         void* kobj;
-    } reference;
+    };
 } khandle_t;
 
 #define KHNDL_PROT_LVL_TOP (0xFF)

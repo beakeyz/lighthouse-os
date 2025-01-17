@@ -4,13 +4,11 @@
 #include "fs/file.h"
 #include "kevent/types/profile.h"
 #include "libk/flow/error.h"
+#include "lightos/api/objects.h"
 #include "lightos/api/sysvar.h"
 #include "mem/heap.h"
 #include "oss/core.h"
-#include "oss/node.h"
-#include "oss/obj.h"
-#include "proc/core.h"
-#include "proc/env.h"
+#include "oss/object.h"
 #include "sync/mutex.h"
 #include "system/profile/attr.h"
 #include "system/profile/runtime.h"
@@ -30,7 +28,26 @@ static uint32_t _active_profile_locked;
 static user_profile_t* _active_profile;
 static user_profile_t _admin_profile;
 static user_profile_t _user_profile;
-static oss_node_t* _runtime_node;
+static oss_object_t* _runtime_node;
+
+static int __profile_destroy_oss(oss_object_t* object)
+{
+    user_profile_t* profile = oss_object_unwrap(object, OT_PROFILE);
+
+    if (!profile)
+        return -EINVAL;
+
+    destroy_mutex(profile->lock);
+
+    /* Profile might be allocated on the heap */
+    kfree(profile);
+
+    return 0;
+}
+
+static oss_object_ops_t profile_oss_ops = {
+    .f_Destroy = __profile_destroy_oss,
+};
 
 /*!
  * @brief: Initialize memory of a profile
@@ -48,7 +65,7 @@ int init_proc_profile(user_profile_t* profile, char* name, struct pattr* attr)
 
     profile->name = name;
     profile->lock = create_mutex(NULL);
-    profile->node = create_oss_node(name, OSS_PROFILE_NODE, NULL, NULL);
+    profile->object = create_oss_object(name, NULL, OT_PROFILE, &profile_oss_ops, profile);
 
     /* Initialize this profiles attributes */
     init_pattr(&profile->attr, attr ? attr->ptype : PROFILE_TYPE_LIMITED, attr ? attr->pflags : 0);
@@ -57,10 +74,7 @@ int init_proc_profile(user_profile_t* profile, char* name, struct pattr* attr)
     mutex_lock(profile->lock);
 
     /* FIXME: Error handle */
-    (void)oss_node_add_node(_runtime_node, profile->node);
-
-    /* Set the private field */
-    profile->node->priv = profile;
+    (void)oss_object_connect(_runtime_node, profile->object);
 
     /* Release the lock */
     mutex_unlock(profile->lock);
@@ -107,16 +121,8 @@ void destroy_proc_profile(user_profile_t* profile)
     if (!profile)
         return;
 
-    /* Lock the mutex to prevent any async weirdness */
-    mutex_lock(profile->lock);
-
     /* First off, murder the node */
-    destroy_oss_node(profile->node);
-
-    destroy_mutex(profile->lock);
-
-    /* Profile might be allocated on the heap */
-    kfree(profile);
+    oss_object_close(profile->object);
 }
 
 user_profile_t* get_user_profile()
@@ -231,31 +237,28 @@ int profiles_unlock_activation(uint32_t key)
     return 0;
 }
 
-int profile_find_from(sruct oss_node* rel_node, const char* name, user_profile_t** bprofile)
+int profile_find_from(oss_object_t* node, const char* name, user_profile_t** bprofile)
 {
     int error;
     user_profile_t* profile;
-    oss_node_t* node;
-    oss_node_entry_t* entry;
+    oss_object_t* object;
 
-    error = oss_node_find(rel_node, name, &entry);
+    if (!node || !name || !bprofile)
+        return -EINVAL;
+
+    error = oss_open_object_from(name, node, &object);
 
     if (error)
         return error;
 
-    if (entry->type != OSS_ENTRY_NESTED_NODE || !entry->node)
-        return -KERR_NOT_FOUND;
+    profile = oss_object_unwrap(object, OT_PROFILE);
 
-    node = entry->node;
+    if (!profile) {
+        oss_object_close(object);
+        return -EINVAL;
+    }
 
-    if (node->type != OSS_PROFILE_NODE || !node->priv)
-        return -KERR_NOT_FOUND;
-
-    profile = node->priv;
-
-    if (bprofile)
-        *bprofile = profile;
-
+    *bprofile = profile;
     return 0;
 }
 
@@ -264,33 +267,43 @@ int profile_find(const char* name, user_profile_t** bprofile)
     return profile_find_from(_runtime_node, name, bprofile);
 }
 
-/*!
- * @brief: Find a variable relative to the runtime node
- *
- * @path: The oss path relative to 'Runtime/'
- * @bvar: Buffer where the sysvar pointer will be put into on success
- */
-int profile_find_var(const char* path, sysvar_t** bvar)
+static inline int __find_var(oss_object_t* object, const char* path, sysvar_t** pvar)
 {
     int error;
     sysvar_t* var;
-    oss_obj_t* obj;
+    oss_object_t* obj;
 
-    error = oss_resolve_obj_rel(_runtime_node, path, &obj);
+    if (!path || !pvar)
+        return -EINVAL;
+
+    /* Try to open the var object (This takes a reference if it succeeds) */
+    error = oss_open_object_from(path, _runtime_node, &obj);
 
     if (error)
         return error;
 
-    if (obj->type != OSS_OBJ_TYPE_VAR || !obj->priv)
-        return -KERR_INVAL;
+    var = oss_object_unwrap(obj, OT_SYSVAR);
 
-    var = oss_obj_unwrap(obj, sysvar_t);
+    if (!var) {
+        oss_object_close(obj);
+        return -EINVAL;
+    }
 
-    /* Reference the variable */
-    if (bvar)
-        *bvar = get_sysvar(var);
+    /* Export the variable pointer */
+    *pvar = var;
 
     return KERR_NONE;
+}
+
+/*!
+ * @brief: Find a variable relative to the runtime node
+ *
+ * @path: The oss path relative the profile object
+ * @bvar: Buffer where the sysvar pointer will be put into on success
+ */
+int profile_find_var(const char* path, struct sysvar** pvar)
+{
+    return __find_var(_runtime_node, path, pvar);
 }
 
 /*!
@@ -298,80 +311,7 @@ int profile_find_var(const char* path, sysvar_t** bvar)
  */
 int profile_get_var(user_profile_t* profile, const char* key, sysvar_t** bvar)
 {
-    int error;
-    sysvar_t* var;
-    oss_obj_t* obj;
-    oss_node_entry_t* entry;
-
-    error = oss_node_find(profile->node, key, &entry);
-
-    if (error)
-        return error;
-
-    if (entry->type != OSS_ENTRY_OBJECT)
-        return -KERR_INVAL;
-
-    obj = entry->obj;
-
-    if (obj->type != OSS_OBJ_TYPE_VAR || !obj->priv)
-        return -KERR_INVAL;
-
-    var = oss_obj_unwrap(obj, sysvar_t);
-
-    if (bvar)
-        *bvar = get_sysvar(var);
-
-    return 0;
-}
-
-/*!
- * @brief: Add an environment to a user profile
- *
- * @returns: Negative error code on failure, new envid on success
- */
-int profile_add_penv(user_profile_t* profile, struct penv* env)
-{
-    int error;
-
-    if (!profile || !env)
-        return -KERR_INVAL;
-
-    if (env->profile)
-        profile_remove_penv(env->profile, env);
-
-    error = oss_node_add_node(profile->node, env->node);
-
-    if (!error)
-        env->profile = profile;
-
-    /* Inherit the profiles attributes */
-    init_pattr(&env->attr, profile->attr.ptype, profile->attr.pflags);
-
-    /* Mask away some unwanted things */
-    pattr_mask(&env->attr, env->pflags_mask);
-
-    return error;
-}
-
-/*!
- * @brief: Remove an environment from @profile
- */
-int profile_remove_penv(user_profile_t* profile, struct penv* env)
-{
-    int error;
-    oss_node_entry_t* entry = NULL;
-
-    if (!profile || !env)
-        return -KERR_INVAL;
-
-    error = oss_node_remove_entry(profile->node, env->node->name, &entry);
-
-    if (!error && entry) {
-        destroy_oss_node_entry(entry);
-        env->profile = nullptr;
-    }
-
-    return error;
+    return __find_var(profile->object, key, bvar);
 }
 
 static int _generate_passwd_hash(const char* passwd, uint64_t* buffer)
@@ -462,16 +402,16 @@ bool profile_has_password(user_profile_t* profile)
  */
 static void __apply_admin_variables()
 {
-    sysvar_attach_ex(_admin_profile.node, "KTERM_LOC", PROFILE_TYPE_ADMIN, SYSVAR_TYPE_STRING, SYSVAR_FLAG_VOLATILE, PROFILE_STR("Root/System/kterm.drv"), 22);
-    sysvar_attach_ex(_admin_profile.node, DRIVERS_LOC_VARKEY, PROFILE_TYPE_ADMIN, SYSVAR_TYPE_STRING, SYSVAR_FLAG_VOLATILE, PROFILE_STR("Root/System/"), 13);
+    sysvar_attach_ex(_admin_profile.object, "KTERM_LOC", PROFILE_TYPE_ADMIN, SYSVAR_TYPE_STRING, SYSVAR_FLAG_VOLATILE, PROFILE_STR("Root/System/kterm.drv"), 22);
+    sysvar_attach_ex(_admin_profile.object, DRIVERS_LOC_VARKEY, PROFILE_TYPE_ADMIN, SYSVAR_TYPE_STRING, SYSVAR_FLAG_VOLATILE, PROFILE_STR("Root/System/"), 13);
 
     /* Core drivers which perform high level scanning and load low level drivers */
-    sysvar_attach_ex(_admin_profile.node, USBCORE_DRV_VARKEY, PROFILE_TYPE_ADMIN, SYSVAR_TYPE_STRING, SYSVAR_FLAG_VOLATILE, PROFILE_STR("usbcore.drv"), 12);
-    sysvar_attach_ex(_admin_profile.node, "DISK_CORE_DRV", PROFILE_TYPE_ADMIN, SYSVAR_TYPE_STRING, SYSVAR_FLAG_VOLATILE, PROFILE_STR("diskcore.drv"), 13);
-    sysvar_attach_ex(_admin_profile.node, "INPUT_CORE_DRV", PROFILE_TYPE_ADMIN, SYSVAR_TYPE_STRING, SYSVAR_FLAG_VOLATILE, PROFILE_STR("inptcore.drv"), 13);
-    sysvar_attach_ex(_admin_profile.node, "VIDEO_CORE_DRV", PROFILE_TYPE_ADMIN, SYSVAR_TYPE_STRING, SYSVAR_FLAG_VOLATILE, PROFILE_STR("vidcore.drv"), 12);
-    sysvar_attach_ex(_admin_profile.node, ACPICORE_DRV_VARKEY, PROFILE_TYPE_ADMIN, SYSVAR_TYPE_STRING, SYSVAR_FLAG_VOLATILE, PROFILE_STR("acpicore.drv"), 13);
-    sysvar_attach_ex(_admin_profile.node, DYNLOADER_DRV_VARKEY, PROFILE_TYPE_ADMIN, SYSVAR_TYPE_STRING, SYSVAR_FLAG_VOLATILE, PROFILE_STR("dynldr.drv"), 11);
+    sysvar_attach_ex(_admin_profile.object, USBCORE_DRV_VARKEY, PROFILE_TYPE_ADMIN, SYSVAR_TYPE_STRING, SYSVAR_FLAG_VOLATILE, PROFILE_STR("usbcore.drv"), 12);
+    sysvar_attach_ex(_admin_profile.object, "DISK_CORE_DRV", PROFILE_TYPE_ADMIN, SYSVAR_TYPE_STRING, SYSVAR_FLAG_VOLATILE, PROFILE_STR("diskcore.drv"), 13);
+    sysvar_attach_ex(_admin_profile.object, "INPUT_CORE_DRV", PROFILE_TYPE_ADMIN, SYSVAR_TYPE_STRING, SYSVAR_FLAG_VOLATILE, PROFILE_STR("inptcore.drv"), 13);
+    sysvar_attach_ex(_admin_profile.object, "VIDEO_CORE_DRV", PROFILE_TYPE_ADMIN, SYSVAR_TYPE_STRING, SYSVAR_FLAG_VOLATILE, PROFILE_STR("vidcore.drv"), 12);
+    sysvar_attach_ex(_admin_profile.object, ACPICORE_DRV_VARKEY, PROFILE_TYPE_ADMIN, SYSVAR_TYPE_STRING, SYSVAR_FLAG_VOLATILE, PROFILE_STR("acpicore.drv"), 13);
+    sysvar_attach_ex(_admin_profile.object, DYNLOADER_DRV_VARKEY, PROFILE_TYPE_ADMIN, SYSVAR_TYPE_STRING, SYSVAR_FLAG_VOLATILE, PROFILE_STR("dynldr.drv"), 11);
 
     /*
      * These variables are to store the boot parameters. When we've initialized all devices we need and we're
@@ -479,9 +419,9 @@ static void __apply_admin_variables()
      * which we will verify that it has remained unchanged by checking if "BASE/BOOT_DEVICE_NAME" and "BASE/BOOT_DEVICE_SIZE"
      * are still valid.
      */
-    sysvar_attach_ex(_admin_profile.node, BOOT_DEVICE_VARKEY, PROFILE_TYPE_ADMIN, SYSVAR_TYPE_STRING, SYSVAR_FLAG_VOLATILE, PROFILE_STR(NULL), 0);
-    sysvar_attach_ex(_admin_profile.node, BOOT_DEVICE_SIZE_VARKEY, PROFILE_TYPE_ADMIN, SYSVAR_TYPE_QWORD, SYSVAR_FLAG_VOLATILE, NULL, 0);
-    sysvar_attach_ex(_admin_profile.node, BOOT_DEVICE_NAME_VARKEY, PROFILE_TYPE_ADMIN, SYSVAR_TYPE_STRING, SYSVAR_FLAG_VOLATILE, PROFILE_STR(NULL), 0);
+    sysvar_attach_ex(_admin_profile.object, BOOT_DEVICE_VARKEY, PROFILE_TYPE_ADMIN, SYSVAR_TYPE_STRING, SYSVAR_FLAG_VOLATILE, PROFILE_STR(NULL), 0);
+    sysvar_attach_ex(_admin_profile.object, BOOT_DEVICE_SIZE_VARKEY, PROFILE_TYPE_ADMIN, SYSVAR_TYPE_QWORD, SYSVAR_FLAG_VOLATILE, NULL, 0);
+    sysvar_attach_ex(_admin_profile.object, BOOT_DEVICE_NAME_VARKEY, PROFILE_TYPE_ADMIN, SYSVAR_TYPE_STRING, SYSVAR_FLAG_VOLATILE, PROFILE_STR(NULL), 0);
 }
 
 /*!
@@ -498,21 +438,21 @@ static void __apply_admin_variables()
 static void __apply_user_variables()
 {
     /* System name: Codename of the kernel that it present in the system */
-    sysvar_attach_ex(_user_profile.node, "SYSTEM_NAME", PROFILE_TYPE_USER, SYSVAR_TYPE_STRING, SYSVAR_FLAG_CONSTANT | SYSVAR_FLAG_GLOBAL, ("Aniva"), 6);
+    sysvar_attach_ex(_user_profile.object, "SYSTEM_NAME", PROFILE_TYPE_USER, SYSVAR_TYPE_STRING, SYSVAR_FLAG_CONSTANT | SYSVAR_FLAG_GLOBAL, ("Aniva"), 6);
     /* Major version number of the kernel */
-    sysvar_attach_ex(_user_profile.node, "VERSION_MAJ", PROFILE_TYPE_USER, SYSVAR_TYPE_BYTE, SYSVAR_FLAG_CONSTANT | SYSVAR_FLAG_GLOBAL, &kernel_version.maj, 1);
+    sysvar_attach_ex(_user_profile.object, "VERSION_MAJ", PROFILE_TYPE_USER, SYSVAR_TYPE_BYTE, SYSVAR_FLAG_CONSTANT | SYSVAR_FLAG_GLOBAL, &kernel_version.maj, 1);
     /* Minor version number of the kernel */
-    sysvar_attach_ex(_user_profile.node, "VERSION_MIN", PROFILE_TYPE_USER, SYSVAR_TYPE_BYTE, SYSVAR_FLAG_CONSTANT | SYSVAR_FLAG_GLOBAL, &kernel_version.min, 1);
+    sysvar_attach_ex(_user_profile.object, "VERSION_MIN", PROFILE_TYPE_USER, SYSVAR_TYPE_BYTE, SYSVAR_FLAG_CONSTANT | SYSVAR_FLAG_GLOBAL, &kernel_version.min, 1);
     /* Bump version number of the kernel. This is used to indicate small changes in between different builds of the kernel */
-    sysvar_attach_ex(_user_profile.node, "VERSION_BUMP", PROFILE_TYPE_USER, SYSVAR_TYPE_WORD, SYSVAR_FLAG_CONSTANT | SYSVAR_FLAG_GLOBAL, &kernel_version.bump, 1);
+    sysvar_attach_ex(_user_profile.object, "VERSION_BUMP", PROFILE_TYPE_USER, SYSVAR_TYPE_WORD, SYSVAR_FLAG_CONSTANT | SYSVAR_FLAG_GLOBAL, &kernel_version.bump, 1);
 
     /* Default provider for lwnd services */
-    sysvar_attach_ex(_user_profile.node, "DFLT_LWND_PATH", PROFILE_TYPE_USER, SYSVAR_TYPE_STRING, SYSVAR_FLAG_GLOBAL, PROFILE_STR("service/lwnd"), 13);
+    sysvar_attach_ex(_user_profile.object, "DFLT_LWND_PATH", PROFILE_TYPE_USER, SYSVAR_TYPE_STRING, SYSVAR_FLAG_GLOBAL, PROFILE_STR("service/lwnd"), 13);
     /* Path variable to indicate default locations for executables */
-    sysvar_attach_ex(_user_profile.node, "PATH", PROFILE_TYPE_USER, SYSVAR_TYPE_STRING, SYSVAR_FLAG_GLOBAL, PROFILE_STR("Root/Apps:Root/Users/User/Apps"), 31);
-    sysvar_attach_ex(_user_profile.node, LIBSPATH_VAR, PROFILE_TYPE_USER, SYSVAR_TYPE_STRING, SYSVAR_FLAG_GLOBAL, PROFILE_STR("Root/System/Lib"), 16);
+    sysvar_attach_ex(_user_profile.object, "PATH", PROFILE_TYPE_USER, SYSVAR_TYPE_STRING, SYSVAR_FLAG_GLOBAL, PROFILE_STR("Root/Apps:Root/Users/User/Apps"), 31);
+    sysvar_attach_ex(_user_profile.object, LIBSPATH_VAR, PROFILE_TYPE_USER, SYSVAR_TYPE_STRING, SYSVAR_FLAG_GLOBAL, PROFILE_STR("Root/System/Lib"), 16);
     /* Name of the runtime library */
-    sysvar_attach_ex(_user_profile.node, "LIBRT_NAME", PROFILE_TYPE_USER, SYSVAR_TYPE_STRING, SYSVAR_FLAG_GLOBAL, PROFILE_STR("librt.lib"), 10);
+    sysvar_attach_ex(_user_profile.object, "LIBRT_NAME", PROFILE_TYPE_USER, SYSVAR_TYPE_STRING, SYSVAR_FLAG_GLOBAL, PROFILE_STR("librt.lib"), 10);
 }
 
 static void __apply_runtime_variables()
@@ -601,9 +541,9 @@ void runtime_remove_proccount()
 void init_user_profiles(void)
 {
     _profile_mutex = create_mutex(NULL);
-    _runtime_node = create_oss_node("Runtime", OSS_OBJ_STORE_NODE, NULL, NULL);
 
-    ASSERT_MSG(KERR_OK(oss_attach_rootnode(_runtime_node)), "Failed to attach Runtime node to root!");
+    /* Try to open the runtime rootnode */
+    ASSERT(oss_open_object(oss_get_default_rootobj_key(ORT_RUNTIME), &_runtime_node) == 0);
 
     /* No active profile to start with */
     _active_profile_locked = 0;
@@ -643,7 +583,7 @@ static int save_default_profiles(kevent_ctx_t* ctx, void* param)
         return 0;
 
     /* Do the save */
-    error = sysvarldr_save_variables(_user_profile.node, 0, global_prf_save_file);
+    error = sysvarldr_save_variables(_user_profile.object, 0, global_prf_save_file);
 
     file_close(global_prf_save_file);
     return error;
@@ -685,7 +625,7 @@ static inline void __profile_load_variables(user_profile_t* profile, const char*
     if (!f)
         return;
 
-    error = sysvarldr_load_variables(profile->node, profile->attr.ptype, f);
+    error = sysvarldr_load_variables(profile->object, profile->attr.ptype, f);
 
     file_close(f);
 

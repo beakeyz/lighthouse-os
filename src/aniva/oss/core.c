@@ -14,13 +14,22 @@ static hashmap_t* root_objects;
 static mutex_t* oss_lock;
 
 static const char* __root_object_keys[] = {
-    "Storage",
-    "Devices",
-    "Drivers",
-    "Terminals",
-    "Proc",
-    "Runtime",
+    [ORT_STORAGE_MAIN] = "Storage",
+    [ORT_DEVICES] = "Devices",
+    [ORT_DRIVERS] = "Drivers",
+    [ORT_TERMINALS] = "Terminals",
+    [ORT_PROCESSES] = "Proc",
+    [ORT_RUNTIME] = "Runtime",
+    [ORT_RAMIMAGE] = "RamImg",
 };
+
+const char* oss_get_default_rootobj_key(enum OSS_ROOTOBJ_TYPE type)
+{
+    if (type >= arrlen(__root_object_keys))
+        return nullptr;
+
+    return __root_object_keys[type];
+}
 
 error_t oss_open_root_object(const char* path, struct oss_object** pobj)
 {

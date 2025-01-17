@@ -520,6 +520,9 @@ int device_send_ctl_ex(device_t* dev, enum DEVICE_CTLC code, u64 offset, void* b
 {
     int error;
 
+    if (!dev)
+        return -EINVAL;
+
     mutex_lock(dev->ep_lock);
 
     error = device_ctl(dev->ctlmap, code, offset, buffer, size);

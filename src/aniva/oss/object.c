@@ -3,6 +3,7 @@
 #include "libk/flow/error.h"
 #include "lightos/api/objects.h"
 #include "lightos/error.h"
+#include "logging/log.h"
 #include "mem/zalloc/zalloc.h"
 #include "oss/connection.h"
 #include "sync/mutex.h"
@@ -473,6 +474,81 @@ error_t oss_object_flush(oss_object_t* this)
         return -EINVAL;
 
     return this->ops->f_Flush(this);
+}
+
+static int __walk_oss_obj_upstream_conn_recurs(oss_object_t* object, list_t* subpath_list, u32* needed_bsize)
+{
+    u32 upstream_idx = 0;
+    oss_connection_t* conn;
+
+    for (u32 i = 0; i < object->connections->m_length; i++) {
+        conn = oss_object_get_connection_up_nr(object, upstream_idx++);
+
+        if (!conn)
+            break;
+
+        /* If this guy succeeds, it means we currently have the full path inside @subpath_list */
+        if (__walk_oss_obj_upstream_conn_recurs(conn->parent, subpath_list, needed_bsize)) {
+            /* Append this guy, since we know this connection leads to a root object */
+            list_append(subpath_list, conn->parent);
+
+            *needed_bsize += (strlen(conn->parent->key) + 1);
+            return 0;
+        }
+    }
+
+    /* No upstream connections left. Reached the rootnode */
+    if (!upstream_idx)
+        return 0;
+
+    return -1;
+}
+
+/*!
+ * @brief: Walk the object connection chain, until there are no upstream connections
+ *         left, to create the absolute path
+ *
+ */
+const char* oss_object_get_abs_path(oss_object_t* object)
+{
+    char* buffer;
+    char* write_head;
+    u32 needed_bsize = 0;
+    u32 c_strlen;
+    oss_object_t* c_object;
+    list_t* subpath_list = init_list();
+
+    kernel_panic("TODO: Test oss_object_get_abs_path");
+
+    /* If this guy fails, we couldn't find an absolute path for this object */
+    if (__walk_oss_obj_upstream_conn_recurs(object, subpath_list, &needed_bsize)) {
+        destroy_list(subpath_list);
+        return nullptr;
+    }
+
+    buffer = kmalloc(needed_bsize);
+    write_head = buffer + needed_bsize;
+
+    /* Walk the subpath list to append each part */
+    FOREACH(i, subpath_list)
+    {
+        c_object = i->data;
+        c_strlen = strlen(c_object->key) + 1;
+
+        write_head -= c_strlen;
+
+        /* Write this part of the path into the buffer */
+        sfmt_sz(write_head, c_strlen, "%s/", c_object->key);
+    }
+
+    /* Terminate the string */
+    buffer[needed_bsize - 1] = '\0';
+
+    /* Kill the list */
+    destroy_list(subpath_list);
+
+    /* We're done */
+    return buffer;
 }
 
 void init_oss_objects()

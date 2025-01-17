@@ -1,10 +1,10 @@
 #ifndef __ANIVA_KTERM_DRIVER__
 #define __ANIVA_KTERM_DRIVER__
 
-#include "oss/node.h"
 #include <libk/stddef.h>
 
 struct user_profile;
+struct oss_object;
 
 enum kterm_mode {
     KTERM_MODE_LOADING = 0,
@@ -16,7 +16,7 @@ typedef struct kterm_login {
     uint32_t profile_lock_key;
     struct user_profile* profile;
     const char* cwd;
-    oss_node_t* c_node;
+    struct oss_object* c_obj;
 } kterm_login_t;
 
 /*
@@ -45,7 +45,7 @@ bool kterm_is_logged_in();
 int kterm_set_login(struct user_profile* profile);
 int kterm_get_login(struct user_profile** profile);
 
-int kterm_set_cwd(const char* path, sruct oss_node* node);
+int kterm_set_cwd(const char* path, struct oss_object* object);
 
 bool kterm_ismode(enum kterm_mode mode);
 

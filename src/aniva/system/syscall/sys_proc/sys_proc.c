@@ -4,17 +4,16 @@
 #include "libk/stddef.h"
 #include "lightos/api/dynldr.h"
 #include "lightos/api/handle.h"
-#include "lightos/api/process.h"
+#include "lightos/api/objects.h"
 #include "lightos/syscall.h"
 #include "lightos/types.h"
 #include "mem/kmem.h"
+#include "oss/object.h"
 #include "oss/path.h"
 #include "proc/handle.h"
 #include "proc/proc.h"
 #include "sched/scheduler.h"
-#include "system/profile/attr.h"
 #include "time/core.h"
-#include <proc/env.h>
 
 /*!
  * @brief: Creates a new process from the given parameters
@@ -80,7 +79,7 @@ HANDLE sys_create_proc(const char __user* cmd, FuncPtr __user entry)
         return HNDL_INVAL;
 
     /* Initialize this shit */
-    init_khandle_ex(&khndl, HNDL_TYPE_PROC, HNDL_FLAG_RW, new_proc);
+    init_khandle_ex(&khndl, HNDL_TYPE_OBJECT, HNDL_FLAG_RW, new_proc->obj);
 
     /* Try to bind this handle */
     error = bind_khandle(&c_proc->m_handle_map, &khndl, (u32*)&ret);
@@ -90,7 +89,7 @@ HANDLE sys_create_proc(const char __user* cmd, FuncPtr __user entry)
         goto destroy_and_fail;
 
     /* Schedule the new process */
-    error = proc_schedule(new_proc, c_proc->m_env->profile, cmd, NULL, NULL, SCHED_PRIO_MID);
+    error = proc_schedule(new_proc, c_proc->profile, cmd, NULL, NULL, SCHED_PRIO_MID);
 
     /* Destroy the thing if we failed */
     if (error)
@@ -117,18 +116,22 @@ error_t sys_destroy_proc(HANDLE proc, u32 flags)
     if (!proc_handle)
         return EINVAL;
 
-    if (proc_handle->type != HNDL_TYPE_PROC)
+    if (proc_handle->type != HNDL_TYPE_OBJECT)
         return EINVAL;
 
-    target_proc = proc_handle->reference.process;
+    target_proc = oss_object_unwrap(proc_handle->object, OT_PROCESS);
+
+    if (!target_proc)
+        return EINVAL;
 
     /*
      * Yikes
      * TODO: Add a force flag for admin processes
+     * FIXME: Fix permission attributes lol
      */
-    if ((flags & LIGHTOS_PROC_FLAG_FORCE) != LIGHTOS_PROC_FLAG_FORCE || c_proc->m_env->attr.ptype != PROFILE_TYPE_ADMIN)
-        if (pattr_hasperm(&target_proc->m_env->attr, &c_proc->m_env->attr, PATTR_PROC_KILL))
-            return EPERM;
+    // if ((flags & LIGHTOS_PROC_FLAG_FORCE) != LIGHTOS_PROC_FLAG_FORCE || c_proc->m_env->attr.ptype != PROFILE_TYPE_ADMIN)
+    // if (pattr_hasperm(&target_proc->m_env->attr, &c_proc->m_env->attr, PATTR_PROC_KILL))
+    // return EPERM;
 
     /*
      * Try to terminate the process

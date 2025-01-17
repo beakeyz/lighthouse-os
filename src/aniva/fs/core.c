@@ -1,7 +1,10 @@
 #include "core.h"
+#include "fs/dir.h"
+#include "fs/file.h"
 #include "libk/flow/error.h"
+#include "lightos/api/objects.h"
 #include "mem/heap.h"
-#include "oss/node.h"
+#include "oss/object.h"
 #include <libk/stddef.h>
 #include <libk/string.h>
 #include <sync/mutex.h>
@@ -108,20 +111,11 @@ fs_type_t* get_fs_type(const char* name)
     return ret;
 }
 
-sruct oss_node* create_fs_oss_node(const char* name, fs_type_t* type, sruct oss_node_ops* ops)
+fs_root_object_t* create_fs_root_object(const char* name, fs_type_t* type, struct dir_ops* fsroot_ops)
 {
-    oss_node_t* node;
-    fs_oss_node_t* fsnode;
+    fs_root_object_t* fsnode;
 
-    if (!name || !ops)
-        return nullptr;
-
-    if (!ops->f_destroy)
-        return nullptr;
-
-    node = create_oss_node(name, OSS_OBJ_GEN_NODE, ops, NULL);
-
-    if (!node)
+    if (!name || !fsroot_ops)
         return nullptr;
 
     /*
@@ -131,38 +125,40 @@ sruct oss_node* create_fs_oss_node(const char* name, fs_type_t* type, sruct oss_
     fsnode = kmalloc(sizeof(*fsnode));
 
     if (!fsnode)
-        goto dealloc_and_fail;
+        return nullptr;
 
     memset(fsnode, 0, sizeof(*fsnode));
 
     fsnode->m_type = type;
+    fsnode->rootdir = create_dir(name, fsroot_ops, fsnode, NULL, NULL);
 
-    node->priv = fsnode;
-
-    return node;
-
-dealloc_and_fail:
-    destroy_oss_node(node);
-    return nullptr;
+    return fsnode;
 }
 
-/*!
- * @brief: Destroy an oss node with an fsnode attached
- *
- * This assumes that the internals of the fsnode are already destroyed
- */
-void destroy_fs_oss_node(sruct oss_node* node)
+void destroy_fsroot_object(fs_root_object_t* object)
 {
-    fs_oss_node_t* fsnode;
+    dir_close(object->rootdir);
 
-    fsnode = oss_node_getfs(node);
+    kfree(object);
+}
 
-    if (!fsnode)
-        return;
+fs_root_object_t* oss_object_get_fsobj(oss_object_t* object)
+{
+    /* Get all the filesystem objects */
+    file_t* file;
+    dir_t* dir;
 
-    kfree(fsnode);
+    dir = oss_object_unwrap(object, OT_DIR);
 
-    destroy_oss_node(node);
+    if (dir)
+        return dir->fsroot;
+
+    file = oss_object_unwrap(object, OT_FILE);
+
+    if (file)
+        return file->fsroot;
+
+    return nullptr;
 }
 
 /*!

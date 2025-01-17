@@ -144,10 +144,10 @@ static void* __sys_delete_vmem(khandle_t* khandle, proc_t* c_proc, void* addr, s
         return __sys_delete_local_vmem(c_proc, addr, len);
 
     /* Grab the pertaining sysvar holding the vmem object */
-    var = khandle->reference.vmem_range;
+    var = oss_object_unwrap(khandle->object, OT_SYSVAR);
 
     /* Invalid sysvar =( */
-    if (var->type != SYSVAR_TYPE_MEM_RANGE)
+    if (!var || var->type != SYSVAR_TYPE_MEM_RANGE)
         return nullptr;
 
     /* Get the environments process */
@@ -217,10 +217,10 @@ static void* __sys_remap_vmem(khandle_t* khandle, proc_t* c_proc, void* addr, si
         return __sys_remap_local_vmem(c_proc, addr, len, flags);
 
     /* Yes; we'll have to check if we can even map in this vmem object */
-    var = khandle->reference.vmem_range;
+    var = oss_object_unwrap(khandle->object, OT_SYSVAR);
 
     /* Invalid sysvar =( */
-    if (var->type != SYSVAR_TYPE_MEM_RANGE)
+    if (!var || var->type != SYSVAR_TYPE_MEM_RANGE)
         return nullptr;
 
     /* Get the process accociated with it */
@@ -300,10 +300,10 @@ static void* __sys_map_vmem(khandle_t* khandle, proc_t* c_proc, void* addr, size
         return __sys_map_local_vmem(c_proc, addr, len, flags);
 
     /* Yes; we'll have to check if we can even map in this vmem object */
-    var = khandle->reference.vmem_range;
+    var = oss_object_unwrap(khandle->object, OT_SYSVAR);
 
     /* Invalid sysvar =( */
-    if (var->type != SYSVAR_TYPE_MEM_RANGE)
+    if (!var || var->type != SYSVAR_TYPE_MEM_RANGE)
         return nullptr;
 
     /* Get the process accociated with it */
@@ -350,17 +350,17 @@ static void* __sys_bind_vmem(khandle_t* khandle, proc_t* c_proc, void* addr, siz
     page_range_t range = { 0 };
 
     /* Can't bind to an invalid handle */
-    if (!khandle || khandle->type != HNDL_TYPE_VMEM || !khandle->reference.vmem_range)
+    if (!khandle)
         return nullptr;
 
     if (!addr || !len)
         return nullptr;
 
     /* Get the reference */
-    var = khandle->reference.vmem_range;
+    var = oss_object_unwrap(khandle->object, OT_SYSVAR);
 
     /* Shit */
-    if (var->type != SYSVAR_TYPE_MEM_RANGE)
+    if (!var || var->type != SYSVAR_TYPE_MEM_RANGE)
         return nullptr;
 
     /* Get this */
@@ -423,7 +423,7 @@ void* sys_map_vmem(HANDLE handle, void* addr, size_t len, u32 flags)
     khandle = find_khandle(&c_proc->m_handle_map, handle);
 
     /* Check for invalid handle */
-    if (khandle && (khandle->type != HNDL_TYPE_VMEM || !khandle->reference.vmem_range))
+    if (khandle && (khandle->type != HNDL_TYPE_OBJECT))
         return nullptr;
 
     switch (flags & (VMEM_FLAG_REMAP | VMEM_FLAG_DELETE | VMEM_FLAG_BIND)) {

@@ -1,7 +1,8 @@
 #include "dev/core.h"
 #include "dev/driver.h"
 #include "fs/ext2/core.h"
-#include "oss/node.h"
+#include "lightos/api/filesystem.h"
+#include "oss/object.h"
 #include <fs/core.h>
 #include <libk/flow/error.h>
 #include <libk/stddef.h>
@@ -30,9 +31,8 @@ struct ext2 {
 
 struct ext2_superblock* fetch_superblock();
 
-oss_node_t* ext2_mount(fs_type_t* type, const char* mountpoint, volume_t* device)
+oss_object_t* ext2_mount(fs_type_t* type, const char* mountpoint, volume_t* device)
 {
-
     ASSERT_MSG(device, "Can't initialize ext2 fs without a disk device");
 
     // ext2_superblock_t* superblock = kmalloc(sizeof(ext2_superblock_t));
@@ -58,6 +58,7 @@ EXPORT_DRIVER_PTR(ext2_drv);
 
 fs_type_t ext2_type = {
     .m_driver = &ext2_drv,
+    .fstype = LIGHTOS_FSTYPE_EXT2,
     .m_name = "ext2",
     .f_mount = ext2_mount,
 };
@@ -77,7 +78,6 @@ int ext2_init()
 
 int ext2_exit()
 {
-
     kerror_t error = unregister_filesystem(&ext2_type);
 
     if (error)

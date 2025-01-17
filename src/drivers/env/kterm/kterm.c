@@ -22,7 +22,6 @@
 #include "mem/heap.h"
 #include "mem/kmem.h"
 #include "oss/core.h"
-#include "oss/node.h"
 #include "proc/core.h"
 #include "proc/proc.h"
 #include "proc/thread.h"
@@ -751,10 +750,9 @@ bool kterm_is_logged_in()
 /*!
  * @brief: Set the current working directory
  */
-int kterm_set_cwd(const char* path, sruct oss_node* node)
+int kterm_set_cwd(const char* path, struct oss_object* object)
 {
-    int error = 0;
-
+    /*
     if (!node)
         error = oss_resolve_node(path, &node);
 
@@ -765,15 +763,17 @@ int kterm_set_cwd(const char* path, sruct oss_node* node)
 
     if (error)
         return error;
+        */
 
-    _c_login.c_node = node;
+    _c_login.cwd = "TODO: cwd";
+    _c_login.c_obj = object;
     return 0;
 }
 
 int kterm_set_login(user_profile_t* profile)
 {
     int error;
-    oss_node_t* node;
+    oss_object_t* object;
     sysvar_t* login_msg_var;
     const char* login_msg;
 
@@ -794,13 +794,11 @@ int kterm_set_login(user_profile_t* profile)
         sfmt(tmp_buf, "Root/Users/%s", (char*)profile->name);
 
         /* Try to find the node */
-        error = oss_resolve_node(tmp_buf, &node);
+        error = oss_open_object(tmp_buf, &object);
 
-        if (error == 0) {
+        if (error == 0)
             /* FIXME: make sure the cwd never exceeds this size */
-            oss_node_get_path(node, &_c_login.cwd);
-            _c_login.c_node = node;
-        }
+            kterm_set_cwd(NULL, object);
 
         /* Profiles don't have to have a login msg */
         if (profile_get_var(profile, "LOGIN_MSG", &login_msg_var))

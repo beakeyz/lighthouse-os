@@ -16,8 +16,8 @@
 
 #include "lightos/api/device.h"
 #include "lightos/api/dynldr.h"
-#include "lightos/api/filesystem.h"
 #include "lightos/api/handle.h"
+#include "lightos/api/objects.h"
 #include "lightos/api/sysvar.h"
 #include <lightos/types.h>
 
@@ -106,7 +106,7 @@ extern enum SYSVAR_TYPE sys_get_sysvar_type(HANDLE handle);
 extern HANDLE sys_create_sysvar(const char* key, handle_flags_t flags, enum SYSVAR_TYPE type, void* buffer, size_t len);
 
 extern error_t sys_dir_create(const char* path, i32 mode);
-extern size_t sys_dir_read(HANDLE handle, u32 idx, lightos_direntry_t* namebuffer, size_t blen);
+extern size_t sys_dir_read(HANDLE handle, u32 idx, Object* object, size_t blen);
 
 extern size_t sys_seek(HANDLE handle, u64 offset, u32 type);
 extern size_t sys_get_process_time(void);

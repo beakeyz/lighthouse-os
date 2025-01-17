@@ -5,12 +5,14 @@
 #include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"
 #include "lightos/api/device.h"
+#include "lightos/api/objects.h"
 #include "logging/log.h"
 #include "mem/kmem.h"
 #include "mem/phys.h"
 #include "mem/tracker/tracker.h"
-#include "oss/obj.h"
+#include "oss/object.h"
 #include "sync/mutex.h"
+#include "system/profile/profile.h"
 #include "system/sysvar/var.h"
 #include <libk/string.h>
 #include <mem/heap.h>
@@ -224,96 +226,8 @@ const char* get_driver_url(aniva_driver_t* handle)
     return ret;
 }
 
-driver_t* create_driver(aniva_driver_t* handle)
+static void __destroy_driver(driver_t* driver)
 {
-    driver_t* ret;
-
-    ret = allocate_ddriver();
-
-    ASSERT(ret);
-
-    memset(ret, 0, sizeof(*ret));
-
-    ret->m_lock = create_mutex(NULL);
-    ret->m_handle = handle;
-
-    ret->m_flags = NULL;
-    ret->m_dep_count = NULL;
-    ret->m_dep_list = NULL;
-
-    if (handle) {
-        ret->m_check_version = handle->m_version;
-        // TODO: concat
-        ret->m_url = get_driver_url(handle);
-
-        ret->m_obj = create_oss_obj(handle->m_name);
-
-        /* Make sure our object knows about us */
-        oss_obj_register_child(ret->m_obj, ret, OSS_OBJ_TYPE_DRIVER, destroy_driver);
-    } else {
-        ret->m_flags |= DRV_DEFERRED_HNDL;
-    }
-
-    /* Initialize our resource tracker */
-    init_driver_resources(&ret->resources);
-
-    ret->m_max_n_dev = DRIVER_MAX_DEV_COUNT;
-    // ret->m_dev_list = create_vector(ret->m_max_n_dev, sizeof(device_t*), VEC_FLAG_NO_DUPLICATES);
-    ret->m_dev_list = init_list();
-
-    return ret;
-}
-
-kerror_t driver_emplace_handle(driver_t* driver, aniva_driver_t* handle)
-{
-    if (driver->m_handle || (driver->m_flags & DRV_DEFERRED_HNDL) != DRV_DEFERRED_HNDL)
-        return -1;
-
-    ASSERT_MSG(driver->m_obj == nullptr || strcmp(driver->m_obj->name, handle->m_name) == 0, "Tried to emplace a handle on a driver which already has an object");
-
-    /* Mark the driver as non-deferred */
-    driver->m_flags &= ~DRV_DEFERRED_HNDL;
-    driver->m_flags |= DRV_HAS_HANDLE;
-
-    /* Emplace the handle and its data */
-    driver->m_handle = handle;
-    driver->m_check_version = handle->m_version;
-    driver->m_url = get_driver_url(handle);
-
-    if (!driver->m_obj) {
-        driver->m_obj = create_oss_obj(handle->m_name);
-
-        /* Make sure our object knows about us */
-        oss_obj_register_child(driver->m_obj, driver, OSS_OBJ_TYPE_DRIVER, destroy_driver);
-    }
-    return (0);
-}
-
-/*!
- * @brief Destroy a driver and deallocate it's resources
- *
- * This assumes that the underlying driver has already been taken care of
- *
- * NOTE: does not destroy the devices on this driver. Caller needs to make sure this is
- * done. The driver behind this driver needs to implement functions that handle the propper
- * destruction of the devices, since it is the one who owns this memory
- */
-void destroy_driver(driver_t* driver)
-{
-    /*
-     * An attached driver can be destroyed in two ways:
-     * 1) Using this function directly. In this case we need to check if we are still attached to OSS and if we are
-     * that means we need to destroy ourselves through that mechanism
-     * 2) Through OSS. When we're attached to OSS, we have our own oss object that is attached to an oss node. When
-     * the driver was created we registered our destruction method there, which means that all driver memory
-     * is owned by the oss_object
-     */
-    if (driver->m_obj && driver->m_obj->priv == driver) {
-        /* Calls destroy_driver again with ->priv cleared */
-        destroy_oss_obj(driver->m_obj);
-        return;
-    }
-
     destroy_mutex(driver->m_lock);
 
     /* A driver might exist without any dependencies */
@@ -336,6 +250,97 @@ void destroy_driver(driver_t* driver)
         kfree((void*)driver->m_image_path);
 
     free_ddriver(driver);
+}
+
+static int __destroy_driver_oss(oss_object_t* object)
+{
+    driver_t* driver = oss_object_unwrap(object, OT_DRIVER);
+
+    if (!driver)
+        return -EINVAL;
+
+    __destroy_driver(driver);
+
+    return 0;
+}
+
+static oss_object_ops_t driver_oss_ops = {
+    .f_Destroy = __destroy_driver_oss,
+};
+
+driver_t* create_driver(aniva_driver_t* handle)
+{
+    driver_t* ret;
+
+    ret = allocate_ddriver();
+
+    ASSERT(ret);
+
+    memset(ret, 0, sizeof(*ret));
+
+    ret->m_lock = create_mutex(NULL);
+    ret->m_handle = handle;
+
+    ret->m_flags = NULL;
+    ret->m_dep_count = NULL;
+    ret->m_dep_list = NULL;
+
+    if (handle) {
+        ret->m_check_version = handle->m_version;
+        // TODO: concat
+        ret->m_url = get_driver_url(handle);
+
+        ret->m_obj = create_oss_object(handle->m_name, NULL, OT_DRIVER, &driver_oss_ops, ret);
+    } else {
+        ret->m_flags |= DRV_DEFERRED_HNDL;
+    }
+
+    /* Initialize our resource tracker */
+    init_driver_resources(&ret->resources);
+
+    ret->m_max_n_dev = DRIVER_MAX_DEV_COUNT;
+    // ret->m_dev_list = create_vector(ret->m_max_n_dev, sizeof(device_t*), VEC_FLAG_NO_DUPLICATES);
+    ret->m_dev_list = init_list();
+
+    return ret;
+}
+
+kerror_t driver_emplace_handle(driver_t* driver, aniva_driver_t* handle)
+{
+    if (driver->m_handle || (driver->m_flags & DRV_DEFERRED_HNDL) != DRV_DEFERRED_HNDL)
+        return -1;
+
+    ASSERT_MSG(driver->m_obj == nullptr || strcmp(driver->m_obj->key, handle->m_name) == 0, "Tried to emplace a handle on a driver which already has an object");
+
+    /* Mark the driver as non-deferred */
+    driver->m_flags &= ~DRV_DEFERRED_HNDL;
+    driver->m_flags |= DRV_HAS_HANDLE;
+
+    /* Emplace the handle and its data */
+    driver->m_handle = handle;
+    driver->m_check_version = handle->m_version;
+    driver->m_url = get_driver_url(handle);
+
+    if (!driver->m_obj)
+        driver->m_obj = create_oss_object(handle->m_name, NULL, OT_DRIVER, &driver_oss_ops, driver);
+    return (0);
+}
+
+/*!
+ * @brief Destroy a driver and deallocate it's resources
+ *
+ * This assumes that the underlying driver has already been taken care of
+ *
+ * NOTE: does not destroy the devices on this driver. Caller needs to make sure this is
+ * done. The driver behind this driver needs to implement functions that handle the propper
+ * destruction of the devices, since it is the one who owns this memory
+ */
+void destroy_driver(driver_t* driver)
+{
+    if (driver->m_obj)
+        oss_object_close(driver->m_obj);
+    else
+        __destroy_driver(driver);
 }
 
 static driver_t* _get_dependency_from_path(drv_dependency_t* dep)

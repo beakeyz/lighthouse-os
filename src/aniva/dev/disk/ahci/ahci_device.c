@@ -6,17 +6,16 @@
 #include "dev/driver.h"
 #include "dev/pci/io.h"
 #include "dev/pci/pci.h"
-#include "lightos/dev/pci.h"
 #include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"
 #include "libk/io.h"
 #include "libk/stddef.h"
+#include "lightos/dev/pci.h"
 #include "logging/log.h"
 #include "sync/mutex.h"
 #include <crypto/k_crc32.h>
 #include <mem/heap.h>
 #include <mem/kmem.h>
-#include <oss/obj.h>
 
 static uint32_t _ahci_dev_count;
 static ahci_device_t* __ahci_devices = nullptr;
