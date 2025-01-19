@@ -559,7 +559,7 @@ int proc_schedule(proc_t* proc, struct user_profile* profile, const char* cmd, c
 
     /* Default to the null device in this case */
     if (!stdio_path) {
-        stdio_path = "Dev/Null";
+        stdio_path = "Devices/Null";
         stdio_type = HNDL_TYPE_OBJECT;
     }
 
@@ -571,17 +571,13 @@ int proc_schedule(proc_t* proc, struct user_profile* profile, const char* cmd, c
     if (!proc_obj)
         return -KERR_INVAL;
 
-    sysvar_vector_t sys_vec = {
-        SYSVAR_VEC_STR(SYSVAR_CMDLINE, cmd),
-        SYSVAR_VEC_STR(SYSVAR_PROCNAME, proc->m_name),
-        SYSVAR_VEC_STR(SYSVAR_STDIO, stdio_path),
-        SYSVAR_VEC_DWORD(SYSVAR_STDIO_HANDLE_TYPE, stdio_type),
-        SYSVAR_VEC_END,
-    };
+    if (!profile)
+        profile = proc->profile;
 
-    (void)sys_vec;
-    /* Add this vec */
-    // penv_add_vector(proc->m_env, sys_vec);
+    /* Attack the most basic sysvars to the process */
+    sysvar_attach_ex(proc_obj, SYSVAR_CMDLINE, profile->attr.ptype, SYSVAR_TYPE_STRING, NULL, (void*)cmd, strlen(cmd));
+    sysvar_attach_ex(proc_obj, SYSVAR_STDIO, profile->attr.ptype, SYSVAR_TYPE_STRING, NULL, (void*)stdio_path, strlen(stdio_path));
+    sysvar_attach_ex(proc_obj, SYSVAR_STDIO_HANDLE_TYPE, profile->attr.ptype, SYSVAR_TYPE_DWORD, NULL, (void*)&stdio_type, sizeof(stdio_type));
 
     /* Try to add all threads of this process to the scheduler */
     return scheduler_add_proc(proc, prio);

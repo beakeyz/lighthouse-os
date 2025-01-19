@@ -66,4 +66,6 @@ extern BOOL sysvar_write_from_profile(char* profile_name, char* var_key, u32 fla
 extern int load_pvr(const char* path);
 extern int load_pvr_ex(const char* path, HANDLE env);
 
+int __lightos_init_sysvars(HANDLE procHandle);
+
 #endif // !__LIGHTOS_PVR_ULIB__

@@ -1,3 +1,4 @@
+#include "lightos/sysvar/var.h"
 #include <lightos/error.h>
 #include <lightos/lightos.h>
 #include <lightos/proc/cmdline.h>
@@ -78,7 +79,7 @@ LIGHTEXIT int __exit_lightos()
 /*!
  * @brief: Dynamic entrypoint for the c (or rather lightos) runtime library
  */
-LIGHTENTRY int libentry()
+LIGHTENTRY int libentry(HANDLE self)
 {
     __lightos_status_flags = 0;
 
@@ -94,6 +95,9 @@ LIGHTENTRY int libentry()
 
     /* Init the rest of the lightos runtime library */
     (void)__init_lightos();
+
+    /* Initialize the system variables last */
+    __lightos_init_sysvars(self);
 
     return 0;
 }

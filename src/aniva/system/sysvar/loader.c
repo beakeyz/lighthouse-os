@@ -2,6 +2,7 @@
 #include "entry/entry.h"
 #include "fs/file.h"
 #include "lightos/api/sysvar.h"
+#include "logging/log.h"
 #include "mem/heap.h"
 #include "mem/kmem.h"
 #include "sync/mutex.h"
@@ -113,9 +114,11 @@ int sysvarldr_load_variables(oss_object_t* obj, enum PROFILE_TYPE ptype, struct 
         key_buffer = get_str(file, &hdr, c_var.key_off, NULL);
 
         /* Copy the correct value */
-        if (c_var.var_type == SYSVAR_TYPE_STRING)
+        if (c_var.var_type == SYSVAR_TYPE_STRING) {
             val_buffer = (void*)get_str(file, &hdr, c_var.var_value, &c_size);
-        else {
+
+            KLOG_DBG("Got string variable: %s\n", val_buffer);
+        } else {
             c_size = sizeof(uintptr_t);
             /* Allocate a tmp buffer here, so we can recycle the kfree call */
             val_buffer = kmalloc(sizeof(uintptr_t));

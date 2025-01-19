@@ -249,6 +249,7 @@ int device_send_ctl_ex(device_t* dev, enum DEVICE_CTLC code, u64 offset, void* b
 /* I/O */
 int device_read(device_t* dev, void* buffer, uintptr_t offset, size_t size);
 int device_write(device_t* dev, void* buffer, uintptr_t offset, size_t size);
+int device_flush(device_t* dev);
 
 /* Power management */
 int device_power_on(device_t* dev);

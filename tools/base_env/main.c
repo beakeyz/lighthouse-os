@@ -1,5 +1,4 @@
 #include "defaults.h"
-#include "sysvar/shared.h"
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -18,13 +17,13 @@ static uint32_t strtab_buffersize;
  * NOTE: we can't store a default password here, since they have to be hashed by the kernel
  * when they are stored
  */
-struct sysvar_template base_defaults[] = {};
+struct __sysvar_template base_defaults[] = {};
 
 /*
  * Default values for the global profile
  * These include mostly just paths to drivers, kobjects, ect.
  */
-struct sysvar_template user_defaults[] = {
+struct __sysvar_template user_defaults[] = {
     VAR_ENTRY("DFLT_LWND_PATH", SYSVAR_TYPE_STRING, "service/lwnd", SYSVAR_FLAG_CONFIG),
     VAR_ENTRY("DFLT_ERR_EVENT", SYSVAR_TYPE_STRING, "error", SYSVAR_FLAG_CONFIG),
     VAR_ENTRY("BOOTDISK_PATH", SYSVAR_TYPE_STRING, "unknown", SYSVAR_FLAG_CONFIG),
@@ -32,12 +31,12 @@ struct sysvar_template user_defaults[] = {
     VAR_ENTRY("EPIC_TEST", SYSVAR_TYPE_WORD, 69, 0),
 };
 
-struct sysvar_template admin_defaults[] = {
+struct __sysvar_template admin_defaults[] = {
     VAR_ENTRY("LOGIN_MSG", SYSVAR_TYPE_STRING, "Welcome to LightOS, dearest Admin! (Try not to break shit)", SYSVAR_FLAG_GLOBAL),
     VAR_ENTRY("PATH", SYSVAR_TYPE_STRING, "Storage/Root/Users/Admin/Core:Storage/Root/Apps", SYSVAR_FLAG_GLOBAL),
 };
 
-struct sysvar_template dispmgr_defaults[] = {
+struct __sysvar_template dispmgr_defaults[] = {
     VAR_ENTRY("KEYDEV", SYSVAR_TYPE_STRING, "Dev/hid/i8042", SYSVAR_FLAG_CONFIG),
     VAR_ENTRY("MOUSEDEV", SYSVAR_TYPE_STRING, "None", SYSVAR_FLAG_CONFIG),
     VAR_ENTRY("VIDDEV", SYSVAR_TYPE_STRING, "Dev/video/maindev", SYSVAR_FLAG_CONFIG),
@@ -93,7 +92,7 @@ static int pvr_file_find_free_valtab_offset(uint32_t* offset)
     return 0;
 }
 
-static int pvr_file_add_variable(struct sysvar_template* var)
+static int pvr_file_add_variable(struct __sysvar_template* var)
 {
     uint8_t buffer_bounds_respected;
     uint32_t valtab_offset;
@@ -199,7 +198,7 @@ static const char* _get_output_file(int argc, char** argv)
     return NULL;
 }
 
-static int base_env_save_to_file(const char* path, struct sysvar_template* templates, uint32_t count)
+static int base_env_save_to_file(const char* path, struct __sysvar_template* templates, uint32_t count)
 {
     size_t cur_offset;
     memset(&pvr_hdr, 0, sizeof(pvr_hdr));

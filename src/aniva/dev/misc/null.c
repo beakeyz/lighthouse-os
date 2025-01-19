@@ -7,13 +7,19 @@
 
 device_t* null_device;
 
-int null_read(device_t* device, u64 offset, void* buffer, size_t size)
+int null_read(device_t* device, driver_t* driver, u64 offset, void* buffer, size_t size)
 {
+    memset(buffer, 0, size);
     return 0;
 }
 
 int null_write(device_t* device, driver_t* driver, u64 offset, void* buffer, size_t size)
 {
+    (void)device;
+    (void)driver;
+    (void)offset;
+    (void)buffer;
+    (void)size;
     return 0;
 }
 

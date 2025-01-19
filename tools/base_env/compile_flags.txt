@@ -2,4 +2,7 @@
 ./../../src/libs/lightos/libc
 
 -I
+./../../src/libs
+
+-I
 ./

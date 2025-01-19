@@ -216,10 +216,21 @@ static int __sprintf_cb(char c, char** out, size_t* p_cur_size, void* priv)
 
     if (FileWrite(stream, &c, sizeof(c)) == 0)
         return -1;
+
+    /* If we have a thing, set it */
+    if (p_cur_size)
+        (*p_cur_size)++;
+
     return 0;
 }
 
 int real_va_sprintf(uint8_t mode, FILE* stream, const char* fmt, va_list va)
 {
-    return _vprintf(fmt, va, __sprintf_cb, NULL, 0, stream);
+    int error;
+
+    error = _vprintf(fmt, va, __sprintf_cb, NULL, 0, stream);
+
+    FileFlush(stream);
+
+    return error;
 }

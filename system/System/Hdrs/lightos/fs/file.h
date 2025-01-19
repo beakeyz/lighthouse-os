@@ -21,6 +21,8 @@ size_t FileWrite(File* file, void* buffer, size_t bsize);
 size_t FileWriteEx(File* file, u64 offset, void* buffer, size_t bsize, size_t bcount);
 
 error_t FileSeek(File* file, u64* offset, int whence);
+error_t FileSeekRHead(File* file, u64* offset, int whence);
+error_t FileSeekWHead(File* file, u64* offset, int whence);
 error_t FileFlush(File* file);
 
 #endif // !__LIGHTENV_FS_FILE__

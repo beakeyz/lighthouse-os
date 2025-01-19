@@ -4,6 +4,7 @@
 #include "lightos/api/handle.h"
 #include "lightos/api/objects.h"
 #include "lightos/syscall.h"
+#include "logging/log.h"
 #include "mem/kmem.h"
 #include "oss/object.h"
 #include "proc/handle.h"
@@ -22,6 +23,8 @@ error_t sys_write(HANDLE handle, u64 offset, void __user* buffer, size_t length)
     khandle_t* khandle;
     khandle_driver_t* khandle_driver;
 
+    KLOG_DBG("Writing\n");
+
     if (!buffer)
         return EINVAL;
 
@@ -31,6 +34,8 @@ error_t sys_write(HANDLE handle, u64 offset, void __user* buffer, size_t length)
         return EINVAL;
 
     khandle = find_khandle(&current_proc->m_handle_map, handle);
+
+    KLOG_DBG("Writing to %s\n", khandle->object->key);
 
     if ((khandle->flags & HNDL_FLAG_WRITEACCESS) != HNDL_FLAG_WRITEACCESS)
         return EPERM;
@@ -56,6 +61,7 @@ error_t sys_write(HANDLE handle, u64 offset, void __user* buffer, size_t length)
  */
 error_t sys_read(HANDLE handle, u64 offset, void* buffer, size_t size, size_t* pread_size)
 {
+    error_t error;
     proc_t* current_proc;
     khandle_t* khandle;
     khandle_driver_t* khandle_driver;
@@ -78,14 +84,13 @@ error_t sys_read(HANDLE handle, u64 offset, void* buffer, size_t size, size_t* p
     if (khandle_driver_find(khandle->type, &khandle_driver))
         return EINVAL;
 
-    if (khandle_driver_read(khandle_driver, khandle, offset, buffer, size))
-        return 0;
+    error = khandle_driver_read(khandle_driver, khandle, offset, buffer, size);
 
     /* FIXME: Do we need to check this address? */
     if (pread_size)
         *pread_size = size;
 
-    return 0;
+    return error;
 }
 
 size_t sys_seek(HANDLE handle, u64 c_offset, u64 new_offset, u32 type)

@@ -543,23 +543,23 @@ struct kterm_cmd kterm_commands[] = {
     /*
      * OSS functions
      * TODO:
-     * - movo: Move object
-     * - cpyo: Copy object
-     * - lso: List objects
-     * - execo: Execute object
-     * - remo: Remove object
-     * - mako: Make object
+     * - mv: Move object
+     * - cpy: Copy object
+     * - ls: List objects
+     * - exec: Execute object
+     * - rm: Remove object
+     * - mk: Make object
      *
      * Why this and not standard gnu utility names?
      * This is goofy ahh xdd
      */
     {
-        "selo",
+        "cd",
         "Change the currently selected object",
-        (f_kterm_command_handler_t)kterm_fs_selo,
+        (f_kterm_command_handler_t)kterm_fs_cd,
     },
     {
-        "curo",
+        "wd",
         "Print the currently selected object",
         kterm_fs_print_working_dir,
     },

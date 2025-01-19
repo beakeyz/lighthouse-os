@@ -81,10 +81,7 @@ void __init_stdio(void)
     /* Close the handle */
     close_handle(stdio_handle);
 
-    if (type == HNDL_TYPE_NONE)
-        return;
-
-    stdout->object = OpenObject(stdio_path, HNDL_FLAG_RW, NULL);
+    stdout->object = OpenObject(stdio_path, HNDL_FLAG_W, NULL);
     stdin->object = OpenObject(stdio_path, HNDL_FLAG_R, NULL);
     stderr->object = OpenObject(stdio_path, HNDL_FLAG_RW, NULL);
 }
@@ -226,8 +223,8 @@ int fprintf(FILE* stream, const char* str, ...)
  */
 unsigned long long fread(void* buffer, unsigned long long size, unsigned long long count, FILE* file)
 {
-    size_t read_len = FileWriteEx(file, file->head, buffer, size, count);
-    file->head += read_len;
+    size_t read_len = FileWriteEx(file, file->rd_bhead, buffer, size, count);
+    file->rd_bhead += read_len;
 
     return read_len;
 }
@@ -323,7 +320,7 @@ int vsnprintf(char* buf, size_t size, const char* fmt, va_list args)
     FILE out = {
         .wr_buff = (u8*)buf,
         .wr_bsize = size,
-        .wr_boffset = 0,
+        0
     };
 
     return real_va_sprintf(0, &out, fmt, args);
@@ -338,7 +335,7 @@ int snprintf(char* buf, size_t size, const char* fmt, ...)
     FILE out = {
         .wr_buff = (u8*)buf,
         .wr_bsize = size,
-        .wr_boffset = 0,
+        0
     };
 
     result = real_va_sprintf(0, &out, fmt, args);

@@ -70,19 +70,14 @@ error_t FileSetBuffers(File* file, size_t r_bsize, size_t w_bsize)
     if (file->rd_buff)
         free(file->rd_buff);
 
-    if (file->wr_buff)
-        free(file->wr_buff);
-
     /* Now allocate new buffers */
     if (r_bsize) {
         file->rd_buff = malloc(file->rd_bsize);
         memset(file->rd_buff, 0, r_bsize);
     }
 
-    if (w_bsize) {
-        file->wr_buff = malloc(file->wr_bsize);
-        memset(file->wr_buff, 0, w_bsize);
-    }
+    /* Set this guy to null, so we can allocate it on the first read */
+    file->wr_buff = nullptr;
 
     return 0;
 }
@@ -92,45 +87,36 @@ bool FileIsValid(File* file)
     return ObjectIsValid(&file->object);
 }
 
-int __read_byte(File* file, uint8_t* buffer)
+int __read_byte(File* file, u64 offset, uint8_t* buffer)
 {
-    size_t r_size;
-
     if (!buffer || !file->rd_buff)
         return NULL;
 
-    /* We have run out of local buffer space. Lets ask for some new */
-    if (!file->rd_capacity) {
-
-        memset(file->rd_buff, 0, file->rd_bsize);
-
-        if (ObjectRead(&file->object, file->head, file->rd_buff, file->rd_bsize))
+    /* Check if this read is inside the currernt read buffer */
+    if (offset >= file->rd_bstart && offset < (file->rd_bstart + file->rd_bsize))
+        *buffer = file->rd_buff[offset - file->rd_bstart];
+    else {
+        /* This read is outside the current read buffer, pull in a new block */
+        if (ObjectRead(&file->object, offset, file->rd_buff, file->rd_bsize))
             return NULL;
 
-        r_size = file->rd_bsize;
+        /* Set the new buffer start */
+        file->rd_bstart = offset;
 
-        /* Reset the read offset */
-        file->rd_boffset = NULL;
-
-        /* Set capacity for the next read */
-        file->rd_capacity = r_size;
+        /* Grab the first byte of the new buffer */
+        *buffer = file->rd_buff[0];
     }
-
-    *buffer = file->rd_buff[file->rd_boffset];
-
-    file->rd_boffset++;
-    file->rd_capacity--;
 
     return 1;
 }
 
-int __read_bytes(File* file, uint8_t* buffer, size_t size)
+int __read_bytes(File* file, u64 offset, uint8_t* buffer, size_t size)
 {
     int ret = 0;
     int result;
 
     for (uint64_t i = 0; i < size; i++) {
-        result = __read_byte(file, &buffer[i]);
+        result = __read_byte(file, offset + i, &buffer[i]);
 
         if (!result)
             break;
@@ -146,10 +132,10 @@ size_t FileRead(File* file, void* buffer, size_t bsize)
 {
     size_t read_size;
 
-    read_size = FileReadEx(file, file->head, buffer, bsize, 1);
+    read_size = FileReadEx(file, file->rd_bhead, buffer, bsize, 1);
 
     /* Increase the read offset */
-    file->head += read_size;
+    file->rd_bhead += read_size;
 
     return read_size;
 }
@@ -166,9 +152,13 @@ size_t FileReadEx(File* file, u64 offset, void* buffer, size_t bsize, size_t bco
     i_buffer = (uint8_t*)buffer;
 
     for (uint64_t i = 0; i < bcount; i++) {
-        r_count = __read_bytes(file, i_buffer, bsize);
+        r_count = __read_bytes(file, offset, i_buffer, bsize);
 
+        /* Increase the target buffer */
         i_buffer += r_count;
+
+        /* Also increase the offset */
+        offset += r_count;
 
         /* Count how many bytes we've read until now */
         total_rd_len += r_count;
@@ -181,22 +171,83 @@ size_t FileReadEx(File* file, u64 offset, void* buffer, size_t bsize, size_t bco
     return total_rd_len;
 }
 
-/*
- * Write a single byte into the buffer of a stream
- */
-static int __write_byte(File* file, uint64_t* counter, char byte)
+static int __file_maybe_init_write_buffer(File* file, u64 offset)
 {
+    /* We already have a buffer, no need to do shit */
+    if (file->wr_buff)
+        return EOK;
+
+    file->wr_buff = malloc(file->wr_bsize);
+
     if (!file->wr_buff)
-        return -1;
+        return -ENOMEM;
 
-    file->wr_buff[file->wr_boffset++] = byte;
+    /* Read from the backing object */
+    ObjectRead(&file->object, offset, file->wr_buff, file->wr_bsize);
 
-    /* Sync the buffer if the max. buffersize is reached, or the byte is a null-char */
-    if (file->wr_boffset >= file->wr_bsize)
-        FileFlush(file);
+    /* Set the buffer start offset */
+    file->wr_bstart = offset;
 
-    if (counter)
-        (*counter)++;
+    return 0;
+}
+
+/*!
+ * @brief: Try to write in the files write buffer
+ *
+ * If the offset is inside the bounds of where the write buffer lays, we can write
+ * @byte into it, so it can be pushed to the file at some point by FileFlush
+ */
+static inline int __file_try_write_in_buffer(File* file, u64 offset, u8 byte)
+{
+    if (offset >= file->wr_bstart && offset < (file->wr_bstart + file->wr_bsize)) {
+        /* Write into the files write buffer */
+        file->wr_buff[offset - file->wr_bstart] = byte;
+
+        /* Increase the cache hit count */
+        file->wr_cache_hit_count++;
+
+        return 0;
+    }
+
+    return -1;
+}
+
+/*!
+ * @brief: Write a single byte into the buffer of a stream
+ *
+ * Does some weird cache juggling to make sure this shit is kinda fast
+ */
+static int __write_byte(File* file, u64 offset, u8 byte)
+{
+    int error;
+
+    /* If the buffer size isn't set for the file, we can't read like this */
+    if (!file->wr_bsize)
+        return -EINVAL;
+
+    /* Buffer isn't yet set, create the first */
+    error = __file_maybe_init_write_buffer(file, offset);
+
+    if (error)
+        return error;
+
+    /* Check if we can simply write */
+    if (IS_OK(__file_try_write_in_buffer(file, offset, byte)))
+        return 0;
+
+    /* Write is outside the write buffer, we need to sync */
+    FileFlush(file);
+
+    /* Try to read shit into the write buffer */
+    ObjectRead(&file->object, offset, file->wr_buff, file->wr_bsize);
+
+    /* Set the new buffer start */
+    file->wr_bstart = offset;
+    /* This write did in fact hit the cache (we just synced lol) */
+    file->wr_cache_hit_count = 1;
+
+    /* Set the first byte in the buffer, since that's the one we want to access anyway */
+    file->wr_buff[0] = byte;
 
     return 0;
 }
@@ -206,12 +257,12 @@ static int __write_byte(File* file, uint64_t* counter, char byte)
  *
  * Probably unsafe, since it just continues until it finds a null-byte
  */
-static size_t __write_bytes(File* file, uint64_t* counter, u8* bytes, size_t bsize)
+static size_t __write_bytes(File* file, u64 offset, u8* bytes, size_t bsize)
 {
     size_t write_len = 0;
 
     for (u64 i = 0; i < bsize; i++) {
-        if (__write_byte(file, counter, bytes[i]))
+        if (__write_byte(file, offset + i, bytes[i]))
             break;
 
         write_len++;
@@ -224,10 +275,10 @@ size_t FileWrite(File* file, void* buffer, size_t bsize)
 {
     size_t write_size;
 
-    write_size = FileWriteEx(file, file->head, buffer, bsize, 1);
+    write_size = FileWriteEx(file, file->wr_bhead, buffer, bsize, 1);
 
     /* Increase the read offset */
-    file->head += write_size;
+    file->wr_bhead += write_size;
 
     return write_size;
 }
@@ -244,15 +295,17 @@ size_t FileWriteEx(File* file, u64 offset, void* buffer, size_t bsize, size_t bc
     i_buffer = (uint8_t*)buffer;
 
     for (uint64_t i = 0; i < bcount; i++) {
-        r_count = __write_bytes(file, NULL, i_buffer, bsize);
+        r_count = __write_bytes(file, offset, i_buffer, bsize);
 
         i_buffer += r_count;
+
+        offset += r_count;
 
         /* Count how many bytes we've read until now */
         total_rd_len += r_count;
 
-        /* Check this read */
-        if (r_count != bsize)
+        /* Check if this read succeeded only partially */
+        if (r_count < bsize)
             break;
     }
 
@@ -268,41 +321,65 @@ error_t FileFlush(File* file)
      * The syscall should handle empty buffers or invalid handles
      * but we'll check here just to be safe
      */
-    if (!file->wr_boffset)
+    if (!file->wr_cache_hit_count)
         return 0;
 
     /* This guy has no object, we can't flush lol */
     if (!ObjectIsValid(&file->object))
         return 0;
 
-    ObjectWrite(&file->object, file->head, file->wr_buff, file->wr_boffset);
+    /* Write back the write buffer */
+    ObjectWrite(&file->object, file->wr_bstart, file->wr_buff, file->wr_bsize);
 
-    /* Reset the buffer */
-    memset(file->wr_buff, 0, file->wr_boffset);
+    /* Reset the cache hit count */
+    file->wr_cache_hit_count = 0;
 
-    /* Reset the written count */
-    file->wr_boffset = NULL;
+    return 0;
+}
+
+error_t FileSeekRHead(File* file, u64* offset, int whence)
+{
+    if (!file || !offset)
+        return -EINVAL;
+
+    switch (whence) {
+    case SEEK_CUR:
+        break;
+    case SEEK_SET:
+        file->rd_bhead = *offset;
+        break;
+    }
+
+    *offset = file->rd_bhead;
+
+    return 0;
+}
+
+error_t FileSeekWHead(File* file, u64* offset, int whence)
+{
+    if (!file || !offset)
+        return -EINVAL;
+
+    switch (whence) {
+    case SEEK_CUR:
+        break;
+    case SEEK_SET:
+        file->wr_bhead = *offset;
+        break;
+    }
+
+    *offset = file->wr_bhead;
 
     return 0;
 }
 
 error_t FileSeek(File* file, u64* offset, int whence)
 {
-    if (!file || !offset)
+    if (FileSeekRHead(file, offset, whence))
         return -EINVAL;
 
-    /* Flush the write buffer */
-    FileFlush(file);
-
-    switch (whence) {
-    case SEEK_CUR:
-        break;
-    case SEEK_SET:
-        file->head = *offset;
-        break;
-    }
-
-    *offset = file->head;
+    if (FileSeekWHead(file, offset, whence))
+        return -EINVAL;
 
     return 0;
 }

@@ -93,7 +93,7 @@ error_t CloseObject(Object* obj)
 
 bool ObjectIsValid(Object* obj)
 {
-    return (obj && obj->type && handle_verify(obj->handle));
+    return (obj && obj->type && handle_verify(obj->handle) == 0);
 }
 
 error_t ObjectRead(Object* obj, u64 offset, void* buffer, size_t size)

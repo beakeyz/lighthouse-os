@@ -499,7 +499,7 @@ error_t oss_object_open(oss_object_t* this, const char* key, oss_object_t** pobj
     if (!this || !key || !pobj)
         return -EINVAL;
 
-    KLOG_DBG("Opening %s on %s\n", key, this->key);
+    // KLOG_DBG("Opening %s on %s\n", key, this->key);
 
     if (key[0] == '.' && key[1] == '\0') {
         ret = this;

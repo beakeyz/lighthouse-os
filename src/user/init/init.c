@@ -22,8 +22,10 @@
  *  - Find the vector of further bootstrap applications to run and run them
  */
 #include "lightos/api/handle.h"
+#include <stdio.h>
 
 int main(HANDLE self)
 {
+    printf("Hello, World!\n");
     return -69;
 }

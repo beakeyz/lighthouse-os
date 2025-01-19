@@ -25,8 +25,51 @@ device_t* create_device(driver_t* parent, char* name, void* priv)
     return create_device_ex(parent, name, priv, DEVICE_CTYPE_SOFTDEV, NULL, NULL);
 }
 
+static int __device_oss_read(oss_object_t* object, u64 offset, void* buffer, size_t size)
+{
+    device_t* dev;
+
+    dev = oss_object_unwrap(object, OT_DEVICE);
+
+    if (!dev)
+        return -EINVAL;
+
+    KLOG_DBG("Device read %s\n", object->key);
+
+    return device_read(dev, buffer, offset, size);
+}
+
+static int __device_oss_write(oss_object_t* object, u64 offset, void* buffer, size_t size)
+{
+    device_t* dev;
+
+    KLOG_DBG("Device write %s\n", object->key);
+
+    dev = oss_object_unwrap(object, OT_DEVICE);
+
+    if (!dev)
+        return -EINVAL;
+
+    return device_write(dev, buffer, offset, size);
+}
+
+static int __device_oss_flush(oss_object_t* object)
+{
+    device_t* dev;
+
+    dev = oss_object_unwrap(object, OT_DEVICE);
+
+    if (!dev)
+        return -EINVAL;
+
+    return device_flush(dev);
+}
+
 static oss_object_ops_t device_oss_ops = {
     .f_Destroy = __destroy_device,
+    .f_Read = __device_oss_read,
+    .f_Write = __device_oss_write,
+    .f_Flush = __device_oss_flush,
 };
 
 /*!
@@ -556,6 +599,11 @@ int device_write(device_t* dev, void* buffer, uintptr_t offset, size_t size)
 int device_getinfo(device_t* dev, DEVINFO* binfo)
 {
     return device_send_ctl_ex(dev, DEVICE_CTLC_GETINFO, NULL, binfo, sizeof(*binfo));
+}
+
+int device_flush(device_t* dev)
+{
+    return device_send_ctl_ex(dev, DEVICE_CTLC_FLUSH, NULL, NULL, NULL);
 }
 
 int device_power_on(device_t* dev)

@@ -27,6 +27,8 @@ HANDLE sys_open(const char __user* path, handle_flags_t flags, enum HNDL_MODE mo
     kerror_t error;
     proc_t* c_proc;
 
+    KLOG_DBG("Trying to open: %s\n", path);
+
     c_proc = get_current_proc();
 
     if (!c_proc || !path || (kmem_validate_ptr(c_proc, (uintptr_t)path, 1)))

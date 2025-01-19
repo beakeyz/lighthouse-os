@@ -1,4 +1,5 @@
 #include "lightos/api/handle.h"
+#include "logging/log.h"
 #include "oss/core.h"
 #include "oss/object.h"
 #include "proc/handle.h"
@@ -61,22 +62,30 @@ static int ossobj_khdrv_close(khandle_driver_t* driver, khandle_t* handle)
 
 int oss_object_khdrv_read(struct khandle_driver* driver, khandle_t* hndl, u64 offset, void* buffer, size_t bsize)
 {
+    KLOG_DBG("oss_object_read\n");
     return oss_object_read(hndl->object, offset, buffer, bsize);
 }
 
 int oss_object_khdrv_write(struct khandle_driver* driver, khandle_t* hndl, u64 offset, void* buffer, size_t bsize)
 {
+    KLOG_DBG("oss_object_write\n");
     return oss_object_write(hndl->object, offset, buffer, bsize);
+}
+
+int oss_object_khdrv_destroy(khandle_driver_t* driver, khandle_t* hndl)
+{
+    return 0;
 }
 
 khandle_driver_t ossobj_khdrv = {
     .name = "oss objects",
     .handle_type = HNDL_TYPE_OBJECT,
-    .function_flags = KHDRIVER_FUNC_OPEN | KHDRIVER_FUNC_OPEN_REL | KHDRIVER_FUNC_CLOSE,
+    .function_flags = KHDRIVER_FUNC_ALL_IO,
     .f_open = oss_object_khdrv_open,
     .f_open_relative = oss_object_khdrv_open_relative,
     .f_close = ossobj_khdrv_close,
     .f_read = oss_object_khdrv_read,
     .f_write = oss_object_khdrv_write,
+    .f_destroy = oss_object_khdrv_destroy,
 };
 EXPORT_KHANDLE_DRIVER(ossobj_khdrv);

@@ -154,8 +154,40 @@ static error_t __sysvar_allocate_value(sysvar_t* var, enum SYSVAR_TYPE type, voi
     return 0;
 }
 
+static int __sysvar_oss_read(oss_object_t* object, u64 offset, void* buffer, size_t size)
+{
+    sysvar_t* var;
+
+    KLOG_DBG("SYSVAR_READ\n");
+
+    var = oss_object_unwrap(object, OT_SYSVAR);
+
+    if (!var)
+        return -EINVAL;
+
+    return sysvar_read(var, buffer, size);
+}
+
+static int __sysvar_oss_write(oss_object_t* object, u64 offset, void* buffer, size_t size)
+{
+    sysvar_t* var;
+
+    var = oss_object_unwrap(object, OT_SYSVAR);
+
+    if (!var)
+        return -EINVAL;
+
+    /* Can't write to constant sysvars */
+    if (var->flags & SYSVAR_FLAG_CONSTANT)
+        return -ECONST;
+
+    return sysvar_write(var, buffer, size);
+}
+
 oss_object_ops_t sysvar_oss_ops = {
     .f_Destroy = __destroy_sysvar,
+    .f_Read = __sysvar_oss_read,
+    .f_Write = __sysvar_oss_write,
 };
 
 /*!
@@ -204,7 +236,7 @@ sysvar_t* create_sysvar(const char* key, pattr_t* pattr, enum SYSVAR_TYPE type, 
      */
     var->key = __sysvar_fmt_key(strdup(key));
 
-    KLOG_DBG("Creating sysvar: %s\n", var->key);
+    // KLOG_DBG("Creating sysvar: %s\n", var->key);
 
     /*
      * Set the refcount to one in order to preserve the variable for multiple gets

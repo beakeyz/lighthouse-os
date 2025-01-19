@@ -7,6 +7,9 @@
 #include "lightos/proc/profile.h"
 #include "lightos/syscall.h"
 
+/* Handle to the current process object */
+static HANDLE __proc_handle;
+
 HANDLE open_sysvar_ex(HANDLE handle, char* key, u32 flags)
 {
     Object object;
@@ -28,17 +31,10 @@ HANDLE open_sysvar_ex(HANDLE handle, char* key, u32 flags)
 
 HANDLE open_sysvar(char* key, u32 flags)
 {
-    Object object;
-
     if (!key)
         return HNDL_INVAL;
 
-    object = OpenObject(key, flags, HNDL_MODE_NORMAL);
-
-    if (object.type != OT_SYSVAR)
-        CloseObject(&object);
-
-    return object.handle;
+    return open_sysvar_ex(__proc_handle, key, flags);
 }
 
 extern HANDLE create_sysvar(HANDLE handle, const char* key, enum SYSVAR_TYPE type, u32 flags, VOID* value, size_t len)
@@ -167,4 +163,10 @@ BOOL sysvar_write_from_profile(char* profile_name, char* var_key, u32 flags, voi
     close_handle(profile_handle);
 
     return result;
+}
+
+int __lightos_init_sysvars(HANDLE procHandle)
+{
+    __proc_handle = procHandle;
+    return 0;
 }

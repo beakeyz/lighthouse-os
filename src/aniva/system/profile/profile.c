@@ -277,7 +277,7 @@ static inline int __find_var(oss_object_t* object, const char* path, sysvar_t** 
         return -EINVAL;
 
     /* Try to open the var object (This takes a reference if it succeeds) */
-    error = oss_open_object_from(path, _runtime_node, &obj);
+    error = oss_open_object_from(path, object, &obj);
 
     if (error)
         return error;
