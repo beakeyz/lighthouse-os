@@ -22,35 +22,15 @@ static int __oss_object_create(oss_object_t* obj)
 
 static int __oss_object_destroy(oss_object_t* obj)
 {
-    node_t *c_conn_node, *next_conn_node;
-    oss_connection_t* c_conn;
-
     /* First, flush the objects buffers */
     oss_object_flush(obj);
+
+    /* Close all the connections */
+    oss_object_close_connections(obj);
 
     /* Then, call the destructor */
     if (obj->ops->f_Destroy)
         obj->ops->f_Destroy(obj);
-
-    /* Grab the  */
-    c_conn_node = obj->connections->head;
-
-    /* Kill any connections */
-    while (c_conn_node) {
-        /* Grab the next node preemptively */
-        next_conn_node = c_conn_node->next;
-        /* Grab the connection this node holds */
-        c_conn = c_conn_node->data;
-
-        /* Ensure this object had valid connections */
-        ASSERT_MSG(c_conn->parent != obj && c_conn->child == obj, "Tried to destroy an object which still has children");
-
-        /* Kill this connection */
-        oss_disconnect(c_conn);
-
-        /* Cycle to the next node */
-        c_conn_node = next_conn_node;
-    }
 
     /* Kill the lock */
     destroy_mutex(obj->lock);
@@ -156,6 +136,76 @@ unlock_and_exit:
     mutex_unlock(object->lock);
 
     return error;
+}
+
+/*!
+ * @brief: Clear the connections downstream of this object
+ *
+ * This guy might be recursive, so watch out
+ */
+error_t oss_object_close_connections(oss_object_t* object)
+{
+    error_t error;
+    node_t *c_conn_node, *next_conn_node;
+    oss_connection_t* c_conn;
+
+    /* Grab the  */
+    c_conn_node = object->connections->head;
+
+    /* Kill any connections */
+    while (c_conn_node) {
+        /* Grab the next node preemptively */
+        next_conn_node = c_conn_node->next;
+        /* Grab the connection this node holds */
+        c_conn = c_conn_node->data;
+
+        /* This would be weird */
+        ASSERT(oss_connection_is_downstream(c_conn, object));
+
+        /* Try to kill this connection */
+        error = oss_object_close(c_conn->child);
+
+        if (error)
+            return error;
+
+        /* Cycle to the next node */
+        c_conn_node = next_conn_node;
+    }
+
+    return 0;
+}
+
+error_t oss_object_close_upstream_connections(oss_object_t* object)
+{
+    error_t error;
+    node_t *c_conn_node, *next_conn_node;
+    oss_connection_t* c_conn;
+
+    /* Grab the  */
+    c_conn_node = object->connections->head;
+
+    /* Kill any connections */
+    while (c_conn_node) {
+        /* Grab the next node preemptively */
+        next_conn_node = c_conn_node->next;
+        /* Grab the connection this node holds */
+        c_conn = c_conn_node->data;
+
+        if (oss_connection_is_upstream(c_conn, object))
+            goto go_next;
+
+        /* Disconnect @object from it's parent */
+        error = oss_object_disconnect(c_conn->parent, object);
+
+        if (error)
+            return error;
+
+    go_next:
+        /* Cycle to the next node */
+        c_conn_node = next_conn_node;
+    }
+
+    return 0;
 }
 
 /*

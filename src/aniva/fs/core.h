@@ -75,7 +75,9 @@ void destroy_fsroot_object(fs_root_object_t* object);
 
 fs_root_object_t* oss_object_get_fsobj(oss_object_t* object);
 
-error_t fsroot_mount(oss_object_t* mountpoint, fs_root_object_t* object);
+oss_object_t* fsroot_mount(oss_object_t* object, fs_type_t* fstype, const char* mountpoint, volume_t* volume);
 error_t fsroot_unmount(fs_root_object_t* object);
+
+error_t fsroot_purge(fs_root_object_t* fsroot);
 
 #endif // !__ANIVA_FS_CORE__

@@ -87,7 +87,7 @@ int oss_disconnect(oss_connection_t* conn)
     list_remove_ex(parent->connections, target);
 
     /* Release the reference @parent still has on @child */
-    oss_object_unref(child);
+    oss_object_close(child);
 
     /* Kill the connection memory */
     destroy_oss_connection(target);

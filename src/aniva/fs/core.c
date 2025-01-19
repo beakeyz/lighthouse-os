@@ -1,9 +1,11 @@
 #include "core.h"
 #include "fs/dir.h"
 #include "fs/file.h"
+#include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"
 #include "lightos/api/objects.h"
 #include "mem/heap.h"
+#include "oss/core.h"
 #include "oss/object.h"
 #include <libk/stddef.h>
 #include <libk/string.h>
@@ -159,6 +161,91 @@ fs_root_object_t* oss_object_get_fsobj(oss_object_t* object)
         return file->fsroot;
 
     return nullptr;
+}
+
+oss_object_t* fsroot_mount(oss_object_t* object, fs_type_t* fstype, const char* mountpoint, volume_t* volume)
+{
+    error_t error;
+    oss_object_t* fsroot_obj;
+
+    if (!fstype || !fstype->f_mount)
+        return nullptr;
+
+    /* Call the mount routine of the filesystem driver */
+    fsroot_obj = fstype->f_mount(fstype, mountpoint, volume);
+
+    if (!fsroot_obj)
+        return nullptr;
+
+    if (!object)
+        error = oss_connect_root_object(fsroot_obj);
+    else
+        /* Connect the new object to it's parent */
+        error = oss_object_connect(object, fsroot_obj);
+
+    if (error) {
+        oss_object_close(fsroot_obj);
+        return nullptr;
+    }
+
+    return fsroot_obj;
+}
+
+error_t fsroot_unmount(fs_root_object_t* fsroot)
+{
+    error_t error;
+    oss_object_t* object;
+
+    if (!fsroot || !fsroot->rootdir)
+        return -EINVAL;
+
+    object = fsroot->rootdir->object;
+
+    if (fsroot->m_type->f_unmount) {
+        /* Call the unmount function on the fsroot */
+        error = fsroot->m_type->f_unmount(fsroot->m_type, object);
+
+        if (error)
+            return error;
+    }
+
+    /*
+     * Clear the remaining connections, which should decrease the
+     * object reference count back to zero, destroying the object
+     */
+    oss_object_close_upstream_connections(object);
+
+    return 0;
+}
+
+static int __fsroot_object_purge(oss_object_t* object)
+{
+    oss_connection_t* conn;
+
+    /* Loop over all this objects connections */
+    FOREACH(i, object->connections)
+    {
+        conn = i->data;
+
+        if (conn->parent == object) {
+            __fsroot_object_purge(conn->parent);
+        }
+    }
+
+    oss_object_close(object);
+
+    return 0;
+}
+
+error_t fsroot_purge(fs_root_object_t* fsroot)
+{
+    oss_object_t* object;
+
+    /* Grab the fsroots root object */
+    object = fsroot->rootdir->object;
+
+    /* Purge all this shit */
+    return __fsroot_object_purge(object);
 }
 
 /*!

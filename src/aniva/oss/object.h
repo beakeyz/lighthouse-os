@@ -127,6 +127,8 @@ error_t oss_object_unref(oss_object_t* object);
 
 error_t oss_object_settype(oss_object_t* object, enum OSS_OBJECT_TYPE type);
 error_t oss_object_rename(oss_object_t* object, const char* new_key);
+error_t oss_object_close_connections(oss_object_t* object);
+error_t oss_object_close_upstream_connections(oss_object_t* object);
 
 oss_connection_t* oss_object_get_connection(oss_object_t* object, const char* key);
 oss_connection_t* oss_object_get_connection_down(oss_object_t* object, const char* key);

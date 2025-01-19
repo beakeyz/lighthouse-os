@@ -1,5 +1,6 @@
 #include "core.h"
 #include "fs/core.h"
+#include "fs/dir.h"
 #include "libk/flow/error.h"
 #include "lightos/api/objects.h"
 #include "object.h"
@@ -185,7 +186,6 @@ error_t oss_connect_root_object(struct oss_object* object)
  */
 error_t oss_connect_fsroot(struct oss_object* parent, const char* mountpoint, const char* fstype, struct volume* volume, struct oss_object** pobj)
 {
-    error_t error;
     fs_type_t* type;
     oss_object_t* fsroot_object;
 
@@ -195,26 +195,11 @@ error_t oss_connect_fsroot(struct oss_object* parent, const char* mountpoint, co
     /* Grab the wanted filesystem type */
     type = get_fs_type(fstype);
 
-    if (!type || !type->f_mount)
-        return -EINVAL;
-
-    /* Call the mount routine of the filesystem driver */
-    fsroot_object = type->f_mount(type, mountpoint, volume);
+    /* Try to create a new root object */
+    fsroot_object = fsroot_mount(parent, type, mountpoint, volume);
 
     if (!fsroot_object)
-        return -EINVAL;
-
-    if (!parent)
-        error = oss_connect_root_object(fsroot_object);
-    else
-        /* Connect the new object to it's parent */
-        error = oss_object_connect(parent, fsroot_object);
-
-    /* Check if we could actually connect the object */
-    if (error) {
-        oss_object_close(fsroot_object);
-        return error;
-    }
+        return -ENODEV;
 
     /* Export the object if the caller wants it */
     if (pobj)
@@ -225,7 +210,23 @@ error_t oss_connect_fsroot(struct oss_object* parent, const char* mountpoint, co
 
 error_t oss_disconnect_fsroot(struct oss_object* object)
 {
-    kernel_panic("TODO: oss_disconnect_fsroot");
+    dir_t* dir;
+    fs_root_object_t* fsroot;
+
+    if (!object)
+        return -EINVAL;
+
+    /* A fsroot object must always be a directory */
+    dir = oss_object_unwrap(object, OT_DIR);
+
+    /* We can only call disconnect fsroot on the actual root dir */
+    if (!dir || !dir->fsroot || (dir->flags & DIR_FSROOT) != DIR_FSROOT)
+        return -EINVAL;
+
+    fsroot = dir->fsroot;
+
+    /* Unmount the fsroot object */
+    return fsroot_unmount(fsroot);
 }
 
 static oss_object_ops_t root_object_ops = {

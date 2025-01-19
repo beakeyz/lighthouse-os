@@ -771,6 +771,9 @@ int kterm_set_cwd(const char* path, struct oss_object* object)
     if (_c_login.cwd)
         kfree((void*)_c_login.cwd);
 
+    if (_c_login.c_obj)
+        oss_object_close(_c_login.c_obj);
+
     _c_login.cwd = oss_object_get_abs_path(object);
     //_c_login.cwd = "TODO: cwd";
     _c_login.c_obj = object;
