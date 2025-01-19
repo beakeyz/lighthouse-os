@@ -1,13 +1,11 @@
 
+#include "lightos/fs/file.h"
 #include "stdarg.h"
 #include <ctype.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
-extern int __write_byte(FILE* stream, uint64_t* counter, char byte);
-extern int __write_bytes(FILE* stream, uint64_t* counter, char* bytes);
 
 /* Print callback for when we want to get an actual byte onto the stream */
 typedef int (*F_PRINT_CB)(char byte, char** out, size_t* p_cur_size, void* priv);
@@ -216,7 +214,9 @@ static int __sprintf_cb(char c, char** out, size_t* p_cur_size, void* priv)
 {
     FILE* stream = priv;
 
-    return __write_byte(stream, p_cur_size, c);
+    if (FileWrite(stream, &c, sizeof(c)) == 0)
+        return -1;
+    return 0;
 }
 
 int real_va_sprintf(uint8_t mode, FILE* stream, const char* fmt, va_list va)

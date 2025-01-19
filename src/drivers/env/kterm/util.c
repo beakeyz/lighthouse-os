@@ -5,25 +5,22 @@
 #include "dev/disk/device.h"
 #include "dev/disk/volume.h"
 #include "dev/driver.h"
-#include "lightos/api/device.h"
 #include "drivers/env/kterm/kterm.h"
 #include "entry/entry.h"
 #include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"
 #include "libk/stddef.h"
 #include "libk/string.h"
+#include "lightos/api/device.h"
+#include "lightos/api/volume.h"
 #include "logging/log.h"
 #include "mem/heap.h"
 #include "mem/kmem.h"
-#include "oss/node.h"
-#include "oss/obj.h"
 #include "proc/core.h"
 #include "proc/proc.h"
 #include "system/acpi/acpi.h"
 #include "system/acpi/parser.h"
-#include "lightos/api/volume.h"
 #include <dev/loader.h>
-#include <proc/env.h>
 
 static const char* __help_str = "Welcome to the Aniva kernel terminal application (kterm)\n"
                                 "kterm provides a few internal utilities and a way to execute binaries from the filesystem\n"
@@ -112,39 +109,12 @@ uint32_t kterm_cmd_sysinfo(const char** argv, size_t argc)
     return 0;
 }
 
-bool print_drv_info(oss_node_t* node, oss_obj_t* obj, void* arg0)
-{
-    u32 idx = 0;
-    driver_t* driver;
-
-    if (node)
-        return !oss_node_itterate(node, print_drv_info, arg0);
-
-    driver = oss_obj_unwrap(obj, driver_t);
-
-    if (obj->type != OSS_OBJ_TYPE_DRIVER || !driver)
-        return false;
-
-    printf("%16.16s: %32.32s (Loaded: %s)\n", driver->m_url, (driver->m_image_path == nullptr) ? "Internal" : driver->m_image_path, ((driver->m_flags & DRV_LOADED) == DRV_LOADED) ? "Yes" : "No");
-
-    FOREACH(i, driver->m_dev_list)
-    {
-        device_t* dev = i->data;
-
-        printf("  - (%d) %s\n", idx++, dev->name);
-    }
-
-    return true;
-}
-
 /*!
  * @brief: Print information about the installed and loaded drivers
  */
 uint32_t kterm_cmd_drvinfo(const char** argv, size_t argc)
 {
-    kterm_println(" - Printing drivers...");
-
-    foreach_driver(print_drv_info, NULL);
+    kernel_panic(" - (TODO) Printing drivers...");
 
     return 0;
 }
@@ -341,7 +311,7 @@ uint32_t kterm_cmd_diskinfo(const char** argv, size_t argc)
         return 2;
     }
 
-    const char* path = oss_obj_get_fullpath(device->dev->obj);
+    const char* path = oss_object_get_abs_path(device->dev->obj);
 
     kterm_print_keyvalue("Disk name", device->info.label);
     kterm_print_keyvalue("Disk path", path);
@@ -370,7 +340,7 @@ uint32_t kterm_cmd_diskinfo(const char** argv, size_t argc)
 static bool procinfo_callback(proc_t* proc)
 {
     // kterm_print_keyvalue(proc->m_name, to_string(proc->m_id));
-    KLOG("%s (%d)\n", proc->m_name, proc->m_env->attr.ptype);
+    KLOG(" - %s\n", proc->m_name);
     return true;
 }
 

@@ -5,11 +5,11 @@ layout, with the obvious difference that the filesystem on disk is mutable and c
 The main outline will be given here, per directory or vfs entry:
 
  - /Root: this is where the main filesystem gets mounted on the VFS. this should always be the same so the kernel knows where to find its shit
- - /Root/System: contains drivers and system-essensial stuff for the kernel (Like the kernel itself)
- - /Root/Apps: contains the installed applications that are global to the system (i.e. user independant)
- - /Root/Assets: A place where different assets can be dumped. Apps can request a directory here that they own where they can store their resources
- - /Root/Users: contains the different user-owned directories and different user-related stuff
-    - /Root/Users/User: contains the global user info
+ - /Storage/Root/System: contains drivers and system-essensial stuff for the kernel (Like the kernel itself)
+ - /Storage/Root/Apps: contains the installed applications that are global to the system (i.e. user independant)
+ - /Storage/Root/Assets: A place where different assets can be dumped. Apps can request a directory here that they own where they can store their resources
+ - /Storage/Root/Users: contains the different user-owned directories and different user-related stuff
+    - /Storage/Root/Users/User: contains the global user info
 
  - /Dev: Will contain device objects. These objects are sorted by the driver paths that they are attached to
          So when, for example, a device called 'TestDevice' is attached to the driver 'other/TestDriver', The complete path becomes '/Dev/other/TestDriver/TestDevice'

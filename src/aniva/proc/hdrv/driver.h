@@ -1,7 +1,6 @@
 #ifndef __ANIVA_PROC_HANDLE_DRIVER_H__
 #define __ANIVA_PROC_HANDLE_DRIVER_H__
 
-#include "lightos/api/device.h"
 #include "libk/flow/error.h"
 #include "lightos/api/handle.h"
 #include "proc/handle.h"
@@ -52,9 +51,8 @@ typedef struct khandle_driver {
 
     int (*f_close)(struct khandle_driver* driver, khandle_t* handle);
 
-    int (*f_read)(struct khandle_driver* driver, khandle_t* hndl, void* buffer, size_t bsize);
-    int (*f_write)(struct khandle_driver* driver, khandle_t* hndl, void* buffer, size_t bsize);
-    int (*f_ctl)(struct khandle_driver* driver, khandle_t* hndl, enum DEVICE_CTLC ctl, u64 offset, void* buffer, size_t bsize);
+    int (*f_read)(struct khandle_driver* driver, khandle_t* hndl, u64 offset, void* buffer, size_t bsize);
+    int (*f_write)(struct khandle_driver* driver, khandle_t* hndl, u64 offset, void* buffer, size_t bsize);
     int (*f_destroy)(struct khandle_driver* driver, khandle_t* handle);
 } khandle_driver_t;
 
@@ -106,12 +104,8 @@ kerror_t khandle_driver_find(HANDLE_TYPE type, khandle_driver_t** pDriver);
 kerror_t khandle_driver_open(khandle_driver_t* driver, const char* path, u32 flags, enum HNDL_MODE mode, khandle_t* bHandle);
 kerror_t khandle_driver_open_relative(khandle_driver_t* driver, khandle_t* rel_hndl, const char* path, u32 flags, enum HNDL_MODE mode, khandle_t* bHandle);
 kerror_t khandle_driver_close(khandle_driver_t* driver, khandle_t* handle);
-kerror_t khandle_driver_read(khandle_driver_t* driver, khandle_t* hndl, void* buffer, size_t bsize);
-kerror_t khandle_driver_write(khandle_driver_t* driver, khandle_t* hndl, void* buffer, size_t bsize);
-kerror_t khandle_driver_ctl(khandle_driver_t* driver, khandle_t* hndl, enum DEVICE_CTLC ctl, u64 offset, void* buffer, size_t bsize);
-
-kerror_t khandle_driver_generic_oss_open(khandle_driver_t* driver, const char* path, u32 flags, enum HNDL_MODE mode, khandle_t* bHandle);
-kerror_t khandle_driver_generic_oss_open_from(khandle_driver_t* driver, khandle_t* rel_hndl, const char* path, u32 flags, enum HNDL_MODE mode, khandle_t* bHandle);
+kerror_t khandle_driver_read(khandle_driver_t* driver, khandle_t* hndl, u64 offset, void* buffer, size_t bsize);
+kerror_t khandle_driver_write(khandle_driver_t* driver, khandle_t* hndl, u64 offset, void* buffer, size_t bsize);
 
 void init_khandle_drivers();
 

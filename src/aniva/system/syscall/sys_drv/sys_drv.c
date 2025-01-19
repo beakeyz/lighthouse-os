@@ -14,6 +14,11 @@
 
 #include <lightos/api/driver.h>
 
+/*!
+ * @brief: Handles messages from processes to underlying types of object handles
+ *
+ *
+ */
 error_t sys_send_msg(HANDLE handle, dcc_t code, u64 offset, void* buffer, size_t size)
 {
     kerror_t error;
@@ -43,7 +48,7 @@ error_t sys_send_msg(HANDLE handle, dcc_t code, u64 offset, void* buffer, size_t
         error = driver_send_msg_ex(oss_object_unwrap(object, OT_DRIVER), code, buffer, size, NULL, NULL);
         break;
     case OT_DEVICE:
-        error = device_send_ctl_ex(oss_object_unwrap(object, OT_DEVICE), code, NULL, buffer, size);
+        error = device_send_ctl_ex(oss_object_unwrap(object, OT_DEVICE), code, offset, buffer, size);
         break;
     default:
         return ENOIMPL;
@@ -53,38 +58,4 @@ error_t sys_send_msg(HANDLE handle, dcc_t code, u64 offset, void* buffer, size_t
         return EINVAL;
 
     return 0;
-}
-
-error_t sys_send_ctl(HANDLE handle, enum DEVICE_CTLC code, u64 offset, void* buffer, size_t bsize)
-{
-    int error;
-    khandle_t* c_hndl;
-    proc_t* c_proc;
-
-    c_proc = get_current_proc();
-
-    /* Check the buffer(s) if they are given */
-    if (buffer && kmem_validate_ptr(c_proc, (vaddr_t)buffer, bsize))
-        return -EINVAL;
-
-    /* Find the handle */
-    c_hndl = find_khandle(&c_proc->m_handle_map, handle);
-
-    if (!c_hndl)
-        return -EINVAL;
-
-    switch (c_hndl->type) {
-    case HNDL_TYPE_OBJECT:
-        /*
-         * Check if we can get a device from this object. If we can't, device_send_ctl_ex will return
-         * an error, since it null-checks parameters
-         */
-        error = device_send_ctl_ex(oss_object_unwrap(c_hndl->object, OT_DEVICE), code, offset, buffer, bsize);
-        break;
-    default:
-        error = -KERR_NOT_FOUND;
-        break;
-    }
-
-    return error;
 }

@@ -1,10 +1,10 @@
 #ifndef __LIGHTENV_LIBC_STDIO__
 #define __LIGHTENV_LIBC_STDIO__
 
+#include "lightos/api/filesystem.h"
 #ifndef ANIVA_KERNEL
 
 #include "stdarg.h"
-#include <stdint.h>
 
 #define SEEK_SET 0
 #define _STDIO_H
@@ -19,23 +19,7 @@
 /*
  * Weird struct ...
  */
-typedef struct _FILE {
-    /* NOTE: prevent including any external libraries in libc headers */
-    uint32_t handle;
-
-    uint8_t* w_buff;
-    uint8_t* r_buff;
-
-    size_t w_buf_size;
-    size_t w_buf_written;
-
-    size_t r_buf_size;
-    size_t r_offset;
-    size_t r_capacity;
-
-    uint32_t _flags;
-
-} FILE;
+typedef File FILE;
 
 #ifdef __cplusplus
 extern "C" {

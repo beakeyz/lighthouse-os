@@ -1,8 +1,7 @@
 #include "fs.h"
 #include "drivers/env/kterm/kterm.h"
-#include "mem/heap.h"
 #include "oss/core.h"
-#include "oss/node.h"
+#include "oss/object.h"
 
 static kterm_login_t* _login;
 
@@ -20,7 +19,7 @@ uint32_t kterm_fs_print_working_dir()
 u32 kterm_fs_cd(const char** argv, u32 argc)
 {
     i32 error;
-    oss_node_t* new_node;
+    oss_object_t* new_object;
     const char* path;
 
     if (argc != 2)
@@ -29,17 +28,15 @@ u32 kterm_fs_cd(const char** argv, u32 argc)
     path = argv[1];
 
     /* Resolve a relative path */
-    error = oss_resolve_node_rel(_login->c_node, path, &new_node);
+    error = oss_open_object_from(path, _login->c_obj, &new_object);
 
     /* Try again, but now absolute */
     if (error)
-        error = oss_resolve_node(path, &new_node);
+        error = oss_open_object(path, &new_object);
 
     /* Invalid path xD */
     if (error)
         return error;
 
-    kfree((void*)_login->cwd);
-
-    return kterm_set_cwd(NULL, new_node);
+    return kterm_set_cwd(NULL, new_object);
 }

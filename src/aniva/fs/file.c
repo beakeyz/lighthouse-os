@@ -304,10 +304,13 @@ file_t* file_open_from(oss_object_t* node, const char* path)
     int error;
     oss_object_t* obj;
 
-    /*
-     * File gets created by the filesystem driver
-     */
-    error = oss_open_object_from(path, node, &obj);
+    if (node)
+        /*
+         * File gets created by the filesystem driver
+         */
+        error = oss_open_object_from(path, node, &obj);
+    else
+        error = oss_open_object(path, &obj);
 
     if (error || !obj || obj->type != OT_FILE || !obj->private)
         return nullptr;

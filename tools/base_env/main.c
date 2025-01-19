@@ -34,7 +34,7 @@ struct sysvar_template user_defaults[] = {
 
 struct sysvar_template admin_defaults[] = {
     VAR_ENTRY("LOGIN_MSG", SYSVAR_TYPE_STRING, "Welcome to LightOS, dearest Admin! (Try not to break shit)", SYSVAR_FLAG_GLOBAL),
-    VAR_ENTRY("PATH", SYSVAR_TYPE_STRING, "Root/Users/Admin/Core:Root/Apps", SYSVAR_FLAG_GLOBAL),
+    VAR_ENTRY("PATH", SYSVAR_TYPE_STRING, "Storage/Root/Users/Admin/Core:Storage/Root/Apps", SYSVAR_FLAG_GLOBAL),
 };
 
 struct sysvar_template dispmgr_defaults[] = {

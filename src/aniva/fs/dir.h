@@ -23,6 +23,8 @@ typedef struct dir_ops {
     struct oss_object* (*f_open)(struct dir*, const char* path);
 } dir_ops_t;
 
+#define DIR_FSROOT 0x00000001UL
+
 typedef struct dir {
     struct oss_object* object;
     struct dir_ops* ops;

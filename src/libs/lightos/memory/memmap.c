@@ -1,7 +1,7 @@
 #include "memmap.h"
-#include "lightos/handle.h"
 #include "lightos/api/handle.h"
 #include "lightos/api/memory.h"
+#include "lightos/handle.h"
 #include "lightos/syscall.h"
 #include "stdlib.h"
 
@@ -55,7 +55,7 @@ error_t vmem_get_range(HANDLE handle, page_range_t* prange)
         return -EINVAL;
 
     /* Read the range into the page range struct */
-    return handle_read(handle, prange, sizeof(*prange));
+    return handle_read(handle, 0, prange, sizeof(*prange));
 }
 
 error_t vmem_remap(HANDLE handle, const char* name, void** paddr, size_t* plen, u32 flags, HANDLE* pmap)
@@ -124,7 +124,7 @@ close_and_return_err:
  */
 HANDLE vmem_open(const char* path, u32 flags, enum HNDL_MODE mode)
 {
-    return open_handle(path, HNDL_TYPE_VMEM, flags, mode);
+    return open_handle(path, HNDL_TYPE_OBJECT, flags, mode);
 }
 
 /*!
@@ -132,7 +132,7 @@ HANDLE vmem_open(const char* path, u32 flags, enum HNDL_MODE mode)
  */
 HANDLE vmem_open_rel(HANDLE handle, const char* path, u32 flags)
 {
-    return open_handle_rel(handle, path, HNDL_TYPE_VMEM, flags, HNDL_MODE_NORMAL);
+    return open_handle_from(handle, path, HNDL_TYPE_OBJECT, flags, HNDL_MODE_NORMAL);
 }
 
 error_t vmem_close(HANDLE handle)

@@ -3,9 +3,6 @@
 #include "libk/flow/error.h"
 #include "lightos/api/handle.h"
 #include "logging/log.h"
-#include "oss/core.h"
-#include "oss/node.h"
-#include "oss/obj.h"
 #include "proc/handle.h"
 #include "sync/mutex.h"
 
@@ -156,7 +153,7 @@ kerror_t khandle_driver_close(khandle_driver_t* driver, khandle_t* handle)
     return driver->f_close(driver, handle);
 }
 
-kerror_t khandle_driver_read(khandle_driver_t* driver, khandle_t* hndl, void* buffer, size_t bsize)
+kerror_t khandle_driver_read(khandle_driver_t* driver, khandle_t* hndl, u64 offset, void* buffer, size_t bsize)
 {
     if (!driver || !driver->f_read)
         return -KERR_INVAL;
@@ -164,10 +161,10 @@ kerror_t khandle_driver_read(khandle_driver_t* driver, khandle_t* hndl, void* bu
     if ((driver->function_flags & KHDRIVER_FUNC_READ) != KHDRIVER_FUNC_READ)
         return -KERR_NOT_FOUND;
 
-    return driver->f_read(driver, hndl, buffer, bsize);
+    return driver->f_read(driver, hndl, offset, buffer, bsize);
 }
 
-kerror_t khandle_driver_write(khandle_driver_t* driver, khandle_t* hndl, void* buffer, size_t bsize)
+kerror_t khandle_driver_write(khandle_driver_t* driver, khandle_t* hndl, u64 offset, void* buffer, size_t bsize)
 {
     if (!driver || !driver->f_write)
         return -KERR_INVAL;
@@ -175,71 +172,7 @@ kerror_t khandle_driver_write(khandle_driver_t* driver, khandle_t* hndl, void* b
     if ((driver->function_flags & KHDRIVER_FUNC_WRITE) != KHDRIVER_FUNC_WRITE)
         return -KERR_NOT_FOUND;
 
-    return driver->f_write(driver, hndl, buffer, bsize);
-}
-
-kerror_t khandle_driver_ctl(khandle_driver_t* driver, khandle_t* hndl, enum DEVICE_CTLC ctl, u64 offset, void* buffer, size_t bsize)
-{
-    if (!driver || !driver->f_ctl)
-        return -KERR_INVAL;
-
-    if ((driver->function_flags & KHDRIVER_FUNC_CTL) != KHDRIVER_FUNC_CTL)
-        return -KERR_NOT_FOUND;
-
-    return driver->f_ctl(driver, hndl, ctl, offset, buffer, bsize);
-}
-
-/**
- * @brief: Generic open function for khandle drivers
- *
- * This is used by handle drivers that store their objects on the object storage system (or vfs if you like unix)
- */
-kerror_t khandle_driver_generic_oss_open(khandle_driver_t* driver, const char* path, u32 flags, enum HNDL_MODE mode, khandle_t* bHandle)
-{
-    return khandle_driver_generic_oss_open_from(driver, NULL, path, flags, mode, bHandle);
-}
-
-kerror_t khandle_driver_generic_oss_open_from(khandle_driver_t* driver, khandle_t* rel_hndl, const char* path, u32 flags, enum HNDL_MODE mode, khandle_t* bHandle)
-{
-    int error;
-    void* handle_ref;
-    oss_obj_t* out_obj;
-    oss_node_t* rel_node = NULL;
-    HANDLE_TYPE type = driver->handle_type;
-    // KLOG_DBG("Doing thing oss open for a khndl driver\n");
-
-    /* If there is a relative handle passed, use it to try and find a relative node */
-    if (rel_hndl)
-        rel_node = khandle_get_relative_node(rel_hndl);
-
-    /* Find the raw object */
-    error = oss_resolve_obj_rel(rel_node, path, &out_obj);
-
-    /* Check to see if we might have fucked up */
-    if (error)
-        return error;
-
-    /* Check it this object is of the type we want */
-    if (oss_obj_type_to_handle_type(out_obj->type) != type) {
-        oss_obj_close(out_obj);
-        return -KERR_TYPE_MISMATCH;
-    }
-
-    // KLOG_DBG("Generic oss open for a khndl driver\n");
-
-    switch (type) {
-    case HNDL_TYPE_OSS_OBJ:
-        handle_ref = out_obj;
-        break;
-    default:
-        handle_ref = out_obj->priv;
-        break;
-    }
-
-    /* Initialize the handle */
-    init_khandle_ex(bHandle, type, flags, handle_ref);
-
-    return 0;
+    return driver->f_write(driver, hndl, offset, buffer, bsize);
 }
 
 void init_khandle_drivers()

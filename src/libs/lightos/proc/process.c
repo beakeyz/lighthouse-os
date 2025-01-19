@@ -1,12 +1,12 @@
 
 #include "process.h"
-#include "lightos/handle.h"
 #include "lightos/api/handle.h"
+#include "lightos/handle.h"
 #include "lightos/syscall.h"
 
 HANDLE open_proc(const char* name, u32 flags, u32 mode)
 {
-    return open_handle(name, HNDL_TYPE_PROC, flags, mode);
+    return open_handle(name, HNDL_TYPE_OBJECT, flags, mode);
 }
 
 BOOL proc_send_data(HANDLE handle, control_code_t code, VOID* buffer, size_t* buffer_size, u32 flags)

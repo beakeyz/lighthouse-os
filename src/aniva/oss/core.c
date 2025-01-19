@@ -1,4 +1,5 @@
 #include "core.h"
+#include "fs/core.h"
 #include "libk/flow/error.h"
 #include "lightos/api/objects.h"
 #include "object.h"
@@ -63,14 +64,20 @@ static error_t __oss_open_object_from(oss_path_t* path, u32 start_idx, struct os
 {
     u32 i = start_idx;
     oss_object_t* walker = rel;
+    oss_object_t* next_object = nullptr;
 
     /* Walk the object graph */
-    do {
-        if (oss_object_open(walker, path->subpath_vec[i], &walker))
+    while (walker && i < path->n_subpath) {
+        if (oss_object_open(walker, path->subpath_vec[i], &next_object))
             return -ENOENT;
 
+        /* Maybe connect this object, if that wasn't yet done */
+        if (next_object)
+            oss_connect(walker, next_object);
+
         i++;
-    } while (walker && i < path->n_subpath);
+        walker = next_object;
+    }
 
     /* We need to still have a walker at the end of this */
     if (!walker || i != path->n_subpath)
@@ -98,7 +105,7 @@ error_t oss_open_object(const char* path, struct oss_object** pobj)
         return -EINVAL;
 
     /* Try and grab a root node */
-    error = oss_open_root_object(path, &root_obj);
+    error = oss_open_root_object(oss_path.subpath_vec[0], &root_obj);
 
     if (error)
         goto destroy_path_and_exit;
@@ -171,6 +178,56 @@ error_t oss_connect_root_object(struct oss_object* object)
     return error;
 }
 
+/*!
+ * @brief: Connect a new dir object with an fsroot to @parent
+ *
+ * If @parent is null, we'll create a new root object with the name @mountpoint
+ */
+error_t oss_connect_fsroot(struct oss_object* parent, const char* mountpoint, const char* fstype, struct volume* volume, struct oss_object** pobj)
+{
+    error_t error;
+    fs_type_t* type;
+    oss_object_t* fsroot_object;
+
+    if (!mountpoint || !fstype || !volume)
+        return -EINVAL;
+
+    /* Grab the wanted filesystem type */
+    type = get_fs_type(fstype);
+
+    if (!type || !type->f_mount)
+        return -EINVAL;
+
+    /* Call the mount routine of the filesystem driver */
+    fsroot_object = type->f_mount(type, mountpoint, volume);
+
+    if (!fsroot_object)
+        return -EINVAL;
+
+    if (!parent)
+        error = oss_connect_root_object(fsroot_object);
+    else
+        /* Connect the new object to it's parent */
+        error = oss_object_connect(parent, fsroot_object);
+
+    /* Check if we could actually connect the object */
+    if (error) {
+        oss_object_close(fsroot_object);
+        return error;
+    }
+
+    /* Export the object if the caller wants it */
+    if (pobj)
+        *pobj = fsroot_object;
+
+    return 0;
+}
+
+error_t oss_disconnect_fsroot(struct oss_object* object)
+{
+    kernel_panic("TODO: oss_disconnect_fsroot");
+}
+
 static oss_object_ops_t root_object_ops = {
     NULL
 };
@@ -181,6 +238,9 @@ static oss_object_ops_t root_object_ops = {
 void init_oss()
 {
     oss_object_t* c_obj;
+
+    init_oss_objects();
+    init_oss_connections();
 
     root_objects = create_hashmap(MAX_OSS_ROOT_OBJS, NULL);
     oss_lock = create_mutex(NULL);

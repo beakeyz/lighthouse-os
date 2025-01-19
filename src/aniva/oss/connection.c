@@ -35,6 +35,13 @@ int oss_connect(oss_object_t* parent, oss_object_t* child)
 {
     oss_connection_t* conn;
 
+    /*
+     * First, check if we already have a connection with this child, since
+     * we can't have duplicate connections
+     */
+    if (oss_object_get_connection(parent, child->key) != nullptr)
+        return -EDUPLICATE;
+
     conn = create_oss_connection(parent, child);
 
     if (!conn)

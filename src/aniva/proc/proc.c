@@ -10,6 +10,7 @@
 #include "libk/flow/error.h"
 #include "libk/stddef.h"
 #include "lightos/api/dynldr.h"
+#include "lightos/api/handle.h"
 #include "lightos/api/objects.h"
 #include "lightos/api/sysvar.h"
 #include "lightos/error.h"
@@ -384,7 +385,7 @@ static void __proc_clear_handles(proc_t* proc)
     for (uint32_t i = 0; i < map->max_count; i++) {
         current_handle = &map->handles[i];
 
-        if (!current_handle->reference.kobj || current_handle->index == KHNDL_INVALID_INDEX)
+        if (!current_handle->kobj || current_handle->index == KHNDL_INVALID_INDEX)
             continue;
 
         destroy_khandle(current_handle);
@@ -555,7 +556,7 @@ int proc_schedule(proc_t* proc, struct user_profile* profile, const char* cmd, c
     /* Default to the null device in this case */
     if (!stdio_path) {
         stdio_path = "Dev/Null";
-        stdio_type = HNDL_TYPE_DEVICE;
+        stdio_type = HNDL_TYPE_OBJECT;
     }
 
     if (!cmd)
@@ -794,7 +795,7 @@ const char* proc_try_get_symname(proc_t* proc, uintptr_t addr)
     };
 
     error = driver_send_msg_a(
-        DYN_LDR_URL,
+        DYN_LDR_NAME,
         DYN_LDR_GET_FUNC_NAME,
         &msg_block,
         sizeof(msg_block),

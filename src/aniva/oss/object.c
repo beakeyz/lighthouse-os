@@ -117,6 +117,47 @@ error_t oss_object_unref(oss_object_t* object)
     return 0;
 }
 
+/*!
+ * @brief: Tries to set an objects type
+ *
+ *
+ */
+error_t oss_object_settype(oss_object_t* object, enum OSS_OBJECT_TYPE type)
+{
+    kernel_panic("TODO: Implement object type transforms");
+    return 0;
+}
+
+error_t oss_object_rename(oss_object_t* object, const char* new_key)
+{
+    error_t error = EOK;
+
+    mutex_lock(object->lock);
+
+    /* First call the rename hook if it's available */
+    if (object->ops->f_Rename) {
+        error = object->ops->f_Rename(object, new_key);
+
+        if (error)
+            goto unlock_and_exit;
+    }
+
+    /* Free the old key */
+    kfree((void*)object->key);
+
+    /* Allocate a new key */
+    object->key = strdup(new_key);
+
+    /*
+     * TODO: Resolve all the connections of this object
+     */
+
+unlock_and_exit:
+    mutex_unlock(object->lock);
+
+    return error;
+}
+
 /*
  * Marco to get a connection from an object, based on a condition
  * and a key
@@ -479,29 +520,41 @@ error_t oss_object_flush(oss_object_t* this)
 static int __walk_oss_obj_upstream_conn_recurs(oss_object_t* object, list_t* subpath_list, u32* needed_bsize)
 {
     u32 upstream_idx = 0;
+    oss_object_t* c_object;
     oss_connection_t* conn;
 
+    c_object = object;
+
+    KLOG_DBG("Checking: %s %d\n", object->key, object->connections->m_length);
+
     for (u32 i = 0; i < object->connections->m_length; i++) {
-        conn = oss_object_get_connection_up_nr(object, upstream_idx++);
+        conn = oss_object_get_connection_up_nr(object, upstream_idx);
 
         if (!conn)
             break;
 
-        /* If this guy succeeds, it means we currently have the full path inside @subpath_list */
-        if (__walk_oss_obj_upstream_conn_recurs(conn->parent, subpath_list, needed_bsize)) {
-            /* Append this guy, since we know this connection leads to a root object */
-            list_append(subpath_list, conn->parent);
+        c_object = conn->parent;
+        KLOG_DBG("Checking: %s\n", conn->parent->key);
 
-            *needed_bsize += (strlen(conn->parent->key) + 1);
+        /* If this guy succeeds, it means we currently have the full path inside @subpath_list */
+        if (__walk_oss_obj_upstream_conn_recurs(conn->parent, subpath_list, needed_bsize) == 0) {
+
+            KLOG_DBG("fOUND a thing: %s\n", c_object->key);
+            /* Append this guy, since we know this connection leads to a root object */
+            list_append(subpath_list, c_object);
+
+            *needed_bsize += (strlen(c_object->key) + 1);
             return 0;
         }
+
+        upstream_idx++;
     }
 
     /* No upstream connections left. Reached the rootnode */
-    if (!upstream_idx)
-        return 0;
+    if (upstream_idx)
+        return -1;
 
-    return -1;
+    return 0;
 }
 
 /*!
@@ -513,12 +566,15 @@ const char* oss_object_get_abs_path(oss_object_t* object)
 {
     char* buffer;
     char* write_head;
-    u32 needed_bsize = 0;
+    u32 needed_bsize;
     u32 c_strlen;
     oss_object_t* c_object;
     list_t* subpath_list = init_list();
 
-    kernel_panic("TODO: Test oss_object_get_abs_path");
+    KLOG_DBG("Trying to find abs path for object %s\n", object->key);
+
+    /* Set the initial buffer size */
+    needed_bsize = strlen(object->key) + 1;
 
     /* If this guy fails, we couldn't find an absolute path for this object */
     if (__walk_oss_obj_upstream_conn_recurs(object, subpath_list, &needed_bsize)) {
@@ -526,8 +582,13 @@ const char* oss_object_get_abs_path(oss_object_t* object)
         return nullptr;
     }
 
+    /* Lastly, append the object itself to the subpath list */
+    list_append(subpath_list, object);
+
+    KLOG_DBG("Need a buffer of size: %lld\n", needed_bsize);
+
     buffer = kmalloc(needed_bsize);
-    write_head = buffer + needed_bsize;
+    write_head = buffer;
 
     /* Walk the subpath list to append each part */
     FOREACH(i, subpath_list)
@@ -535,10 +596,10 @@ const char* oss_object_get_abs_path(oss_object_t* object)
         c_object = i->data;
         c_strlen = strlen(c_object->key) + 1;
 
-        write_head -= c_strlen;
-
         /* Write this part of the path into the buffer */
         sfmt_sz(write_head, c_strlen, "%s/", c_object->key);
+
+        write_head += c_strlen;
     }
 
     /* Terminate the string */
@@ -546,6 +607,10 @@ const char* oss_object_get_abs_path(oss_object_t* object)
 
     /* Kill the list */
     destroy_list(subpath_list);
+
+    KLOG_DBG("buf: %s\n", buffer);
+
+    // kernel_panic("TODO: Test oss_object_get_abs_path");
 
     /* We're done */
     return buffer;

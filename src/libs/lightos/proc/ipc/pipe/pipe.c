@@ -1,7 +1,6 @@
 #include "pipe.h"
 #include "lightos/api/handle.h"
 #include "lightos/api/ipc/pipe.h"
-#include "lightos/handle.h"
 #include "stdlib.h"
 #include "time.h"
 #include "unistd.h"
@@ -156,23 +155,6 @@ int lightos_pipe_await_empty(lightos_pipe_t* pipe)
 
 int lightos_pipe_connect(lightos_pipe_t* pipe, const char* path)
 {
-    HANDLE pipe_handle;
-
-    if (!pipe || !path)
-        return -EINVAL;
-
-    pipe_handle = open_handle(path, HNDL_TYPE_UPI_PIPE, HNDL_FLAG_RW, HNDL_MODE_NORMAL);
-
-    /* Could not find this pipe */
-    if (handle_verify(pipe_handle))
-        return -EPIPE;
-
-    /* Clear pipe */
-    memset(pipe, 0, sizeof(*pipe));
-
-    /* Hihi */
-    pipe->pipe = pipe_handle;
-
     /*
      * The driver will copy all the needed information about the pipe
      * into our structure
@@ -182,22 +164,8 @@ int lightos_pipe_connect(lightos_pipe_t* pipe, const char* path)
 
 int lightos_pipe_connect_rel(lightos_pipe_t* pipe, HANDLE rel_handle, const char* name)
 {
-    HANDLE pipe_handle;
-
     if (!pipe || !name)
         return -EINVAL;
-
-    pipe_handle = open_handle_rel(rel_handle, name, HNDL_TYPE_UPI_PIPE, HNDL_FLAG_RW, NULL);
-
-    /* Could not find this pipe */
-    if (handle_verify(pipe_handle))
-        return -EPIPE;
-
-    /* Clear pipe */
-    memset(pipe, 0, sizeof(*pipe));
-
-    /* Hihi */
-    pipe->pipe = pipe_handle;
 
     /*
      * The driver will copy all the needed information about the pipe

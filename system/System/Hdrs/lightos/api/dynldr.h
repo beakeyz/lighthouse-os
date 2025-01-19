@@ -7,7 +7,6 @@
 
 #define DYN_LDR_REG "drv:"
 #define DYN_LDR_NAME "dynldr"
-#define DYN_LDR_URL "other/dynldr"
 
 struct dynamic_library;
 typedef struct dynamic_library dynamic_library_t;

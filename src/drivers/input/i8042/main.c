@@ -446,6 +446,6 @@ EXPORT_DRIVER(i8042) = {
 };
 
 EXPORT_DEPENDENCIES(deps) = {
-    // DRV_DEP(DRV_DEPTYPE_PATH, NULL, "Root/System/"),
+    // DRV_DEP(DRV_DEPTYPE_PATH, NULL, "Storage/Root/System/"),
     DRV_DEP_END,
 };

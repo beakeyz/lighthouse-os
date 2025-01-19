@@ -1,24 +1,44 @@
 #include "var.h"
-#include "lightos/handle.h"
 #include "lightos/api/handle.h"
+#include "lightos/api/objects.h"
+#include "lightos/api/sysvar.h"
+#include "lightos/handle.h"
+#include "lightos/object.h"
 #include "lightos/proc/profile.h"
 #include "lightos/syscall.h"
-#include "lightos/api/sysvar.h"
 
 HANDLE open_sysvar_ex(HANDLE handle, char* key, u32 flags)
 {
+    Object object;
+    Object rel = { 0 };
+
     if (!key)
         return HNDL_INVAL;
 
-    return open_handle_rel(handle, key, HNDL_TYPE_SYSVAR, flags, HNDL_MODE_NORMAL);
+    /* Set the dummy object */
+    rel.handle = handle;
+
+    object = OpenObjectFrom(&rel, key, flags, HNDL_MODE_NORMAL);
+
+    if (object.type != OT_SYSVAR)
+        CloseObject(&object);
+
+    return object.handle;
 }
 
 HANDLE open_sysvar(char* key, u32 flags)
 {
+    Object object;
+
     if (!key)
         return HNDL_INVAL;
 
-    return open_handle(key, HNDL_TYPE_SYSVAR, flags, HNDL_MODE_CURRENT_ENV);
+    object = OpenObject(key, flags, HNDL_MODE_NORMAL);
+
+    if (object.type != OT_SYSVAR)
+        CloseObject(&object);
+
+    return object.handle;
 }
 
 extern HANDLE create_sysvar(HANDLE handle, const char* key, enum SYSVAR_TYPE type, u32 flags, VOID* value, size_t len)
@@ -27,7 +47,7 @@ extern HANDLE create_sysvar(HANDLE handle, const char* key, enum SYSVAR_TYPE typ
         return FALSE;
 
     /* Make sure this is a bool and not something like a u64 */
-    return sys_create_sysvar(key, handle_flags(flags, HNDL_TYPE_SYSVAR, handle), type, value, len);
+    return sys_create_sysvar(key, handle_flags(flags, HNDL_TYPE_OBJECT, handle), type, value, len);
 }
 
 BOOL sysvar_get_type(HANDLE var_handle, enum SYSVAR_TYPE* type)
@@ -43,10 +63,10 @@ BOOL sysvar_read(HANDLE handle, void* buffer, u64 buffer_size)
 {
     HANDLE_TYPE type;
 
-    if (handle_get_type(handle, &type) || type != HNDL_TYPE_SYSVAR)
+    if (handle_get_type(handle, &type) || type != HNDL_TYPE_OBJECT)
         return FALSE;
 
-    return handle_read(handle, buffer, buffer_size);
+    return handle_read(handle, 0, buffer, buffer_size);
 }
 
 extern BOOL sysvar_read_byte(HANDLE h_var, u8* pvalue)
@@ -71,10 +91,10 @@ BOOL sysvar_write(HANDLE handle, void* buffer, size_t bsize)
 {
     HANDLE_TYPE type;
 
-    if (handle_get_type(handle, &type) || type != HNDL_TYPE_SYSVAR)
+    if (handle_get_type(handle, &type) || type != HNDL_TYPE_OBJECT)
         return FALSE;
 
-    return handle_write(handle, buffer, bsize);
+    return handle_write(handle, 0, buffer, bsize);
 }
 
 /*

@@ -3,17 +3,17 @@
 #include "libk/bin/elf.h"
 #include "libk/flow/error.h"
 #include "lightos/api/handle.h"
+#include "lightos/api/objects.h"
 #include "logging/log.h"
 #include "mem/heap.h"
 #include "oss/core.h"
-#include "oss/obj.h"
+#include "oss/object.h"
 #include "proc/proc.h"
 #include "sched/scheduler.h"
 #include "system/profile/profile.h"
 #include "system/sysvar/var.h"
-#include <proc/env.h>
 
-static int _kterm_exec_find_obj(const char* path, oss_obj_t** bobj)
+static int _kterm_exec_find_obj(const char* path, oss_object_t** bobj)
 {
     int error;
     char* fullpath_buf = nullptr;
@@ -26,7 +26,8 @@ static int _kterm_exec_find_obj(const char* path, oss_obj_t** bobj)
     sysvar_t* path_var;
     user_profile_t* logged_profile;
 
-    error = oss_resolve_obj(path, bobj);
+    /* Try to find the object with this raw path */
+    error = oss_open_object(path, bobj);
 
     if (!error)
         return 0;
@@ -92,7 +93,7 @@ static int _kterm_exec_find_obj(const char* path, oss_obj_t** bobj)
         sfmt(full_buffer, "%s/%s", c_path, path);
 
         /* Try to search the object */
-        error = oss_resolve_obj(full_buffer, bobj);
+        error = oss_open_object(full_buffer, bobj);
 
         /* Free up the buffer */
         kfree(full_buffer);
@@ -118,7 +119,7 @@ static int _kterm_exec_find_obj(const char* path, oss_obj_t** bobj)
 uint32_t kterm_try_exec(const char** argv, size_t argc, const char* cmdline)
 {
     proc_t* p;
-    oss_obj_t* obj;
+    oss_object_t* obj;
     const char* buffer;
     user_profile_t* login_profile;
 
@@ -136,19 +137,19 @@ uint32_t kterm_try_exec(const char** argv, size_t argc, const char* cmdline)
     }
 
     /* Try to grab the file */
-    file_t* file = oss_obj_get_file(obj);
+    file_t* file = oss_object_unwrap(obj, OT_FILE);
 
     if (!file) {
         logln("Could not execute object!");
 
-        oss_obj_close(obj);
+        oss_object_close(obj);
         return 4;
     }
 
     /* NOTE: defer the schedule here, since we still need to attach a few handles to the process */
     p = elf_exec_64(file, false);
 
-    oss_obj_close(file->m_obj);
+    oss_object_close(file->m_obj);
 
     if (!p) {
         logln("Coult not execute object!");
@@ -168,7 +169,7 @@ uint32_t kterm_try_exec(const char** argv, size_t argc, const char* cmdline)
 
     /* Wait for process termination if we don't want to run in the background */
     // if (true)
-    ASSERT_MSG(proc_schedule_and_await(p, login_profile, cmdline, "other/kterm", HNDL_TYPE_DRIVER, SCHED_PRIO_MID) == 0, "Process termination failed");
+    ASSERT_MSG(proc_schedule_and_await(p, login_profile, cmdline, "Drivers/kterm", HNDL_TYPE_OBJECT, SCHED_PRIO_MID) == 0, "Process termination failed");
     // else
     // proc_schedule(p, SCHED_PRIO_MID);
 

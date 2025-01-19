@@ -9,7 +9,7 @@ We can have files which store data in the following format:
 
 For example, let's say we have an nvidia GPU on the PCI bus with the device ID 0x10de for nvidia PCI devices. The entry
 inside an .hwr file as described above would become:
-pci_dev##10de : Root/System/nvidia.drv
+pci_dev##10de : Storage/Root/System/nvidia.drv
 
 Now I don't know what would be better here, since we have two options:
 1) Compile the format described above into a binary format, much like ELF

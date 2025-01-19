@@ -3,9 +3,9 @@
 #include "dev/device.h"
 #include "dev/group.h"
 #include "dev/io/hid/event.h"
-#include "lightos/api/device.h"
 #include "kevent/event.h"
 #include "libk/flow/error.h"
+#include "lightos/api/device.h"
 #include "mem/heap.h"
 
 static dgroup_t* _hid_group;
@@ -178,7 +178,7 @@ kerror_t hid_disable_i8042()
     if (!i8042)
         return 0;
 
-    driver = get_driver("io/i8042");
+    driver = get_driver("i8042");
 
     if (!driver)
         return 0;

@@ -22,6 +22,7 @@
 #include "mem/heap.h"
 #include "mem/kmem.h"
 #include "oss/core.h"
+#include "oss/object.h"
 #include "proc/core.h"
 #include "proc/proc.h"
 #include "proc/thread.h"
@@ -765,7 +766,13 @@ int kterm_set_cwd(const char* path, struct oss_object* object)
         return error;
         */
 
-    _c_login.cwd = "TODO: cwd";
+    ASSERT_MSG(object, "TODO: (kterm_set_cdw) Resolve from path");
+
+    if (_c_login.cwd)
+        kfree((void*)_c_login.cwd);
+
+    _c_login.cwd = oss_object_get_abs_path(object);
+    //_c_login.cwd = "TODO: cwd";
     _c_login.c_obj = object;
     return 0;
 }
@@ -791,7 +798,7 @@ int kterm_set_login(user_profile_t* profile)
         profiles_lock_activation(&_c_login.profile_lock_key);
 
         char tmp_buf[256] = { 0 };
-        sfmt(tmp_buf, "Root/Users/%s", (char*)profile->name);
+        sfmt(tmp_buf, "Storage/Root/Users/%s", (char*)profile->name);
 
         /* Try to find the node */
         error = oss_open_object(tmp_buf, &object);

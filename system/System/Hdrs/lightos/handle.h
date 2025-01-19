@@ -49,35 +49,17 @@ HANDLE open_handle(const char* path, HANDLE_TYPE type, u32 flags, enum HNDL_MODE
  * This will always return a handle of the type HNDL_TYPE_OSS_OBJ.
  * The handletype can be expanded by handle_expand_type
  */
-HANDLE open_handle_rel(HANDLE rel_handle, const char* path, HANDLE_TYPE type, u32 flags, enum HNDL_MODE mode);
-
-/*!
- * @brief: Set the internal offset of a handle
- * @handle: The handle to set the offset of
- * @offset: The offset to set
- *
- * @returns: Wether the offset was successfully set to the desired value
- */
-error_t handle_set_offset(HANDLE handle, u64 offset);
-
-/*!
- * @brief: Get the current offset of a handle
- * @handle: The handle to get the offset of
- * @boffset: The buffer where the offset will be placed
- *
- * @returns: True if we could get the offset successfully, false otherwise
- */
-error_t handle_get_offset(HANDLE handle, u64* poffset);
+HANDLE open_handle_from(HANDLE rel_handle, const char* path, HANDLE_TYPE type, u32 flags, enum HNDL_MODE mode);
 
 /*
  * Perform a read opperation on a handle
  */
-error_t handle_read(HANDLE handle, VOID* buffer, u64 buffer_size);
-error_t handle_read_ex(HANDLE handle, VOID* buffer, u64 buffer_size, u64* preadsize);
+error_t handle_read(HANDLE handle, u64 offset, VOID* buffer, u64 buffer_size);
+error_t handle_read_ex(HANDLE handle, u64 offset, VOID* buffer, u64 buffer_size, u64* preadsize);
 
 /*
  * Perform a write opperation on a handle
  */
-error_t handle_write(HANDLE handle, VOID* buffer, size_t buffer_size);
+error_t handle_write(HANDLE handle, u64 offset, VOID* buffer, size_t buffer_size);
 
 #endif // !__LIGHTENV_HANDLE__

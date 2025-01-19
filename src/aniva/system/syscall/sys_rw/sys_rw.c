@@ -16,7 +16,7 @@
  * When writing to a handle (filediscriptor in unix terms) we have to
  * obey the privileges that the handle was opened with
  */
-error_t sys_write(HANDLE handle, void __user* buffer, size_t length)
+error_t sys_write(HANDLE handle, u64 offset, void __user* buffer, size_t length)
 {
     proc_t* current_proc;
     khandle_t* khandle;
@@ -40,7 +40,7 @@ error_t sys_write(HANDLE handle, void __user* buffer, size_t length)
     if (khandle_driver_find(khandle->type, &khandle_driver))
         return EINVAL;
 
-    if (khandle_driver_write(khandle_driver, khandle, buffer, length))
+    if (khandle_driver_write(khandle_driver, khandle, offset, buffer, length))
         return 0;
 
     /* TODO: Return actual written length */
@@ -54,7 +54,7 @@ error_t sys_write(HANDLE handle, void __user* buffer, size_t length)
  * both treaded like data-streams by the kernel). It's up to the underlying libc to abstract devices and
  * files further.
  */
-error_t sys_read(HANDLE handle, void* buffer, size_t size, size_t* pread_size)
+error_t sys_read(HANDLE handle, u64 offset, void* buffer, size_t size, size_t* pread_size)
 {
     proc_t* current_proc;
     khandle_t* khandle;
@@ -78,7 +78,7 @@ error_t sys_read(HANDLE handle, void* buffer, size_t size, size_t* pread_size)
     if (khandle_driver_find(khandle->type, &khandle_driver))
         return EINVAL;
 
-    if (khandle_driver_read(khandle_driver, khandle, buffer, size))
+    if (khandle_driver_read(khandle_driver, khandle, offset, buffer, size))
         return 0;
 
     /* FIXME: Do we need to check this address? */
@@ -88,8 +88,9 @@ error_t sys_read(HANDLE handle, void* buffer, size_t size, size_t* pread_size)
     return 0;
 }
 
-size_t sys_seek(handle_t handle, uintptr_t offset, uint32_t type)
+size_t sys_seek(HANDLE handle, u64 c_offset, u64 new_offset, u32 type)
 {
+    u64 ret = c_offset;
     khandle_t* khndl;
     file_t* file;
     proc_t* curr_prc;
@@ -107,10 +108,10 @@ size_t sys_seek(handle_t handle, uintptr_t offset, uint32_t type)
 
     switch (type) {
     case 0:
-        khndl->offset = offset;
+        ret = new_offset;
         break;
     case 1:
-        khndl->offset += offset;
+        ret += new_offset;
         break;
     case 2: {
         switch (khndl->object->type) {
@@ -121,7 +122,7 @@ size_t sys_seek(handle_t handle, uintptr_t offset, uint32_t type)
             ASSERT(file);
 
             /* Set the handles offset */
-            khndl->offset = file->m_total_size + offset;
+            ret = file->m_total_size + new_offset;
             break;
         default:
             break;
@@ -130,7 +131,7 @@ size_t sys_seek(handle_t handle, uintptr_t offset, uint32_t type)
     }
     }
 
-    return khndl->offset;
+    return ret;
 }
 
 error_t sys_dir_create(const char* path, i32 mode)
@@ -170,9 +171,6 @@ uint64_t sys_dir_read(handle_t handle, uint32_t idx, Object __user* b_dirent, si
 
     if (!dir)
         return EINVAL;
-
-    /* Set the right offset */
-    dir_khandle->offset = idx;
 
     /* Try to find an object at this index */
     object = dir_find_idx(dir, idx);

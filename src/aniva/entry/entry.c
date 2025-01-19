@@ -381,11 +381,11 @@ void kthread_entry(void)
      * will look like they have no driver that manages them
      *
      * This loads the in-kernel drivers that we need for further boot (FS, Bus, ect.). Most drivers for devices
-     * and other shit are found in Root/System/<driver name>.drv
+     * and other shit are found in Storage/Root/System/<driver name>.drv
      *
      * TODO: We want to change the boot sequence to the following:
-     * Load in-kernel drivers -> Mount ramdisk -> Load device drivers from Root/System -> Load disk devices and find our rootdevice
-     * -> Move the ramdisk to Initrd/ -> Mount the rootdevice to Root/ -> Lock system parts of the rootdevice -> Load userspace
+     * Load in-kernel drivers -> Mount ramdisk -> Load device drivers from Storage/Root/System -> Load disk devices and find our rootdevice
+     * -> Move the ramdisk to Initrd/ -> Mount the rootdevice to Storage/Root/ -> Lock system parts of the rootdevice -> Load userspace
      */
     init_aniva_driver_registry();
 
@@ -419,7 +419,7 @@ void kthread_entry(void)
     char init_buffer[256] = { 0 };
 
     /* Format the buffer */
-    sfmt(init_buffer, "Root/Users/Admin/Core/init %s", kopts_get_bool("use_kterm") ? "--use-kterm" : " ");
+    sfmt(init_buffer, "Storage/Root/Users/Admin/Core/init %s", kopts_get_bool("use_kterm") ? "--use-kterm" : " ");
 
     /* Construct the sysvar vector */
     sysvar_vector_t vec = {
@@ -442,13 +442,13 @@ void kthread_entry(void)
     drv = nullptr;
 
     if (!kopts_get_bool("use_kterm"))
-        drv = load_external_driver("Root/System/lwnd.drv");
+        drv = load_external_driver("Storage/Root/System/lwnd.drv");
 
     if (!drv)
-        drv = load_external_driver("Root/System/kterm.drv");
+        drv = load_external_driver("Storage/Root/System/kterm.drv");
 
     /* Launch the usb monitor */
-    proc_exec("Root/Users/Admin/Core/usbmntr", NULL, get_admin_profile(), PROC_KERNEL);
+    proc_exec("Storage/Root/Users/Admin/Core/usbmntr", NULL, get_admin_profile(), PROC_KERNEL);
 
     while (true)
         /* Block this thread to save cycles */

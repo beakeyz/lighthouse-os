@@ -6,47 +6,20 @@
 typedef int handle_t, HANDLE;
 
 /*
+ * Different type of handles a process may have
+ * Most handles are going to have an oss object, which will then have it's own underlying
+ * type. For special objects that don't live on the oss, like loaded libraries, we make
+ * an exception, but they also really should come to live on oss at some point...
+ *
  * TODO: get rid of KHNDL and make the kernel just
  * use these -_-
  */
-
 typedef enum HANDLE_TYPE {
     HNDL_TYPE_NONE,
-    HNDL_TYPE_FILE,
-    HNDL_TYPE_DIR,
-    HNDL_TYPE_DRIVER,
-    HNDL_TYPE_PROC,
-    HNDL_TYPE_FS_ROOT,
-    HNDL_TYPE_OSS_OBJ, /* A handle to a virtual object in the vfs */
-    HNDL_TYPE_KOBJ, /* A handle to a kernel object */
+    HNDL_TYPE_OBJECT, /* A handle to a virtual object in the vfs */
     HNDL_TYPE_THREAD,
-    /* Any profile that is present on the system */
-    HNDL_TYPE_PROFILE,
-
-    /* Profile variable */
-    HNDL_TYPE_SYSVAR,
-
-    /* These types are still to be implemented */
-    /* A raw device attached to the device tree on the vfs at :/Devices/ */
-    HNDL_TYPE_DEVICE,
-    /* Raw buffer, managed by the kernel, stored in the processes environment */
-    HNDL_TYPE_BUFFER,
-    /* Inter-process pipe interface */
-    HNDL_TYPE_UPI_PIPE,
-    /* Datastream for contiguous reading / writing of data */
-    HNDL_TYPE_STREAM,
-    /* Single event */
-    HNDL_TYPE_EVENT,
-    /* An eventsubscription */
-    HNDL_TYPE_EVENTHOOK,
-    /* ??? */
-    HNDL_TYPE_RESOURCE,
     /* Shared library when there is a dynamic loaded driver loaded */
     HNDL_TYPE_SHARED_LIB,
-    /* An entire process environment */
-    HNDL_TYPE_PROC_ENV,
-    /* A virtual memory mapping */
-    HNDL_TYPE_VMEM,
 
     NR_HNDL_TYPES,
 } HANDLE_TYPE,

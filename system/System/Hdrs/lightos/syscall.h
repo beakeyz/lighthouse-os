@@ -14,10 +14,9 @@
  * sysids must be terminated
  */
 
-#include "lightos/api/device.h"
 #include "lightos/api/dynldr.h"
-#include "lightos/api/filesystem.h"
 #include "lightos/api/handle.h"
+#include "lightos/api/objects.h"
 #include "lightos/api/sysvar.h"
 #include <lightos/types.h>
 
@@ -39,8 +38,10 @@ enum SYSID {
     SYSID_READ, /* Read from a handle */
     SYSID_WRITE, /* Write to a handle */
     SYSID_OPEN, /* Open/Create kernel objects */
-    SYSID_SEND_MSG, /* Send a driver message */
-    SYSID_SEND_CTL, /* Send a device control code */
+    SYSID_SEND_MSG, /* Send an object communication message. Might be a device ctlc */
+
+    SYSID_GET_OBJECT_TYPE, /* Gets the type of an object */
+    SYSID_SET_OBJECT_TYPE, /* Tries to set an object type. Fails if the type is already set */
 
     SYSID_ALLOC_VMEM, /* Allocates a range of virtual memory */
     SYSID_DEALLOC_VMEM, /* Deallocates a range of virtual memory */
@@ -86,11 +87,13 @@ enum SYSID {
 extern void sys_exit(error_t status);
 extern error_t sys_get_exitvec(dynldr_exit_vector_t** p_exitvec);
 extern error_t sys_close(HANDLE handle);
-extern error_t sys_read(HANDLE handle, void* buffer, size_t size, size_t* pread_size);
-extern error_t sys_write(HANDLE handle, void* buffer, size_t size);
+extern error_t sys_read(HANDLE handle, u64 offset, void* buffer, size_t size, size_t* pread_size);
+extern error_t sys_write(HANDLE handle, u64 offset, void* buffer, size_t size);
 extern HANDLE sys_open(const char* path, handle_flags_t flags, enum HNDL_MODE mode, void* buffer, size_t bsize);
 extern error_t sys_send_msg(HANDLE handle, u32 code, u64 offset, void* buffer, size_t bsize);
-extern error_t sys_send_ctl(HANDLE handle, enum DEVICE_CTLC code, u64 offset, void* buffer, size_t bsize);
+
+extern enum OSS_OBJECT_TYPE sys_get_object_type(HANDLE handle);
+extern enum OSS_OBJECT_TYPE sys_set_object_type(HANDLE handle, enum OSS_OBJECT_TYPE ptype);
 
 extern error_t sys_alloc_vmem(size_t size, u32 flags, vaddr_t* paddr);
 extern error_t sys_dealloc_vmem(vaddr_t addr, size_t size);
@@ -106,9 +109,9 @@ extern enum SYSVAR_TYPE sys_get_sysvar_type(HANDLE handle);
 extern HANDLE sys_create_sysvar(const char* key, handle_flags_t flags, enum SYSVAR_TYPE type, void* buffer, size_t len);
 
 extern error_t sys_dir_create(const char* path, i32 mode);
-extern size_t sys_dir_read(HANDLE handle, u32 idx, lightos_direntry_t* namebuffer, size_t blen);
+extern size_t sys_dir_read(HANDLE handle, u32 idx, Object* object, size_t blen);
 
-extern size_t sys_seek(HANDLE handle, u64 offset, u32 type);
+extern size_t sys_seek(HANDLE handle, u64 c_offset, u64 new_offset, u32 type);
 extern size_t sys_get_process_time(void);
 extern void sys_sleep(u64 ns);
 

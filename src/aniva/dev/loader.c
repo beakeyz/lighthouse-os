@@ -380,7 +380,7 @@ static kerror_t __remove_installed_driver(driver_t* new_driver)
 {
     driver_t* current;
 
-    current = get_driver(new_driver->m_url);
+    current = get_driver(new_driver->name);
 
     /* Driver is not yet loaded OR installed. Happy day */
     if (!current)
@@ -485,6 +485,8 @@ static kerror_t __load_ext_driver(struct loader_ctx* ctx, bool install)
 driver_t* load_external_driver(const char* path)
 {
     file_t* file = file_open(path);
+
+    KLOG_DBG("load_external_driver: 0x%p\n", file);
 
     return load_external_driver_ex(file);
 }

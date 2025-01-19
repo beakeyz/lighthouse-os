@@ -61,6 +61,11 @@ typedef struct oss_object_ops {
      */
     int (*f_Flush)(struct oss_object* this);
     /*
+     * Renames the objects backing entity. Useful for filesystem
+     * drivers, which may need to update fs entry names
+     */
+    int (*f_Rename)(struct oss_object* this, const char* new_key);
+    /*
      * Tries to remove this object from it's connections.
      * Fails if there are connections where this guy is the parent still
      * TODO: Check if this call can somehow have combined functionallity with f_Disconnect
@@ -119,6 +124,9 @@ oss_object_t* create_oss_object(const char* key, u16 flags, enum OSS_OBJECT_TYPE
 error_t oss_object_ref(oss_object_t* object);
 /* Release an object, decrease the reference count, maybe destroy the object */
 error_t oss_object_unref(oss_object_t* object);
+
+error_t oss_object_settype(oss_object_t* object, enum OSS_OBJECT_TYPE type);
+error_t oss_object_rename(oss_object_t* object, const char* new_key);
 
 oss_connection_t* oss_object_get_connection(oss_object_t* object, const char* key);
 oss_connection_t* oss_object_get_connection_down(oss_object_t* object, const char* key);

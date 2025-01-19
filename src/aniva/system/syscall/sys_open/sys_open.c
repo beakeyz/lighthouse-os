@@ -88,7 +88,7 @@ void* sys_get_function(HANDLE lib_handle, const char __user* path)
     if (!strlen(path))
         return NULL;
 
-    if (driver_send_msg_a(DYN_LDR_URL, DYN_LDR_GET_FUNC_ADDR, (void*)path, sizeof(path), &out, sizeof(out)))
+    if (driver_send_msg_a(DYN_LDR_NAME, DYN_LDR_GET_FUNC_ADDR, (void*)path, sizeof(path), &out, sizeof(out)))
         return NULL;
 
     return out;

@@ -3,21 +3,24 @@
 #include "dev/disk/device.h"
 #include "dev/driver.h"
 #include "dev/group.h"
-#include "lightos/api/device.h"
 #include "fs/core.h"
 #include "libk/flow/error.h"
+#include "lightos/api/device.h"
+#include "lightos/api/volume.h"
 #include "logging/log.h"
 #include "mem/heap.h"
 #include "mem/kmem.h"
+#include "oss/object.h"
 #include "sched/scheduler.h"
 #include "sync/mutex.h"
-#include "lightos/api/volume.h"
 #include <oss/core.h>
-#include <oss/node.h>
+#include <system/profile/profile.h>
 
 static dgroup_t* volumes_dgroup;
 static dgroup_t* volume_devices_dgroup;
 static u32 next_voldv_id;
+static oss_object_t* storage_object;
+static oss_object_t* ramimg_object;
 
 #define VOLUME_NAME_FMT "V%d.%d"
 #define VOLUME_DEVICE_NAME_FMT "VD%d"
@@ -552,7 +555,7 @@ volume_device_t* volume_device_find(volume_id_t id)
  */
 static bool verify_mount_root()
 {
-    oss_obj_t* scan_obj;
+    oss_object_t* scan_obj;
 
     /*
      * Try to find kterm in the system directory. If it exists, that means there at least
@@ -560,7 +563,7 @@ static bool verify_mount_root()
      *
      * FIXME: Put the locations of essential drivers in the profile variables of BASE
      */
-    if (oss_resolve_obj_rel(nullptr, FS_DEFAULT_ROOT_MP "/System/kterm.drv", &scan_obj))
+    if (oss_open_object("Storage/System/kterm.drv", &scan_obj))
         return false;
 
     if (!scan_obj)
@@ -570,7 +573,7 @@ static bool verify_mount_root()
      * We could find the system file!
      * TODO: look for more files that only one O.o
      */
-    oss_obj_close(scan_obj);
+    oss_object_close(scan_obj);
     return true;
 }
 
@@ -583,7 +586,7 @@ static bool try_mount_root(volume_t* device)
 {
     int error;
     bool verify_result;
-    oss_node_t* c_node;
+    oss_object_t* c_object;
     static const char* filesystems[] = {
         "fat32",
         //"ext2",
@@ -595,7 +598,7 @@ static bool try_mount_root(volume_t* device)
     for (uint32_t i = 0; i < filesystems_count; i++) {
         const char* fs = filesystems[i];
 
-        error = oss_attach_fs(nullptr, FS_DEFAULT_ROOT_MP, fs, device);
+        error = oss_connect_fsroot(nullptr, FS_DEFAULT_ROOT_MP, fs, device, &c_object);
 
         /* Successful mount? try and verify the mount */
         if (error)
@@ -614,10 +617,7 @@ static bool try_mount_root(volume_t* device)
 
         // vfs_unmount(VFS_ROOT_ID"/"VFS_DEFAULT_ROOT_MP);
         /* Detach the node first */
-        oss_detach_fs(FS_DEFAULT_ROOT_MP, &c_node);
-
-        /* Then destroy it */
-        destroy_oss_node(c_node);
+        oss_disconnect_fsroot(c_object);
     }
 
     /* Failed to scan for filesystem */
@@ -644,15 +644,18 @@ static int _set_bootdevice(volume_t* device)
         BOOT_DEVICE_NAME_VARKEY,
         BOOT_DEVICE_SIZE_VARKEY,
     };
-    struct { void* val; u64 sz; } sysvar_values[] = {
-        {0, 0}, // Will get set later
-        {(void*)device->dev->name, strlen(device->dev->name) + 1 },
-        {&bootdev_sz, sizeof(u64) },
+    struct {
+        void* val;
+        u64 sz;
+    } sysvar_values[] = {
+        { 0, 0 }, // Will get set later
+        { (void*)device->dev->name, strlen(device->dev->name) + 1 },
+        { &bootdev_sz, sizeof(u64) },
     };
     sysvar_t* sysvar;
     user_profile_t* profile = get_admin_profile();
 
-    path = oss_obj_get_fullpath(device->dev->obj);
+    path = oss_object_get_abs_path(device->dev->obj);
 
     if (!path)
         return -1;
@@ -662,7 +665,7 @@ static int _set_bootdevice(volume_t* device)
     sysvar_values[1].sz = strlen(path) + 1;
 
     for (u32 i = 0; i < 3; i++) {
-        sysvar = sysvar_get(profile->node, sysvar_names[i]);
+        sysvar = sysvar_get(profile->object, sysvar_names[i]);
         error = -KERR_NOT_FOUND;
 
         if (!sysvar)
@@ -690,7 +693,7 @@ void init_root_volume()
     volume_t* cur_part;
     volume_device_t* root_device;
     volume_id_t device_index;
-    oss_node_t* initial_ramfs_node;
+    oss_object_t* initial_ramfs_node;
 
     volume_t* root_ramdisk;
 
@@ -700,10 +703,10 @@ void init_root_volume()
 
     KLOG_DBG("Trying to find root volume...\n");
 
-    oss_detach_fs(FS_DEFAULT_ROOT_MP, &initial_ramfs_node);
+    ASSERT(oss_open_object("Storage/" FS_DEFAULT_ROOT_MP, &initial_ramfs_node) == 0);
 
-    if (initial_ramfs_node)
-        destroy_oss_node(initial_ramfs_node);
+    /* Disconnect this guy */
+    oss_disconnect_fsroot(initial_ramfs_node);
 
     while (root_device) {
 
@@ -740,7 +743,7 @@ void init_root_volume()
         cur_part = nullptr;
     }
 
-    initrd_mp = FS_INITRD_MP;
+    initrd_mp = "Backup";
 
     /* If there was no root device, use the initrd as a rootdevice */
     if (!cur_part)
@@ -748,7 +751,7 @@ void init_root_volume()
     else
         _set_bootdevice(cur_part);
 
-    if (!root_ramdisk || oss_attach_fs(nullptr, initrd_mp, "cramfs", root_ramdisk))
+    if (!root_ramdisk || oss_connect_fsroot(ramimg_object, initrd_mp, "cramfs", root_ramdisk, nullptr))
         kernel_panic("Could not find a root device to mount! TODO: fix");
     else {
         _set_bootdevice(root_ramdisk);
@@ -779,7 +782,7 @@ void init_root_ram_volume()
     /* We can use this ramdisk as a fallback to mount */
     root_ramdisk = root_device->vec_volumes;
 
-    if (!root_ramdisk || oss_attach_fs(nullptr, FS_DEFAULT_ROOT_MP, "cramfs", root_ramdisk))
+    if (!root_ramdisk || oss_connect_fsroot(storage_object, FS_DEFAULT_ROOT_MP, "cramfs", root_ramdisk, NULL))
         kernel_panic("Could not find a root device to mount! TODO: fix");
 }
 
@@ -791,12 +794,11 @@ void init_root_ram_volume()
  */
 void init_volumes()
 {
-    oss_node_t* root_node;
+    ASSERT(oss_open_object(oss_get_default_rootobj_key(ORT_STORAGE_MAIN), &storage_object) == 0);
 
-    /* Find the rootnode */
-    ASSERT_MSG(oss_resolve_node("%", &root_node) == 0, "Failed to find rootnode to init volumes");
+    ASSERT(oss_open_object(oss_get_default_rootobj_key(ORT_RAMIMAGE), &ramimg_object) == 0);
 
     next_voldv_id = 0;
-    volumes_dgroup = register_dev_group(DGROUP_TYPE_MISC, "Volumes", NULL, root_node);
-    volume_devices_dgroup = register_dev_group(DGROUP_TYPE_MISC, "Volume", NULL, NULL);
+    volumes_dgroup = register_dev_group(DGROUP_TYPE_MISC, "Volumes", NULL, NULL);
+    volume_devices_dgroup = register_dev_group(DGROUP_TYPE_MISC, "VolumeDev", NULL, NULL);
 }

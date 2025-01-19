@@ -18,7 +18,7 @@ static int __lib_khdrv_open(struct khandle_driver* driver, const char* path, u32
     if (!path)
         return -KERR_INVAL;
 
-    error = driver_send_msg_a(DYN_LDR_URL, DYN_LDR_LOAD_LIB, (void*)path, sizeof(path), &lib, sizeof(dynamic_library_t*));
+    error = driver_send_msg_a(DYN_LDR_NAME, DYN_LDR_LOAD_LIB, (void*)path, sizeof(path), &lib, sizeof(dynamic_library_t*));
 
     if (error || !lib)
         return -KERR_NOT_FOUND;

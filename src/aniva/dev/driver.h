@@ -192,9 +192,6 @@ typedef struct driver {
 
     mutex_t* m_lock;
 
-    /* Url of the installed driver */
-    dev_url_t m_url;
-
     /* Structure that manages driver resources */
     driver_resources_t resources;
 
@@ -208,6 +205,7 @@ typedef struct driver {
 
     /* Path to the binary of the driver, only on external drivers */
     const char* m_image_path;
+    const char* name;
 
     /* Loader information */
     vaddr_t load_base;

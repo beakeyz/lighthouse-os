@@ -204,28 +204,6 @@ kerror_t bootstrap_driver(driver_t* driver)
  */
 #define DM_MAX_DEVICES 512
 
-size_t get_driver_url_length(aniva_driver_t* handle)
-{
-    const char* driver_type_url = get_driver_type_url(handle->m_type);
-    return strlen(driver_type_url) + 1 + strlen(handle->m_name);
-}
-
-const char* get_driver_url(aniva_driver_t* handle)
-{
-    /* Prerequisites */
-    const char* dtu = get_driver_type_url(handle->m_type);
-    size_t dtu_length = strlen(dtu);
-
-    size_t size = get_driver_url_length(handle);
-    const char* ret = kmalloc(size + 1);
-    memset((char*)ret, 0, size + 1);
-    memcpy((char*)ret, dtu, dtu_length);
-    *(char*)&ret[dtu_length] = DRIVER_URL_SEPERATOR;
-    memcpy((char*)ret + dtu_length + 1, handle->m_name, strlen(handle->m_name));
-
-    return ret;
-}
-
 static void __destroy_driver(driver_t* driver)
 {
     destroy_mutex(driver->m_lock);
@@ -245,7 +223,6 @@ static void __destroy_driver(driver_t* driver)
     destroy_driver_resources(&driver->resources);
 
     /* Free strings and stuff */
-    kfree((void*)driver->m_url);
     if (driver->m_image_path)
         kfree((void*)driver->m_image_path);
 
@@ -287,10 +264,9 @@ driver_t* create_driver(aniva_driver_t* handle)
 
     if (handle) {
         ret->m_check_version = handle->m_version;
-        // TODO: concat
-        ret->m_url = get_driver_url(handle);
 
         ret->m_obj = create_oss_object(handle->m_name, NULL, OT_DRIVER, &driver_oss_ops, ret);
+        ret->name = ret->m_obj->key;
     } else {
         ret->m_flags |= DRV_DEFERRED_HNDL;
     }
@@ -319,10 +295,11 @@ kerror_t driver_emplace_handle(driver_t* driver, aniva_driver_t* handle)
     /* Emplace the handle and its data */
     driver->m_handle = handle;
     driver->m_check_version = handle->m_version;
-    driver->m_url = get_driver_url(handle);
 
-    if (!driver->m_obj)
+    if (!driver->m_obj) {
         driver->m_obj = create_oss_object(handle->m_name, NULL, OT_DRIVER, &driver_oss_ops, driver);
+        driver->name = driver->m_obj->key;
+    }
     return (0);
 }
 

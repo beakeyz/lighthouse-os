@@ -3,6 +3,10 @@
 
 #include "lightos/api/objects.h"
 
+/* Default buffer sizes */
+#define LIGHTOS_FILE_DEFAULT_RBSIZE 0x1000
+#define LIGHTOS_FILE_DEFAULT_WBSIZE 0x1000
+
 enum LIGHTOS_FSTYPE {
     LIGHTOS_FSTYPE_FAT32,
     LIGHTOS_FSTYPE_FAT16,
@@ -15,15 +19,31 @@ enum LIGHTOS_FSTYPE {
 
 /* TODO */
 
+/*
+ * LightOS File structure
+ *
+ * Represents a generic byte bucket that may or may not be connected to OSS.
+ * It can be used to store named buffers of data, or store stuff to long term
+ * storage (on oss)
+ */
 typedef struct lightos_file {
     Object object;
 
     /* User-side caches */
-    void* wr_buff;
-    void* rd_buff;
+    u8* wr_buff;
+    u8* rd_buff;
+    /* Size of the read and write bufferse */
     size_t wr_bsize;
     size_t rd_bsize;
 
+    /* Read/Write offsets */
+    u64 wr_boffset;
+    /* Read offset inside the local file buffer */
+    u64 rd_boffset;
+    u64 rd_capacity;
+
+    /* Read/Write head */
+    u64 head;
 } File;
 
 #endif // ! __LIGHTOS_FS_SHARED__

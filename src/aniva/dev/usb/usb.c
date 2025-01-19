@@ -9,16 +9,15 @@
 #include "dev/usb/port.h"
 #include "dev/usb/spec.h"
 #include "dev/usb/xfer.h"
-#include "libk/kopts/parser.h"
 #include "libk/data/linkedlist.h"
 #include "libk/flow/doorbell.h"
 #include "libk/flow/error.h"
 #include "libk/flow/reference.h"
 #include "libk/io.h"
+#include "libk/kopts/parser.h"
 #include "logging/log.h"
 #include "mem/heap.h"
 #include "mem/zalloc/zalloc.h"
-#include "oss/obj.h"
 #include "system/profile/profile.h"
 
 zone_allocator_t __usb_hub_allocator;
@@ -697,7 +696,7 @@ int create_usb_hub(usb_hub_t** phub, struct usb_hcd* hcd, enum USB_HUB_TYPE type
     hub->portcount = portcount;
 
     /* Register a dev group for this hub */
-    hub->devgroup = register_dev_group(DGROUP_TYPE_USB, hubgroupname, DGROUP_FLAG_BUS, parent_group->node);
+    hub->devgroup = register_dev_group(DGROUP_TYPE_USB, hubgroupname, DGROUP_FLAG_BUS, parent_group->object);
 
     if (!hub->devgroup)
         goto destroy_and_exit;
@@ -1086,7 +1085,7 @@ void init_usb()
     _root_usbhub_group = register_dev_group(DGROUP_TYPE_USB, "usb", NULL, NULL);
     _usbdev_list = init_list();
 
-    ASSERT_MSG(_root_usbhub_group && _root_usbhub_group->node, "Failed to create vector for hcds");
+    ASSERT_MSG(_root_usbhub_group && _root_usbhub_group->object, "Failed to create vector for hcds");
 
     /* Make sure usb drivers are setup */
     init_usb_drivers();

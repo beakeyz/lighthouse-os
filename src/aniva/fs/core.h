@@ -12,6 +12,8 @@ struct dir_ops;
 struct aniva_driver;
 struct fs_root_object;
 
+#define FS_DEFAULT_ROOT_MP "Root"
+
 typedef struct fs_type {
     const char* m_name;
     uint32_t m_flags;
@@ -68,7 +70,7 @@ typedef struct fs_root_object {
     void* m_fs_priv;
 } fs_root_object_t;
 
-fs_root_object_t* create_fs_root_object(const char* name, fs_type_t* type, struct dir_ops* fsroot_ops);
+fs_root_object_t* create_fs_root_object(const char* name, fs_type_t* type, struct dir_ops* fsroot_ops, void* dir_priv);
 void destroy_fsroot_object(fs_root_object_t* object);
 
 fs_root_object_t* oss_object_get_fsobj(oss_object_t* object);

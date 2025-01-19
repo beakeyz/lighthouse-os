@@ -19,7 +19,10 @@ static const sys_fn_t __syscall_map[] = {
     [SYSID_WRITE] = (sys_fn_t)sys_write,
     [SYSID_OPEN] = (sys_fn_t)sys_open,
     [SYSID_SEND_MSG] = (sys_fn_t)sys_send_msg,
-    [SYSID_SEND_CTL] = (sys_fn_t)sys_send_ctl,
+
+    [SYSID_GET_OBJECT_TYPE] = (sys_fn_t)sys_get_object_type,
+    [SYSID_SET_OBJECT_TYPE] = (sys_fn_t)sys_set_object_type,
+
     [SYSID_ALLOC_VMEM] = (sys_fn_t)sys_alloc_vmem,
     [SYSID_DEALLOC_VMEM] = (sys_fn_t)sys_dealloc_vmem,
     [SYSID_MAP_VMEM] = (sys_fn_t)sys_map_vmem,

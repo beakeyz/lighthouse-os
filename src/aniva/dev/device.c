@@ -8,6 +8,7 @@
 #include "libk/flow/error.h"
 #include "lightos/api/device.h"
 #include "lightos/api/objects.h"
+#include "logging/log.h"
 #include "mem/heap.h"
 #include "oss/core.h"
 #include "oss/object.h"
@@ -51,10 +52,10 @@ device_t* create_device_ex(struct driver* parent, char* name, void* priv, enum D
 
     memset(ret, 0, sizeof(*ret));
 
-    ret->name = strdup(name);
     ret->lock = create_mutex(NULL);
     ret->ep_lock = create_mutex(NULL);
-    ret->obj = create_oss_object(ret->name, OF_NO_DISCON, OT_DEVICE, &device_oss_ops, ret);
+    ret->obj = create_oss_object(name, OF_NO_DISCON, OT_DEVICE, &device_oss_ops, ret);
+    ret->name = ret->obj->key;
     ret->drivers[0] = parent;
     ret->flags = flags;
     ret->private = priv;
@@ -104,7 +105,6 @@ int __destroy_device(oss_object_t* object)
     destroy_mutex(device->lock);
     destroy_mutex(device->ep_lock);
     destroy_device_ctlmap(device->ctlmap);
-    kfree((void*)device->name);
 
     memset(device, 0, sizeof(*device));
 
@@ -384,24 +384,18 @@ kerror_t device_rename(device_t* dev, const char* newname)
 {
     kerror_t error;
 
-    kernel_panic("TODO: impl device_rename");
-
     if (!dev || !newname)
         return -KERR_INVAL;
 
     /* Rename the object */
-    // error = oss_obj_rename(dev->obj, newname);
-    error = 0;
+    error = oss_object_rename(dev->obj, newname);
 
     /* This would be bad lololololol */
     if (error)
         return error;
 
-    if (dev->name)
-        kfree((void*)dev->name);
-
     /* Do our own rename */
-    dev->name = strdup(newname);
+    dev->name = dev->obj->key;
 
     return KERR_NONE;
 }
@@ -680,11 +674,15 @@ void debug_devices()
 void init_devices()
 {
     /* Initialize an OSS endpoint for device access and storage */
-    oss_open_object("Devices", &_device_object);
+    oss_open_object(oss_get_default_rootobj_key(ORT_DEVICES), &_device_object);
+
+    KLOG_DBG("A: 0x%p\n", _device_object);
 
     init_dgroups();
+    KLOG_DBG("A: 0x%p\n", _device_object);
 
     init_null_device(_device_object);
+    KLOG_DBG("A: 0x%p\n", _device_object);
 
     /* Enumerate devices */
 }

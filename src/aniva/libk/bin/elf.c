@@ -9,7 +9,6 @@
 #include "lightos/api/dynldr.h"
 #include "mem/heap.h"
 #include "mem/kmem.h"
-#include "oss/obj.h"
 #include "proc/proc.h"
 #include "sched/scheduler.h"
 #include "sys/types.h"
@@ -153,7 +152,7 @@ static proc_t* __elf_exec_dynamic_64(file_t* file, bool kernel)
     if (!file)
         return nullptr;
 
-    driver = get_driver(DYN_LDR_URL);
+    driver = get_driver(DYN_LDR_NAME);
 
     /* No dynamic capabilities at the moment =( */
     if (!driver)
@@ -214,7 +213,7 @@ proc_t* elf_exec_64(file_t* file, bool kernel)
     if (kernel)
         proc_flags |= PROC_DRIVER;
 
-    proc = create_proc(nullptr, nullptr, (char*)file->m_obj->name, (void*)header.e_entry, 0, proc_flags);
+    proc = create_proc(nullptr, nullptr, (char*)file->m_obj->key, (void*)header.e_entry, 0, proc_flags);
 
     if (!proc)
         goto error_and_out;

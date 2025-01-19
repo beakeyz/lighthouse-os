@@ -10,6 +10,7 @@
 
 #include "lightos/types.h"
 
+struct volume;
 struct oss_object;
 
 void init_oss();
@@ -32,6 +33,8 @@ error_t oss_open_object(const char* path, struct oss_object** pobj);
 error_t oss_open_object_from(const char* path, struct oss_object* rel, struct oss_object** pobj);
 
 error_t oss_connect_root_object(struct oss_object* object);
+error_t oss_connect_fsroot(struct oss_object* parent, const char* mountpoint, const char* fstype, struct volume* volume, struct oss_object** pobj);
+error_t oss_disconnect_fsroot(struct oss_object* object);
 
 /* Tries to remove an object from the oss graph */
 error_t oss_try_remove_object(struct oss_object* obj);

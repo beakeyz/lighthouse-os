@@ -13,7 +13,6 @@
 #include "sched/scheduler.h"
 #include "system/profile/profile.h"
 #include "system/sysvar/var.h"
-#include <oss/obj.h>
 
 /*
  * Load procedures for the dynamic loader
@@ -234,7 +233,7 @@ kerror_t load_dynamic_lib(const char* path, struct loaded_app* target_app, dynam
     if (!lib_file)
         goto dealloc_and_exit;
 
-    KLOG_DBG("Trying to load dynamic library %s\n", lib_file->m_obj->name);
+    KLOG_DBG("Trying to load dynamic library %s\n", lib_file->m_obj->key);
 
     /* Get the image loaded */
     error = _dynlib_load_image(lib_file, lib);
@@ -380,7 +379,7 @@ kerror_t load_app(file_t* file, loaded_app_t** out_app, proc_t** p_proc)
     parent_proc = get_current_proc();
 
     /* Create an addressspsace for this bitch */
-    proc = create_proc(is_kernel_proc(parent_proc) ? nullptr : parent_proc, nullptr, (char*)file->m_obj->name, NULL, NULL, NULL);
+    proc = create_proc(is_kernel_proc(parent_proc) ? nullptr : parent_proc, nullptr, (char*)file->m_obj->key, NULL, NULL, NULL);
 
     if (!proc)
         return -KERR_NULL;

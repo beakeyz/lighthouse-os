@@ -1,8 +1,9 @@
 #ifndef __LIGHTOS_VOLUMEIO_H__
 #define __LIGHTOS_VOLUMEIO_H__
 
-#include <lightos/handle.h>
+#include "lightos/api/objects.h"
 #include <lightos/api/volume.h>
+#include <lightos/handle.h>
 
 /* Common typedefs for using volumes */
 typedef handle_t volume_hndl_t;
@@ -28,8 +29,8 @@ typedef struct lightos_volume {
     volume_id_t device_id;
 } lightos_volume_t;
 
-VOLUME_HNDL open_volume(const char* path, uint32_t flags, enum HNDL_MODE mode);
-void close_volume(VOLUME_HNDL handle);
+Object open_volume(const char* path, uint32_t flags, enum HNDL_MODE mode);
+void close_volume(Object* volume);
 
 /* Functions to interface with volumes on a low level */
 uint64_t volume_read(VOLUME_HNDL volume, uintptr_t offset, void* buffer, size_t size);

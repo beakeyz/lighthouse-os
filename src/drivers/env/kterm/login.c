@@ -8,7 +8,7 @@
  * @brief: Log into a profile
  *
  * This will make kterm act from the perspective of this profile
- * (It's current working directory wil become Root/User/<profile name> for example)
+ * (It's current working directory wil become Storage/Root/User/<profile name> for example)
  */
 int kterm_do_login(user_profile_t* profile)
 {

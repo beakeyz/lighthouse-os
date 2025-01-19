@@ -7,6 +7,7 @@
 #include "fs/file.h"
 #include "libk/flow/error.h"
 #include "lightos/api/filesystem.h"
+#include "mem/heap.h"
 #include "mem/kmem.h"
 #include "oss/object.h"
 #include <fs/core.h>
@@ -143,6 +144,7 @@ oss_object_t* ramfs_find(dir_t* dir, const char* path)
     fs_root_object_t* fsnode;
     uintptr_t current_offset = 0;
     size_t name_len = strlen(path);
+    size_t abs_path_len = 0;
 
     if (!path || !name_len)
         return nullptr;
@@ -164,10 +166,26 @@ oss_object_t* ramfs_find(dir_t* dir, const char* path)
         uintptr_t current_file_offset = (uintptr_t)TAR_BLOCK_START(fsnode) + current_offset;
         uintptr_t filesize = decode_tar_ascii(current_file.size, 11);
 
+        if (current_file.type != TAR_TYPE_FILE && current_file.type != TAR_TYPE_DIR)
+            goto cycle;
+
         if (name_len > sizeof(current_file.fn))
             name_len = sizeof(current_file.fn);
 
-        if (strncmp(path, (const char*)current_file.fn, name_len) == 0) {
+        /*
+         * If we have a private field (which cramfs uses to store the absolute path of a dir, relative
+         * to the mountpoint object), compute the string length
+         */
+        if (dir->priv)
+            abs_path_len = strlen((char*)dir->priv);
+
+        /* If this is a entry that's not relative to this dir, skip it */
+        if (dir->priv && strncmp(dir->priv, (const char*)current_file.fn, abs_path_len) != 0)
+            goto cycle;
+
+        // KLOG_DBG("cramfs fn: %s (on dir: %s)\n", current_file.fn, dir->priv ? dir->priv : "<Root>");
+
+        if (strncmp(path, (const char*)&current_file.fn[abs_path_len], name_len) == 0) {
             /*
              * TODO: how do we want this to work?
              * TODO: Create vobj
@@ -198,13 +216,20 @@ oss_object_t* ramfs_find(dir_t* dir, const char* path)
                 return file->m_obj;
             }
             case TAR_TYPE_DIR: {
-                break;
+                char* dir_fn = strdup((const char*)current_file.fn);
+                dir_t* new_dir = create_dir(path, dir->ops, dir->fsroot, dir_fn, NULL);
+
+                if (!new_dir)
+                    return nullptr;
+
+                return new_dir->object;
             }
             default:
                 kernel_panic("cramfs: unsupported fsentry type");
             }
         }
 
+    cycle:
         current_offset += apply_tar_alignment(filesize);
     }
 
@@ -216,7 +241,17 @@ static oss_object_t* ramfs_dir_read(dir_t* dir, uint64_t idx)
     return 0;
 }
 
+static int ramfs_dir_destroy(dir_t* dir)
+{
+    /* We put the absolute path of a directory at ->priv */
+    if (dir->priv)
+        kfree((void*)dir->priv);
+
+    return 0;
+}
+
 dir_ops_t ramfs_dir_ops = {
+    .f_destroy = ramfs_dir_destroy,
     .f_open = ramfs_find,
     .f_open_idx = ramfs_dir_read,
 };
@@ -274,7 +309,7 @@ oss_object_t* mount_ramfs(fs_type_t* type, const char* mountpoint, volume_t* dev
         return nullptr;
 
     /* Create the fsroot */
-    fsroot = create_fs_root_object(mountpoint, type, &ramfs_dir_ops);
+    fsroot = create_fs_root_object(mountpoint, type, &ramfs_dir_ops, NULL);
 
     if (!fsroot)
         return nullptr;

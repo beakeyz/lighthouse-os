@@ -22,7 +22,6 @@ typedef struct kernel_handle {
     uint8_t protection_lvl;
     uint8_t res;
     uint32_t flags;
-    uintptr_t offset;
     union {
         /* TODO: Also move threads to oss objects */
         struct thread* thread;

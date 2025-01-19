@@ -146,6 +146,7 @@
 #define ETESTFAIL 179
 #define ECONST 180
 #define ENODRV 181
+#define EDUPLICATE 182
 
 #define ERESTARTSYS 512
 

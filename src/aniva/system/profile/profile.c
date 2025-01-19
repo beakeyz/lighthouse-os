@@ -19,8 +19,8 @@
 #include <system/sysvar/var.h>
 
 #define SOFTMAX_ACTIVE_PROFILES 4096
-#define DEFAULT_USER_PVR_PATH "Root/Users/User/user.pvr"
-#define DEFAULT_ADMIN_PVR_PATH "Root/Users/Admin/admin.pvr"
+#define DEFAULT_USER_PVR_PATH "Storage/Root/Users/User/user.pvr"
+#define DEFAULT_ADMIN_PVR_PATH "Storage/Root/Users/Admin/admin.pvr"
 
 static mutex_t* _profile_mutex;
 
@@ -402,8 +402,8 @@ bool profile_has_password(user_profile_t* profile)
  */
 static void __apply_admin_variables()
 {
-    sysvar_attach_ex(_admin_profile.object, "KTERM_LOC", PROFILE_TYPE_ADMIN, SYSVAR_TYPE_STRING, SYSVAR_FLAG_VOLATILE, PROFILE_STR("Root/System/kterm.drv"), 22);
-    sysvar_attach_ex(_admin_profile.object, DRIVERS_LOC_VARKEY, PROFILE_TYPE_ADMIN, SYSVAR_TYPE_STRING, SYSVAR_FLAG_VOLATILE, PROFILE_STR("Root/System/"), 13);
+    sysvar_attach_ex(_admin_profile.object, "KTERM_LOC", PROFILE_TYPE_ADMIN, SYSVAR_TYPE_STRING, SYSVAR_FLAG_VOLATILE, PROFILE_STR("Storage/Root/System/kterm.drv"), 30);
+    sysvar_attach_ex(_admin_profile.object, DRIVERS_LOC_VARKEY, PROFILE_TYPE_ADMIN, SYSVAR_TYPE_STRING, SYSVAR_FLAG_VOLATILE, PROFILE_STR("Storage/Root/System/"), 21);
 
     /* Core drivers which perform high level scanning and load low level drivers */
     sysvar_attach_ex(_admin_profile.object, USBCORE_DRV_VARKEY, PROFILE_TYPE_ADMIN, SYSVAR_TYPE_STRING, SYSVAR_FLAG_VOLATILE, PROFILE_STR("usbcore.drv"), 12);
@@ -449,8 +449,8 @@ static void __apply_user_variables()
     /* Default provider for lwnd services */
     sysvar_attach_ex(_user_profile.object, "DFLT_LWND_PATH", PROFILE_TYPE_USER, SYSVAR_TYPE_STRING, SYSVAR_FLAG_GLOBAL, PROFILE_STR("service/lwnd"), 13);
     /* Path variable to indicate default locations for executables */
-    sysvar_attach_ex(_user_profile.object, "PATH", PROFILE_TYPE_USER, SYSVAR_TYPE_STRING, SYSVAR_FLAG_GLOBAL, PROFILE_STR("Root/Apps:Root/Users/User/Apps"), 31);
-    sysvar_attach_ex(_user_profile.object, LIBSPATH_VAR, PROFILE_TYPE_USER, SYSVAR_TYPE_STRING, SYSVAR_FLAG_GLOBAL, PROFILE_STR("Root/System/Lib"), 16);
+    sysvar_attach_ex(_user_profile.object, "PATH", PROFILE_TYPE_USER, SYSVAR_TYPE_STRING, SYSVAR_FLAG_GLOBAL, PROFILE_STR("Storage/Root/Apps:Storage/Root/Users/User/Apps"), 47);
+    sysvar_attach_ex(_user_profile.object, LIBSPATH_VAR, PROFILE_TYPE_USER, SYSVAR_TYPE_STRING, SYSVAR_FLAG_GLOBAL, PROFILE_STR("Storage/Root/System/Lib"), 24);
     /* Name of the runtime library */
     sysvar_attach_ex(_user_profile.object, "LIBRT_NAME", PROFILE_TYPE_USER, SYSVAR_TYPE_STRING, SYSVAR_FLAG_GLOBAL, PROFILE_STR("librt.lib"), 10);
 }

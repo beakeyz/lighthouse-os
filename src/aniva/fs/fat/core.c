@@ -813,7 +813,7 @@ oss_object_t* fat32_mount(fs_type_t* type, const char* mountpoint, volume_t* dev
         return nullptr;
 
     /* Create root node. This guy simply takes in the same dir ops as any other fat dir */
-    fsroot = create_fs_root_object(mountpoint, type, get_fat_dir_ops());
+    fsroot = create_fs_root_object(mountpoint, type, get_fat_dir_ops(), NULL);
 
     ASSERT_MSG(fsroot, "Failed to create fs oss node for FAT fs");
 

@@ -26,26 +26,6 @@ static list_t* __driver_list;
 /* This lock protects the core driver registry */
 static mutex_t* __core_driver_lock;
 
-const char* dev_type_urls[DRIVER_TYPE_COUNT] = {
-    /* Any driver that interacts with lts */
-    [DT_DISK] = "disk",
-    /* Drivers that interact with or implement filesystems */
-    [DT_FS] = "fs",
-    /* Drivers that deal with I/O devices (HID, serial, ect.) */
-    [DT_IO] = "io",
-    /* Drivers that manage sound devices */
-    [DT_SOUND] = "sound",
-    /* Drivers that manage graphics devices */
-    [DT_GRAPHICS] = "graphics",
-    /* Drivers that don't really deal with specific types of devices */
-    [DT_OTHER] = "other",
-    /* Drivers that gather system diagnostics */
-    [DT_DIAGNOSTICS] = "diagnostics",
-    /* Drivers that provide services, either to userspace or kernelspace */
-    [DT_SERVICE] = "service",
-    [DT_FIRMWARE] = "fw",
-};
-
 /*
  * Core drivers
  *
@@ -62,54 +42,6 @@ const char* dev_type_urls[DRIVER_TYPE_COUNT] = {
  * out which graphics driver is active on the system, but should make their requests through a middleman (core/video) that is aware
  * of the underlying device structure
  */
-
-const char* driver_get_type_str(struct driver* driver)
-{
-    size_t type_str_len = NULL;
-    dev_url_t drv_url = driver->m_url;
-
-    while (*(drv_url + type_str_len) != DRIVER_URL_SEPERATOR) {
-        type_str_len++;
-    }
-
-    for (uint64_t i = 0; i < DRIVER_TYPE_COUNT; i++) {
-        if (memcmp(dev_type_urls[i], drv_url, type_str_len)) {
-            return dev_type_urls[i];
-        }
-    }
-
-    /* Invalid type part in the url */
-    return nullptr;
-}
-
-static mutex_t* __driver_constraint_lock;
-
-static dev_constraint_t __dev_constraints[DRIVER_TYPE_COUNT] = {
-    [DT_DISK] = {
-        .type = DT_DISK,
-        .max_count = DRV_INFINITE,
-        .max_active = DRV_INFINITE,
-        0 },
-    [DT_FS] = { .type = DT_FS, .max_count = DRV_INFINITE, .max_active = DRV_INFINITE, 0 },
-    [DT_IO] = { .type = DT_IO, .max_count = DRV_INFINITE, .max_active = DRV_INFINITE, 0 },
-    [DT_SOUND] = { .type = DT_SOUND, .max_count = 10, .max_active = 1, 0 },
-    /*
-     * Most graphics drivers should be external
-     * This means that When we are booting the kernel we load a local driver for the
-     * efi framebuffer and then we detect available graphics cards later. When we find
-     * one we have a driver for, we find it in the fs and load it. When loading the graphics
-     * driver (which is most likely on PCI) we will keep the EFI fb driver intact untill the
-     * driver reports successful load. We can do this because the external driver scan will happen AFTER we have
-     * scanned PCI for local drivers, so when we load the external graphics driver, the
-     * load will also probe PCI, which will load the full driver in one go. When this reports
-     * success, we can unload the EFI driver and switch the core to the new external driver
-     */
-    [DT_GRAPHICS] = { .type = DT_GRAPHICS, .max_count = 10, .max_active = 2, 0 },
-    [DT_OTHER] = { .type = DT_OTHER, .max_count = DRV_INFINITE, .max_active = DRV_INFINITE, 0 },
-    [DT_DIAGNOSTICS] = { .type = DT_DIAGNOSTICS, .max_count = 1, .max_active = 1, 0 },
-    [DT_SERVICE] = { .type = DT_SERVICE, .max_count = DRV_SERVICE_MAX, .max_active = DRV_SERVICE_MAX, 0 },
-    [DT_FIRMWARE] = { .type = DT_FIRMWARE, .max_count = DRV_INFINITE, .max_active = DRV_INFINITE, 0 }
-};
 
 static list_t* __deferred_driver_drivers;
 
@@ -134,7 +66,7 @@ static error_t __load_precompiled_driver(driver_t* driver)
      */
     load_driver(driver);
 
-    return true;
+    return 0;
 }
 
 static error_t __load_precompiled_drivers()
@@ -182,7 +114,6 @@ void free_ddriver(struct driver* driver)
  */
 bool verify_driver(driver_t* driver)
 {
-    dev_constraint_t* constaint;
     aniva_driver_t* anv_driver;
 
     /* External driver are considered valid here */
@@ -195,12 +126,6 @@ bool verify_driver(driver_t* driver)
         return false;
 
     if (anv_driver->m_type >= DRIVER_TYPE_COUNT)
-        return false;
-
-    constaint = &__dev_constraints[anv_driver->m_type];
-
-    /* We can't load more of this type of driver, so we mark this as invalid */
-    if (constaint->current_count == constaint->max_count)
         return false;
 
     return true;
@@ -262,7 +187,7 @@ kerror_t uninstall_driver(driver_t* driver)
         goto fail_and_exit;
 
     /* When we fail to unload something, thats quite bad lmao */
-    if (is_driver_loaded(driver) && (unload_driver(driver->m_url)))
+    if (is_driver_loaded(driver) && (unload_driver(driver->name)))
         goto fail_and_exit;
 
     destroy_driver(driver);
@@ -272,26 +197,6 @@ kerror_t uninstall_driver(driver_t* driver)
 fail_and_exit:
     // kfree((void*)driver_url);
     return -1;
-}
-
-static void __driver_register_presence(enum DRIVER_TYPE type)
-{
-    if (type >= DRIVER_TYPE_COUNT)
-        return;
-
-    mutex_lock(__driver_constraint_lock);
-    __dev_constraints[type].current_count++;
-    mutex_unlock(__driver_constraint_lock);
-}
-
-static void __driver_unregister_presence(enum DRIVER_TYPE type)
-{
-    if (type >= DRIVER_TYPE_COUNT || __dev_constraints[type].current_count)
-        return;
-
-    mutex_lock(__driver_constraint_lock);
-    __dev_constraints[type].current_count--;
-    mutex_unlock(__driver_constraint_lock);
 }
 
 /*
@@ -342,7 +247,7 @@ kerror_t load_driver(driver_t* driver)
 
         // TODO: check for errors
         if (dep && !is_driver_loaded(dep->obj.drv)) {
-            KLOG_INFO("Loading driver dependency: %s\n", dep->obj.drv->m_url);
+            KLOG_INFO("Loading driver dependency: %s\n", dep->obj.drv->name);
 
             if (driver_is_deferred(dep->obj.drv))
                 kernel_panic("TODO: handle deferred dependencies!");
@@ -357,11 +262,9 @@ skip_dependencies:
 
     /* If the driver says something went wrong, trust that */
     if (error || (driver->m_flags & DRV_FAILED)) {
-        unload_driver(driver->m_url);
+        unload_driver(driver->name);
         return -1;
     }
-
-    __driver_register_presence(handle->m_type);
 
     /*
      * TODO: we need to detect when we want to apply the 'activity' and 'precedence' mechanisms
@@ -382,13 +285,13 @@ fail_and_exit:
     return -1;
 }
 
-kerror_t unload_driver(dev_url_t url)
+kerror_t unload_driver(const char* name)
 {
     int error;
     driver_t* driver;
     oss_object_t* obj;
 
-    error = oss_open_object_from(url, __driver_object, &obj);
+    error = oss_open_object_from(name, __driver_object, &obj);
 
     if (error || !obj || obj->type != OT_DRIVER)
         return -1;
@@ -408,9 +311,6 @@ kerror_t unload_driver(dev_url_t url)
 
     /* Clear the loaded flag */
     driver->m_flags &= ~DRV_LOADED;
-
-    /* Unregister presence before unlocking the driver */
-    __driver_unregister_presence(driver->m_handle->m_type);
 
     mutex_unlock(driver->m_lock);
 
@@ -436,9 +336,10 @@ bool is_driver_installed(driver_t* driver)
 
     entry = nullptr;
 
-    is_installed = (oss_open_object_from(driver->m_url, __driver_object, &entry) == 0 && entry != nullptr);
+    is_installed = (oss_open_object_from(driver->name, __driver_object, &entry) == 0 && entry != nullptr);
 
-    (void)oss_object_close(entry);
+    if (entry)
+        oss_object_close(entry);
 
     return is_installed;
 }
@@ -451,26 +352,21 @@ bool is_driver_installed(driver_t* driver)
  * not terminate the kernel, but rather signal it to this
  * routine so that we can act accordingly
  */
-driver_t* get_driver(dev_url_t url)
+struct driver* get_driver(const char* name)
 {
     int error;
     oss_object_t* obj;
 
-    if (!url)
+    if (!name)
         return nullptr;
 
-    error = oss_open_object_from(url, __driver_object, &obj);
+    error = oss_open_object_from(name, __driver_object, &obj);
 
     if (error || !obj || obj->type != OT_DRIVER)
         return nullptr;
 
     /* driver should be packed into the object */
     return obj->private;
-}
-
-size_t get_driver_type_count(enum DRIVER_TYPE type)
-{
-    return __dev_constraints[type].current_count;
 }
 
 /*!
@@ -522,16 +418,12 @@ struct driver* get_driver_from_address(vaddr_t addr)
 
 driver_t* try_driver_get(aniva_driver_t* driver, uint32_t flags)
 {
-    dev_url_t path;
     driver_t* ret;
 
     if (!driver)
         return nullptr;
 
-    path = get_driver_url(driver);
-    ret = get_driver(path);
-
-    kfree((void*)path);
+    ret = get_driver(driver->m_name);
 
     if (!ret)
         goto fail_and_exit;
@@ -707,37 +599,19 @@ exit_fail:
  */
 void init_aniva_driver_registry()
 {
-    oss_open_object("Drivers", &__driver_object);
+    oss_open_object(oss_get_default_rootobj_key(ORT_DRIVERS), &__driver_object);
 
     __driver_allocator = create_zone_allocator_ex(nullptr, NULL, driver_SOFTMAX * sizeof(driver_t), sizeof(driver_t), NULL);
     __driver_list = init_list();
     __deferred_driver_drivers = init_list();
 
-    __driver_constraint_lock = create_mutex(NULL);
     __core_driver_lock = create_mutex(NULL);
 
-    FOREACH_CORE_DRV(ptr)
-    {
-
-        driver_t* driver;
-        aniva_driver_t* anv_driver = *ptr;
-
-        ASSERT_MSG(anv_driver, "Got an invalid precompiled driver! (ptr = NULL)");
-
-        driver = create_driver(anv_driver);
-
-        ASSERT_MSG(driver, "Failed to create driver for a precompiled driver!");
-
-        ASSERT(install_driver(driver) == 0);
-    }
-
-    /* First load pass */
-    __load_precompiled_drivers();
+    KLOG_DBG("Installing precompiled drivers\n");
 
     // Install exported drivers
     FOREACH_PCDRV(ptr)
     {
-
         driver_t* driver;
         aniva_driver_t* anv_driver = *ptr;
 
@@ -746,6 +620,8 @@ void init_aniva_driver_registry()
         driver = create_driver(anv_driver);
 
         ASSERT_MSG(driver, "Failed to create driver for a precompiled driver!");
+
+        KLOG_DBG("Installing: %s\n", driver->m_handle->m_name);
 
         // NOTE: we should just let errors happen here,
         // since It could happen that a driver is already

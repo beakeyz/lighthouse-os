@@ -10,7 +10,7 @@
 
 bool oss_object_can_contain_sysvar(oss_object_t* node)
 {
-    return (node->type == OT_PROCESS || node->type == OT_PROFILE);
+    return (node->type == OT_PROCESS || node->type == OT_PROFILE || node->type == OT_GENERIC);
 }
 
 /*!

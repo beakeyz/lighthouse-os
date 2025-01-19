@@ -172,5 +172,5 @@ uintptr_t sys_get_process_time()
  */
 error_t sys_get_exitvec(dynldr_exit_vector_t** p_exitvec)
 {
-    return driver_send_msg_a(DYN_LDR_URL, DYN_LDR_GET_EXIT_VEC, NULL, NULL, p_exitvec, sizeof(dynldr_exit_vector_t*));
+    return driver_send_msg_a(DYN_LDR_NAME, DYN_LDR_GET_EXIT_VEC, NULL, NULL, p_exitvec, sizeof(dynldr_exit_vector_t*));
 }

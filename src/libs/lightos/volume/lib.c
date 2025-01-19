@@ -1,33 +1,33 @@
 #include "lightos/api/device.h"
 #include "lightos/api/handle.h"
+#include "lightos/api/objects.h"
 #include "lightos/api/volume.h"
-#include "lightos/handle.h"
+#include "lightos/object.h"
 #include "string.h"
 #include "volumeio.h"
 #include <lightos/dev/device.h>
 #include <lightos/lightos.h>
 #include <stdlib.h>
 
-VOLUME_HNDL open_volume(const char* path, uint32_t flags, enum HNDL_MODE mode)
+Object open_volume(const char* path, uint32_t flags, enum HNDL_MODE mode)
 {
-    VOLUME_HNDL handle;
+    Object object;
 
-    /* Volumes are a type of device */
-    handle = open_handle(path, HNDL_TYPE_DEVICE, flags, mode);
+    object = OpenObject(path, flags, mode);
 
-    /* Check if we even recieved a valid handle */
-    if (handle_verify(handle))
-        return handle;
+    /* Invalid type. Just close the object */
+    if (object.type != OT_DEVICE)
+        CloseObject(&object);
 
-    return handle;
+    return object;
 }
 
-void close_volume(VOLUME_HNDL handle)
+void close_volume(Object* volume)
 {
-    volume_flush(handle);
+    volume_flush(volume->handle);
 
     /* TODO: Volume specific cleaning */
-    close_handle(handle);
+    CloseObject(volume);
 }
 
 /* Functions to interface with volumes on a low level */

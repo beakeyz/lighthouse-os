@@ -111,7 +111,7 @@ fs_type_t* get_fs_type(const char* name)
     return ret;
 }
 
-fs_root_object_t* create_fs_root_object(const char* name, fs_type_t* type, struct dir_ops* fsroot_ops)
+fs_root_object_t* create_fs_root_object(const char* name, fs_type_t* type, struct dir_ops* fsroot_ops, void* dir_priv)
 {
     fs_root_object_t* fsnode;
 
@@ -130,7 +130,7 @@ fs_root_object_t* create_fs_root_object(const char* name, fs_type_t* type, struc
     memset(fsnode, 0, sizeof(*fsnode));
 
     fsnode->m_type = type;
-    fsnode->rootdir = create_dir(name, fsroot_ops, fsnode, NULL, NULL);
+    fsnode->rootdir = create_dir(name, fsroot_ops, fsnode, dir_priv, DIR_FSROOT);
 
     return fsnode;
 }

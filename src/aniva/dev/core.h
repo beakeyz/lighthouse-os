@@ -58,13 +58,6 @@ typedef struct dev_constraint {
 /* Defined in dev/core.c */
 extern const char* dev_type_urls[DRIVER_TYPE_COUNT];
 
-/*
- * Used by drivers to communicate, but also to send generic
- * messages through sockets (i.e. some ccs are global, meaning they
- * are intercepted by the socket message dispatcher and interpreted)
- */
-typedef const char* dev_url_t;
-
 typedef uint32_t driver_control_code_t;
 
 /* Welcome to the */
@@ -82,7 +75,6 @@ typedef driver_control_code_t dcc_t;
 #define SOCKET_VERIFY_RESPONSE_SIZE(size) ((size) != ((size_t)-1))
 
 #define EXPORT_DRIVER_PTR(name) USED SECTION(".kpcdrvs") aniva_driver_t* exported_##name = (aniva_driver_t*)&name
-#define EXPORT_CORE_DRIVER(name) USED SECTION(".core_drvs") aniva_driver_t* exported_core_##name = (aniva_driver_t*)&name
 #define EXPORT_DRIVER(name) USED SECTION(".expdrv") ALIGN(8) aniva_driver_t name
 #define EXPORT_DEPENDENCIES(deps) USED SECTION(".deps") ALIGN(8) drv_dependency_t(deps)[]
 #define EXPORT_EMPTY_DEPENDENCIES(deps) USED SECTION(".deps") ALIGN(8) drv_dependency_t(deps)[] = { \
@@ -121,7 +113,7 @@ kerror_t load_driver(struct driver* driver);
 /*
  * unload a driver from its structure in RAM
  */
-kerror_t unload_driver(dev_url_t url);
+kerror_t unload_driver(const char* driver);
 
 /*
  * Check if the driver is installed into the grid
@@ -136,7 +128,7 @@ bool is_driver_loaded(struct driver* handle);
 /*
  * Find the handle to a driver through its url
  */
-struct driver* get_driver(dev_url_t url);
+struct driver* get_driver(const char* name);
 struct driver* get_driver_from_type(enum DRIVER_TYPE type, uint32_t index);
 struct driver* get_driver_from_address(vaddr_t addr);
 size_t get_driver_type_count(enum DRIVER_TYPE type);
@@ -155,8 +147,6 @@ struct driver* try_driver_get(struct aniva_driver* driver, uint32_t flags);
  * Marks the driver as ready to recieve packets preemptively
  */
 kerror_t driver_set_ready(const char* path);
-
-const char* driver_get_type_str(struct driver* driver);
 
 /*
  * Find the url for a certain dev_type
@@ -178,9 +168,6 @@ kerror_t driver_send_msg_sync(const char* path, driver_control_code_t code, void
  * When mto is set to DRIVER_WAIT_UNTIL_READY, we simply wait untill the driver marks itself ready
  */
 kerror_t driver_send_msg_sync_with_timeout(const char* path, driver_control_code_t code, void* buffer, size_t buffer_size, size_t mto);
-
-extern const char* get_driver_url(struct aniva_driver* handle);
-extern size_t get_driver_url_length(struct aniva_driver* handle);
 
 #define DRIVER_VERSION(major, minor, bmp)       \
     {                                           \

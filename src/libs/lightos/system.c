@@ -25,14 +25,14 @@ error_t sys_close(HANDLE handle)
     return syscall_1(SYSID_CLOSE, handle);
 }
 
-error_t sys_read(HANDLE handle, void* buffer, size_t size, size_t* pread_size)
+error_t sys_read(HANDLE handle, u64 offset, void* buffer, size_t size, size_t* pread_size)
 {
-    return syscall_4(SYSID_READ, handle, (u64)buffer, size, (u64)pread_size);
+    return syscall_5(SYSID_READ, handle, offset, (u64)buffer, size, (u64)pread_size);
 }
 
-error_t sys_write(HANDLE handle, void* buffer, size_t size)
+error_t sys_write(HANDLE handle, u64 offset, void* buffer, size_t size)
 {
-    return syscall_3(SYSID_WRITE, handle, (u64)buffer, size);
+    return syscall_4(SYSID_WRITE, handle, offset, (u64)buffer, size);
 }
 
 HANDLE sys_open(const char* path, handle_flags_t flags, enum HNDL_MODE mode, void* buffer, size_t bsize)
@@ -45,9 +45,14 @@ error_t sys_send_msg(HANDLE handle, u32 code, u64 offset, void* buffer, size_t b
     return syscall_5(SYSID_SEND_MSG, handle, code, offset, (u64)buffer, bsize);
 }
 
-error_t sys_send_ctl(HANDLE handle, enum DEVICE_CTLC code, u64 offset, void* buffer, size_t bsize)
+enum OSS_OBJECT_TYPE sys_get_object_type(HANDLE handle)
 {
-    return syscall_5(SYSID_SEND_CTL, handle, code, offset, (u64)buffer, bsize);
+    return syscall_1(SYSID_GET_OBJECT_TYPE, handle);
+}
+
+enum OSS_OBJECT_TYPE sys_set_object_type(HANDLE handle, enum OSS_OBJECT_TYPE ptype)
+{
+    return syscall_2(SYSID_SET_OBJECT_TYPE, handle, ptype);
 }
 
 error_t sys_alloc_vmem(size_t size, u32 flags, vaddr_t* paddr)
@@ -110,9 +115,9 @@ size_t sys_dir_read(HANDLE handle, u32 idx, Object* namebuffer, size_t blen)
     return syscall_4(SYSID_DIR_READ, handle, idx, (u64)namebuffer, blen);
 }
 
-size_t sys_seek(HANDLE handle, u64 offset, u32 type)
+size_t sys_seek(HANDLE handle, u64 c_offset, u64 new_offset, u32 type)
 {
-    return syscall_3(SYSID_SEEK, handle, offset, type);
+    return syscall_4(SYSID_SEEK, handle, c_offset, new_offset, type);
 }
 
 size_t sys_get_process_time(void)
