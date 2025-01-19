@@ -73,6 +73,9 @@ typedef struct oss_object_ops {
     // int (*f_Remove)(struct oss_object* this);
 } oss_object_ops_t;
 
+/* This is the value of ->height if it hasn't been set yet */
+#define OSS_OBJECT_HEIGHT_NOTSET ((u32) - 1)
+
 /*
  * Objects: The core of the oss
  *
@@ -89,12 +92,17 @@ typedef struct oss_object {
      */
     i32 nr_references;
     /* Object flags */
-    u16 flags;
+    u32 flags;
+    /*
+     * Relative height of this object to the root. This is set the first time an object
+     * is connected to another object
+     */
+    u32 height;
     /*
      * Object type. Truncated to a bitfield of 16 bits
      * TODO: Check if this doesn't fuck us
      */
-    enum OSS_OBJECT_TYPE type : 16;
+    enum OSS_OBJECT_TYPE type;
 
     mutex_t* lock;
 

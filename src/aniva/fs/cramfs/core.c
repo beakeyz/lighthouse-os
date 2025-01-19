@@ -143,24 +143,26 @@ oss_object_t* ramfs_find(dir_t* dir, const char* path)
     tar_file_t current_file = { 0 };
     fs_root_object_t* fsnode;
     uintptr_t current_offset = 0;
-    size_t name_len = strlen(path);
+    size_t name_len;
     size_t abs_path_len = 0;
 
-    if (!path || !name_len)
+    if (!path)
         return nullptr;
 
     /* Grab the fsroot of this directory */
     fsnode = dir->fsroot;
+    name_len = strlen(path);
+
+    /* Make sure the name length is capped */
+    if (name_len > sizeof(current_file.fn))
+        name_len = sizeof(current_file.fn);
 
     while (current_offset <= fsnode->m_total_blocks) {
         /* Raw read :clown: */
         int result = ramfs_read(fsnode, &current_file, sizeof(tar_file_t), current_offset);
 
-        if (result)
-            break;
-
         /* Invalid TAR archive file */
-        if (!memcmp(current_file.ustar, TAR_USTAR_SIG, 5))
+        if (result || !memcmp(current_file.ustar, TAR_USTAR_SIG, 5))
             break;
 
         uintptr_t current_file_offset = (uintptr_t)TAR_BLOCK_START(fsnode) + current_offset;
@@ -168,9 +170,6 @@ oss_object_t* ramfs_find(dir_t* dir, const char* path)
 
         if (current_file.type != TAR_TYPE_FILE && current_file.type != TAR_TYPE_DIR)
             goto cycle;
-
-        if (name_len > sizeof(current_file.fn))
-            name_len = sizeof(current_file.fn);
 
         /*
          * If we have a private field (which cramfs uses to store the absolute path of a dir, relative
@@ -185,48 +184,56 @@ oss_object_t* ramfs_find(dir_t* dir, const char* path)
 
         // KLOG_DBG("cramfs fn: %s (on dir: %s)\n", current_file.fn, dir->priv ? dir->priv : "<Root>");
 
-        if (strncmp(path, (const char*)&current_file.fn[abs_path_len], name_len) == 0) {
-            /*
-             * TODO: how do we want this to work?
-             * TODO: Create vobj
-             */
-            switch (current_file.type) {
-            case TAR_TYPE_FILE: {
-                uint8_t* data = (uint8_t*)(current_file_offset + TAR_USTAR_ALIGNMENT);
+        /*
+         * TODO: how do we want this to work?
+         * TODO: Create vobj
+         */
+        switch (current_file.type) {
+        case TAR_TYPE_FILE: {
+            if (strncmp(path, (const char*)&current_file.fn[abs_path_len], name_len + 1))
+                break;
 
-                /* Create file early to catch node grabbing issues early */
-                file_t* file = create_file(FILE_READONLY, path);
+            uint8_t* data = (uint8_t*)(current_file_offset + TAR_USTAR_ALIGNMENT);
 
-                if (!file)
-                    return nullptr;
+            /* Create file early to catch node grabbing issues early */
+            file_t* file = create_file(dir->fsroot, FILE_READONLY, path);
 
-                /* We can just fill the files data, since it is readonly */
-                file->m_buffer = data;
-                file->m_buffer_size = filesize;
-                file->m_total_size = filesize;
-                file->m_buffer_offset = current_file_offset;
+            if (!file)
+                return nullptr;
 
-                /* Make sure file opperations go through ramfs */
-                file_set_ops(file, &tar_file_ops);
+            /* We can just fill the files data, since it is readonly */
+            file->m_buffer = data;
+            file->m_buffer_size = filesize;
+            file->m_total_size = filesize;
+            file->m_buffer_offset = current_file_offset;
 
-                /* Attach the object once we know that it has been found */
-                // ASSERT_MSG(!oss_attach_obj_rel(node, name, file->m_obj), "Failed to add object to oss node while trying to find ramfs file!");
+            /* Make sure file opperations go through ramfs */
+            file_set_ops(file, &tar_file_ops);
 
-                /* Export the file. No need to connect this guy anywhere, since that will be done by the oss subsystem */
-                return file->m_obj;
-            }
-            case TAR_TYPE_DIR: {
-                char* dir_fn = strdup((const char*)current_file.fn);
-                dir_t* new_dir = create_dir(path, dir->ops, dir->fsroot, dir_fn, NULL);
+            /* Attach the object once we know that it has been found */
+            // ASSERT_MSG(!oss_attach_obj_rel(node, name, file->m_obj), "Failed to add object to oss node while trying to find ramfs file!");
 
-                if (!new_dir)
-                    return nullptr;
+            /* Export the file. No need to connect this guy anywhere, since that will be done by the oss subsystem */
+            return file->m_obj;
+        }
+        case TAR_TYPE_DIR: {
+            if (strncmp(path, (const char*)&current_file.fn[abs_path_len], name_len))
+                break;
 
-                return new_dir->object;
-            }
-            default:
-                kernel_panic("cramfs: unsupported fsentry type");
-            }
+            /* Directory entries on cramfs always have a trailing slash. Let's check for that guy */
+            if (current_file.fn[abs_path_len + name_len] != '/')
+                break;
+
+            char* dir_fn = strdup((const char*)current_file.fn);
+            dir_t* new_dir = create_dir(path, dir->ops, dir->fsroot, dir_fn, NULL);
+
+            if (!new_dir)
+                return nullptr;
+
+            return new_dir->object;
+        }
+        default:
+            kernel_panic("cramfs: unsupported fsentry type");
         }
 
     cycle:

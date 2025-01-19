@@ -540,16 +540,27 @@ struct kterm_cmd kterm_commands[] = {
         "Interract with the environment",
         nullptr,
     },
-    /* VFS functions */
+    /*
+     * OSS functions
+     * TODO:
+     * - movo: Move object
+     * - cpyo: Copy object
+     * - lso: List objects
+     * - execo: Execute object
+     * - remo: Remove object
+     * - mako: Make object
+     *
+     * Why this and not standard gnu utility names?
+     * This is goofy ahh xdd
+     */
     {
-        "cd",
-        "Change the current working directory",
-        (f_kterm_command_handler_t)kterm_fs_cd,
+        "selo",
+        "Change the currently selected object",
+        (f_kterm_command_handler_t)kterm_fs_selo,
     },
     {
-        /* Unixes pwd lmao */
-        "cwd",
-        "Print the current working directory",
+        "curo",
+        "Print the currently selected object",
         kterm_fs_print_working_dir,
     },
     {

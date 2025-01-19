@@ -40,6 +40,7 @@ void destroy_fat_file(fat_file_t* file);
 size_t get_fat_file_size(fat_file_t* file);
 
 kerror_t fat_file_update_dir_entries(fat_file_t* file);
+fs_root_object_t* fat_file_get_fsroot(fat_file_t* file);
 
 dir_ops_t* get_fat_dir_ops();
 

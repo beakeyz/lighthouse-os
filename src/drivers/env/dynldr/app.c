@@ -8,6 +8,7 @@
 #include "mem/heap.h"
 #include "mem/kmem.h"
 #include "mem/zalloc/zalloc.h"
+#include "oss/object.h"
 #include "priv.h"
 #include "proc/handle.h"
 #include "proc/proc.h"
@@ -87,6 +88,9 @@ static inline error_t lightos_ctx_bind_proc_handle(lightos_appctx_t* ctx, loaded
 
     /* Initialize the handle */
     init_khandle_ex(&handle, HNDL_TYPE_OBJECT, HNDL_FLAG_R, app->image.proc->obj);
+
+    /* We need to take a reference here, on behalf of the process */
+    oss_object_ref(app->image.proc->obj);
 
     /* Bind the thing */
     return bind_khandle(&app->image.proc->m_handle_map, &handle, (u32*)&ctx->self);

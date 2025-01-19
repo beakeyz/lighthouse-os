@@ -100,7 +100,7 @@ static int __oss_dir_disconnect(oss_object_t* object, oss_object_t* child)
 
     /* Check if we have this implemented */
     if (!dir->ops->f_disconnect_child)
-        return EINVAL;
+        return ENOIMPL;
 
     /* Call it if we do */
     return dir->ops->f_disconnect_child(dir, child->key);

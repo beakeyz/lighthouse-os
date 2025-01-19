@@ -68,6 +68,7 @@ oss_object_t* create_oss_object(const char* key, u16 flags, enum OSS_OBJECT_TYPE
     obj->type = type;
     obj->flags = flags;
     obj->private = private;
+    obj->height = OSS_OBJECT_HEIGHT_NOTSET;
 
     /*
      * Call the create method on this object
@@ -191,7 +192,8 @@ error_t oss_object_close_upstream_connections(oss_object_t* object)
         /* Grab the connection this node holds */
         c_conn = c_conn_node->data;
 
-        if (oss_connection_is_upstream(c_conn, object))
+        /* Skip downstream connections */
+        if (oss_connection_is_downstream(c_conn, object))
             goto go_next;
 
         /* Disconnect @object from it's parent */
@@ -225,7 +227,7 @@ error_t oss_object_close_upstream_connections(oss_object_t* object)
 
 oss_connection_t* oss_object_get_connection(oss_object_t* object, const char* key)
 {
-    size_t key_len = strlen(key);
+    size_t key_len = strlen(key) + 1;
 
     /* Just get all the connections on this object (unfiltered) */
     __OSS_OBJECT_GET_CONN(object, conn, key, strncmp(conn->child->key, key, key_len) == 0);
@@ -233,7 +235,7 @@ oss_connection_t* oss_object_get_connection(oss_object_t* object, const char* ke
 
 oss_connection_t* oss_object_get_connection_down(oss_object_t* object, const char* key)
 {
-    size_t key_len = strlen(key);
+    size_t key_len = strlen(key) + 1;
 
     /* Get all the connections where @object is the parent, in order to get all the downstream connections with this object */
     __OSS_OBJECT_GET_CONN(object, conn, key, conn->parent == object && strncmp(conn->child->key, key, key_len) == 0);
@@ -241,7 +243,7 @@ oss_connection_t* oss_object_get_connection_down(oss_object_t* object, const cha
 
 oss_connection_t* oss_object_get_connection_up(oss_object_t* object, const char* key)
 {
-    size_t key_len = strlen(key);
+    size_t key_len = strlen(key) + 1;
 
     /* Get all the connections where @object is the child, in order to get all the upstream connections with this object */
     __OSS_OBJECT_GET_CONN(object, conn, key, conn->child == object && strncmp(conn->child->key, key, key_len) == 0);
@@ -284,26 +286,6 @@ error_t oss_object_connect(oss_object_t* parent, oss_object_t* child)
     return __oss_object_connect(parent, child);
 }
 
-static inline bool __oss_object_has_other_upstream_connections(oss_object_t* child, oss_object_t* parent)
-{
-    oss_connection_t* c_child_conn;
-
-    /*
-     * Walk the connection array. If we find a connection where @child is the child
-     * and @parent is NOT the parent, it means @child has other upstream connections
-     * other than the one with @parent
-     */
-    FOREACH(i, child->connections)
-    {
-        c_child_conn = i->data;
-
-        if (c_child_conn->child == child && c_child_conn->parent != parent)
-            return true;
-    }
-
-    return false;
-}
-
 /*!
  * @brief: Checks if @child can be disconnected from @parent and does the needed prefetching
  */
@@ -311,18 +293,10 @@ static inline error_t __oss_object_prep_disconnect(oss_object_t* parent, oss_obj
 {
     oss_connection_t* parent_conn;
 
-    /* If the child is still referenced externally, we for sure can't disconnect it */
-    if (child->nr_references > 1)
-        return -EINVAL;
-
     /* Grab the downstream connection on the parent */
     parent_conn = oss_object_get_connection_down(parent, child->key);
 
     if (!parent_conn)
-        return -EINVAL;
-
-    /* Check if we're doing a legal disconnect */
-    if (!__oss_object_has_other_upstream_connections(child, parent))
         return -EINVAL;
 
     *p_parent_conn = parent_conn;
@@ -345,6 +319,8 @@ error_t oss_object_disconnect(oss_object_t* parent, oss_object_t* child)
     error_t error;
     oss_connection_t* parent_conn;
 
+    KLOG_DBG("Doing discon of %s\n", child->key);
+
     /* Try to prepare for this disconnect */
     error = __oss_object_prep_disconnect(parent, child, &parent_conn);
 
@@ -356,12 +332,15 @@ error_t oss_object_disconnect(oss_object_t* parent, oss_object_t* child)
     if (parent->ops->f_Disconnect)
         error = parent->ops->f_Disconnect(parent, child);
 
+    KLOG_DBG("Did discon call of %s\n", child->key);
+
     /*
      * If we couldn't actually disconnect on the backend, just dip lol
      */
     if (IS_FATAL(error))
         return error;
 
+    KLOG_DBG("actual discon call of %s\n", child->key);
     /* Call the pertaining disconnection function for the subsystem */
     return oss_disconnect(parent_conn);
 }
@@ -520,6 +499,8 @@ error_t oss_object_open(oss_object_t* this, const char* key, oss_object_t** pobj
     if (!this || !key || !pobj)
         return -EINVAL;
 
+    KLOG_DBG("Opening %s on %s\n", key, this->key);
+
     if (key[0] == '.' && key[1] == '\0') {
         ret = this;
         goto reference_and_return;
@@ -567,6 +548,11 @@ error_t oss_object_flush(oss_object_t* this)
     return this->ops->f_Flush(this);
 }
 
+/*!
+ * @brief: Recursive function to walk upstream connections in order to find a path to a root object
+ *
+ * FIXME: We don't yet know how this function behaves when we have to deal with circular connections
+ */
 static int __walk_oss_obj_upstream_conn_recurs(oss_object_t* object, list_t* subpath_list, u32* needed_bsize)
 {
     u32 upstream_idx = 0;
@@ -584,12 +570,22 @@ static int __walk_oss_obj_upstream_conn_recurs(oss_object_t* object, list_t* sub
             break;
 
         c_object = conn->parent;
-        KLOG_DBG("Checking: %s\n", conn->parent->key);
+        // KLOG_DBG("Checking: %s\n", conn->parent->key);
+
+        /*
+         * Skip parent object higher than us (for now)
+         * FIXME: We really want to FIRST search connections with the lowest gradient, before
+         * searching higher gradient connections. It's possible that there is a connection
+         * that first goes up in height before it goes down and reaches the root object, so
+         * we need to account for that
+         */
+        if (c_object->height >= object->height)
+            goto next;
 
         /* If this guy succeeds, it means we currently have the full path inside @subpath_list */
         if (__walk_oss_obj_upstream_conn_recurs(conn->parent, subpath_list, needed_bsize) == 0) {
 
-            KLOG_DBG("fOUND a thing: %s\n", c_object->key);
+            // KLOG_DBG("fOUND a thing: %s\n", c_object->key);
             /* Append this guy, since we know this connection leads to a root object */
             list_append(subpath_list, c_object);
 
@@ -597,6 +593,7 @@ static int __walk_oss_obj_upstream_conn_recurs(oss_object_t* object, list_t* sub
             return 0;
         }
 
+    next:
         upstream_idx++;
     }
 

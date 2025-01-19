@@ -343,7 +343,7 @@ error_t sysvar_write(sysvar_t* var, void* buffer, size_t length)
              */
             write_sz = var->len;
 
-            if (var->len > old_sz) {
+            if (var->len > old_sz || !var->str_value) {
                 /* Free the previous buffer, if it exists and wasn't big enough */
                 if (var->str_value)
                     kfree((void*)var->str_value);

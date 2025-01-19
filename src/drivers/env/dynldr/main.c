@@ -7,6 +7,7 @@
 #include "lightos/api/dynldr.h"
 #include "logging/log.h"
 #include "mem/kmem.h"
+#include "oss/object.h"
 #include "priv.h"
 #include "proc/core.h"
 #include "proc/thread.h"
@@ -311,7 +312,10 @@ static uint64_t _loader_msg(aniva_driver_t* driver, dcc_t code, void* in_buf, si
 
         msgblock = in_buf;
 
-        /* Find the process we need to check */
+        /*
+         * Find the process we need to check
+         * NOTE: This takes a reference
+         */
         target_proc = find_proc(msgblock->proc_path);
 
         if (!target_proc)
@@ -319,6 +323,9 @@ static uint64_t _loader_msg(aniva_driver_t* driver, dcc_t code, void* in_buf, si
 
         /* Check if we have a loaded app for this lmao */
         target_app = _get_app_from_proc(target_proc);
+
+        /* Close the process reference we've just taken */
+        oss_object_close(target_proc->obj);
 
         if (!target_app)
             return DRV_STAT_INVAL;
@@ -477,7 +484,7 @@ kerror_t await_lib_init(dynamic_library_t* lib)
     memcpy((void*)libtramp_kvirt, __lib_trampoline, SMALL_PAGE_SIZE);
 
     /* Make sure it knows to leave physical memory alone */
-    //resource_apply_flags(libtramp_uvirt, SMALL_PAGE_SIZE, KRES_FLAG_MEM_KEEP_PHYS, target_proc->m_resource_bundle->resources[KRES_TYPE_MEM]);
+    // resource_apply_flags(libtramp_uvirt, SMALL_PAGE_SIZE, KRES_FLAG_MEM_KEEP_PHYS, target_proc->m_resource_bundle->resources[KRES_TYPE_MEM]);
 
     lib_entry_thread = create_thread_for_proc(target_proc, (FuncPtr)libtramp_uvirt, (uintptr_t)lib->entry, lib->name);
 

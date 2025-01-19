@@ -402,7 +402,7 @@ void kthread_entry(void)
     init_pci_drivers();
 
     /* Probe for a root device */
-    // init_root_volume();
+    init_root_volume();
 
     /*
      * Late environment stuff right before we are done bootstrapping kernel systems

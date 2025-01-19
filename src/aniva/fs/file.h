@@ -107,7 +107,7 @@ static inline file_t* get_file_from_object(oss_object_t* object)
     return ((object && object->type == OT_FILE) ? object->private : nullptr);
 }
 
-file_t* create_file(uint32_t flags, const char* key);
+file_t* create_file(fs_root_object_t* fsroot, uint32_t flags, const char* key);
 
 void file_set_ops(file_t* file, file_ops_t* ops);
 

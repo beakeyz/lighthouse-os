@@ -62,13 +62,16 @@ struct thread* spawn_thread(char* name, enum SCHEDULER_PRIORITY prio, FuncPtr en
  */
 proc_t* find_proc(const char* path)
 {
+    proc_t* ret;
     oss_object_t* obj;
 
     /* Try to find this object in oss */
     if (oss_open_object(path, &obj))
         return nullptr;
 
-    if (!obj || obj->type != OT_PROCESS) {
+    ret = oss_object_unwrap(obj, OT_PROCESS);
+
+    if (!ret) {
         oss_object_close(obj);
         return nullptr;
     }
@@ -77,7 +80,7 @@ proc_t* find_proc(const char* path)
      * This object is a process object! Return the private field which
      * (hopefully still) contains our process object
      */
-    return obj->private;
+    return ret;
 }
 
 uint32_t get_proc_count()
@@ -100,20 +103,16 @@ bool foreach_proc(bool (*f_callback)(struct proc*), struct proc** presult)
 {
     bool result;
     oss_connection_t* conn;
-    oss_object_t* proc_obj;
 
-    if (oss_open_object("Proc", &proc_obj))
-        return false;
-
-    mutex_lock(proc_obj->lock);
+    mutex_lock(__proc_root_obj->lock);
 
     /* Loop over all this guys connections */
-    FOREACH(i, proc_obj->connections)
+    FOREACH(i, __proc_root_obj->connections)
     {
         conn = i->data;
 
         /* Skip any upstream connections (How thefuck would that happen but sure) */
-        if (oss_connection_is_upstream(conn, proc_obj))
+        if (oss_connection_is_upstream(conn, __proc_root_obj))
             continue;
 
         if (conn->child->type != OT_PROCESS)
@@ -127,9 +126,7 @@ bool foreach_proc(bool (*f_callback)(struct proc*), struct proc** presult)
             break;
     }
 
-    mutex_unlock(proc_obj->lock);
-
-    oss_object_close(proc_obj);
+    mutex_unlock(__proc_root_obj->lock);
 
     return result;
 }
@@ -202,6 +199,9 @@ kerror_t proc_unregister(struct proc* proc)
     runtime_remove_proccount();
 
     mutex_lock(proc->m_lock);
+
+    /* Disconnect the process */
+    oss_object_disconnect(__proc_root_obj, proc->obj);
 
     cpu = get_current_processor();
 

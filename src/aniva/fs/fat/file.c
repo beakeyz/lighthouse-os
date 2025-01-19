@@ -178,7 +178,7 @@ file_t* create_fat_file(fat_fs_info_t* info, uint32_t flags, const char* path)
     if (!info || !path || !path[0])
         return nullptr;
 
-    ret = create_file(flags, path);
+    ret = create_file(info->fsroot, flags, path);
 
     if (!ret)
         return nullptr;
@@ -210,6 +210,7 @@ dir_t* create_fat_dir(fat_fs_info_t* info, uint32_t flags, const char* path)
     if (!ret)
         return nullptr;
 
+    /* Allocate the private field for dir */
     ffile = allocate_fat_file(ret, FFILE_TYPE_DIR);
 
     if (!ffile)
@@ -332,4 +333,16 @@ free_and_exit:
     /* Clear this buffer as well */
     kfree(tmp_dest_buffer);
     return 0;
+}
+
+fs_root_object_t* fat_file_get_fsroot(fat_file_t* file)
+{
+    switch (file->type) {
+    case FFILE_TYPE_DIR:
+        return file->dir_parent->fsroot;
+    case FFILE_TYPE_FILE:
+        return file->file_parent->fsroot;
+    }
+
+    return nullptr;
 }

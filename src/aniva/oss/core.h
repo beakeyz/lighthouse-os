@@ -23,7 +23,6 @@ enum OSS_ROOTOBJ_TYPE {
     ORT_TERMINALS,
     ORT_PROCESSES,
     ORT_RUNTIME,
-    ORT_RAMIMAGE,
 };
 
 const char* oss_get_default_rootobj_key(enum OSS_ROOTOBJ_TYPE type);

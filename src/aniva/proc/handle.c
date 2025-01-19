@@ -311,7 +311,7 @@ kerror_t unbind_khandle(khandle_map_t* map, u32 handle)
 
     mutex_lock(map->lock);
 
-    if (!map || !handle)
+    if (!map)
         goto error_and_unlock;
 
     /* Make sure this guy fits inside our map */

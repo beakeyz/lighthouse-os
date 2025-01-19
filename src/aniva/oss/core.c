@@ -22,7 +22,6 @@ static const char* __root_object_keys[] = {
     [ORT_TERMINALS] = "Terminals",
     [ORT_PROCESSES] = "Proc",
     [ORT_RUNTIME] = "Runtime",
-    [ORT_RAMIMAGE] = "RamImg",
 };
 
 const char* oss_get_default_rootobj_key(enum OSS_ROOTOBJ_TYPE type)
@@ -102,7 +101,7 @@ error_t oss_open_object(const char* path, struct oss_object** pobj)
     if (!path || !pobj)
         return -EINVAL;
 
-    if (IS_FATAL(oss_parse_path(path, &oss_path)))
+    if (oss_parse_path(path, &oss_path))
         return -EINVAL;
 
     /* Try and grab a root node */
@@ -170,6 +169,9 @@ error_t oss_connect_root_object(struct oss_object* object)
     error_t error;
 
     mutex_lock(oss_lock);
+
+    /* Make sure the root objects have height zero */
+    object->height = 0;
 
     /* Yeet it in the thing */
     error = hashmap_put(root_objects, (hashmap_key_t)object->key, object);
@@ -250,6 +252,6 @@ void init_oss()
         c_obj = create_oss_object(__root_object_keys[i], NULL, OT_GENERIC, &root_object_ops, NULL);
 
         /* Register  */
-        hashmap_put(root_objects, (hashmap_key_t)__root_object_keys[i], c_obj);
+        oss_connect_root_object(c_obj);
     }
 }

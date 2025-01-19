@@ -5,7 +5,15 @@
 
 struct oss_object;
 
+/*
+ * Oss object connection object
+ *
+ * This guy represents a single connection between a parent object and a child object. Currently,
+ * these guys are stored in linked lists
+ */
 typedef struct oss_connection {
+    u32 flags;
+    i32 gradient;
     struct oss_object* parent;
     struct oss_object* child;
 } oss_connection_t;

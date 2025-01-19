@@ -13,6 +13,7 @@ struct aniva_driver;
 struct fs_root_object;
 
 #define FS_DEFAULT_ROOT_MP "Root"
+#define FS_BACKUP_ROOT_MP "Backup"
 
 typedef struct fs_type {
     const char* m_name;

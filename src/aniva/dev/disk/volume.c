@@ -20,7 +20,7 @@ static dgroup_t* volumes_dgroup;
 static dgroup_t* volume_devices_dgroup;
 static u32 next_voldv_id;
 static oss_object_t* storage_object;
-static oss_object_t* ramimg_object;
+static volume_t* boot_volume;
 
 #define VOLUME_NAME_FMT "V%d.%d"
 #define VOLUME_DEVICE_NAME_FMT "VD%d"
@@ -563,7 +563,7 @@ static bool verify_mount_root()
      *
      * FIXME: Put the locations of essential drivers in the profile variables of BASE
      */
-    if (oss_open_object("Storage/System/kterm.drv", &scan_obj))
+    if (oss_open_object("Storage/Root/System/kterm.drv", &scan_obj))
         return false;
 
     if (!scan_obj)
@@ -598,7 +598,7 @@ static bool try_mount_root(volume_t* device)
     for (uint32_t i = 0; i < filesystems_count; i++) {
         const char* fs = filesystems[i];
 
-        error = oss_connect_fsroot(nullptr, FS_DEFAULT_ROOT_MP, fs, device, &c_object);
+        error = oss_connect_fsroot(storage_object, FS_DEFAULT_ROOT_MP, fs, device, &c_object);
 
         /* Successful mount? try and verify the mount */
         if (error)
@@ -627,11 +627,15 @@ static bool try_mount_root(volume_t* device)
     return true;
 }
 
-static int _set_bootdevice(volume_t* device)
+static int maybe_set_bootdevice(volume_t* device)
 {
     int error = -KERR_INVAL;
     size_t bootdev_sz;
     const char* path;
+
+    /* If we already found a boot volume, we dont need to set it again */
+    if (boot_volume)
+        return EOK;
 
     if (!device)
         return -1;
@@ -662,7 +666,7 @@ static int _set_bootdevice(volume_t* device)
 
     /* Set the path */
     sysvar_values[0].val = (void*)path;
-    sysvar_values[1].sz = strlen(path) + 1;
+    sysvar_values[1].sz = strlen(path);
 
     for (u32 i = 0; i < 3; i++) {
         sysvar = sysvar_get(profile->object, sysvar_names[i]);
@@ -671,15 +675,18 @@ static int _set_bootdevice(volume_t* device)
         if (!sysvar)
             goto free_and_exit;
 
-        error = -KERR_INVAL;
+        // KLOG_DBG("Writing: %s to sysvar: %s\n", sysvar->type == SYSVAR_TYPE_STRING ? sysvar_values[i].val : "int", sysvar->key);
 
         /* Try to write shit */
-        if (sysvar_write(sysvar, (void*)sysvar_values[i].val, sysvar_values[i].sz))
+        error = sysvar_write(sysvar, (void*)sysvar_values[i].val, sysvar_values[i].sz);
+
+        if (error)
             goto free_and_exit;
     }
 
     error = 0;
 free_and_exit:
+    // KLOG_DBG("maybe_set_bootdevice status: %d\n", error);
     kfree((void*)path);
     return error;
 }
@@ -707,6 +714,9 @@ void init_root_volume()
 
     /* Disconnect this guy */
     oss_disconnect_fsroot(initial_ramfs_node);
+
+    /* Debug assert to ensure the initial ramfs node is successfully disconnected */
+    ASSERT(oss_open_object("Storage/Root/System", &initial_ramfs_node) != 0);
 
     while (root_device) {
 
@@ -739,24 +749,28 @@ void init_root_volume()
         }
 
     cycle_next:
+        /* Close the previous device, since we took a reference with volume_device_find */
+        device_close(root_device->dev);
         root_device = volume_device_find(device_index++);
         cur_part = nullptr;
     }
 
-    initrd_mp = "Backup";
+    /*
+     * If we find a different boot volume than the ramdisk, we can simply
+     * remount it on Storage/Backup
+     */
+    initrd_mp = FS_BACKUP_ROOT_MP;
 
     /* If there was no root device, use the initrd as a rootdevice */
-    if (!cur_part)
+    if (maybe_set_bootdevice(cur_part))
         initrd_mp = FS_DEFAULT_ROOT_MP;
-    else
-        _set_bootdevice(cur_part);
 
-    if (!root_ramdisk || oss_connect_fsroot(ramimg_object, initrd_mp, "cramfs", root_ramdisk, nullptr))
+    if (!root_ramdisk || oss_connect_fsroot(storage_object, initrd_mp, "cramfs", root_ramdisk, nullptr))
         kernel_panic("Could not find a root device to mount! TODO: fix");
     else {
-        _set_bootdevice(root_ramdisk);
+        maybe_set_bootdevice(root_ramdisk);
 
-        KLOG_DBG("Could not find root volume. Remounting ramfs (at: %%/%s/)\n", initrd_mp);
+        KLOG_DBG("Remounting ramfs (at: Storage/%s/)\n", initrd_mp);
     }
 }
 
@@ -772,6 +786,7 @@ void init_root_ram_volume()
 
     while (root_device && (root_device->flags & (VOLUME_DEV_FLAG_MEMORY)) != (VOLUME_DEV_FLAG_MEMORY) && root_device->nr_volumes != 1) {
         KLOG_DBG("root: %s\n", root_device->dev->name);
+        device_close(root_device->dev);
         root_device = volume_device_find(device_id++);
     }
 
@@ -784,6 +799,8 @@ void init_root_ram_volume()
 
     if (!root_ramdisk || oss_connect_fsroot(storage_object, FS_DEFAULT_ROOT_MP, "cramfs", root_ramdisk, NULL))
         kernel_panic("Could not find a root device to mount! TODO: fix");
+
+    device_close(root_device->dev);
 }
 
 /*!
@@ -796,8 +813,7 @@ void init_volumes()
 {
     ASSERT(oss_open_object(oss_get_default_rootobj_key(ORT_STORAGE_MAIN), &storage_object) == 0);
 
-    ASSERT(oss_open_object(oss_get_default_rootobj_key(ORT_RAMIMAGE), &ramimg_object) == 0);
-
+    boot_volume = nullptr;
     next_voldv_id = 0;
     volumes_dgroup = register_dev_group(DGROUP_TYPE_MISC, "Volumes", NULL, NULL);
     volume_devices_dgroup = register_dev_group(DGROUP_TYPE_MISC, "VolumeDev", NULL, NULL);

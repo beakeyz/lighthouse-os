@@ -215,6 +215,9 @@ error_t fsroot_unmount(fs_root_object_t* fsroot)
      */
     oss_object_close_upstream_connections(object);
 
+    /* Close the kernels object reference */
+    oss_object_close(object);
+
     return 0;
 }
 

@@ -16,7 +16,7 @@ uint32_t kterm_fs_print_working_dir()
     return 0;
 }
 
-u32 kterm_fs_cd(const char** argv, u32 argc)
+u32 kterm_fs_selo(const char** argv, u32 argc)
 {
     i32 error;
     oss_object_t* new_object;

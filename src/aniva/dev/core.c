@@ -351,10 +351,13 @@ bool is_driver_installed(driver_t* driver)
  * can expect a pagefault and that when it happens, we should
  * not terminate the kernel, but rather signal it to this
  * routine so that we can act accordingly
+ *
+ * NOTE: This guy doesn't take an object reference!
  */
 struct driver* get_driver(const char* name)
 {
     int error;
+    driver_t* driver;
     oss_object_t* obj;
 
     if (!name)
@@ -362,11 +365,16 @@ struct driver* get_driver(const char* name)
 
     error = oss_open_object_from(name, __driver_object, &obj);
 
-    if (error || !obj || obj->type != OT_DRIVER)
+    if (error)
         return nullptr;
 
     /* driver should be packed into the object */
-    return obj->private;
+    driver = oss_object_unwrap(obj, OT_DRIVER);
+
+    /* Close the object */
+    oss_object_close(obj);
+
+    return driver;
 }
 
 /*!

@@ -9,6 +9,7 @@
 
 #include "lightos/api/handle.h"
 #include <lightos/error.h>
+#include <lightos/handle.h>
 #include <lightos/lightos.h>
 #include <stdlib.h>
 #include <sys/types.h>
@@ -70,6 +71,7 @@ void lightapp_startup(lightos_appctx_t* ctx)
     error = ctx->entry(ctx->self);
 
     /* TODO: Call exit functions */
+    close_handle(ctx->self);
 
     /* 3) Notify the kernel that we have exited so we can be cleaned up */
     exit(error);

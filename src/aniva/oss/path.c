@@ -29,6 +29,8 @@ int oss_parse_path_ex(const char* path, oss_path_t* p_path, char seperator)
     if (!path)
         return -KERR_INVAL;
 
+    memset(p_path, 0, sizeof(*p_path));
+
     n_subpath = NULL;
 
     /* Scan the path */
@@ -158,6 +160,7 @@ int oss_destroy_path(oss_path_t* path)
     for (u32 i = 0; i < path->n_subpath; i++)
         kfree((void*)path->subpath_vec[i]);
 
-    kfree(path->subpath_vec);
+    if (path->subpath_vec)
+        kfree(path->subpath_vec);
     return 0;
 }

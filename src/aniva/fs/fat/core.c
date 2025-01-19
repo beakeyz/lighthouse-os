@@ -11,7 +11,7 @@
 #include "lightos/api/filesystem.h"
 #include "logging/log.h"
 #include "mem/heap.h"
-#include "oss/path.h"
+#include "oss/object.h"
 #include <libk/stddef.h>
 
 /* Driver predefinitions */
@@ -471,6 +471,7 @@ int fat32_write_clusters(fs_root_object_t* fsroot, uint8_t* buffer, struct fat_f
 
     fat_dir_entry_t* dir_entry = (fat_dir_entry_t*)((uintptr_t)cluster_buffer + ffile->direntry_offset);
 
+    /* Read the dir entry of this file */
     if (fat32_read_clusters(fsroot, cluster_buffer, ffile, ffile->direntry_cluster, 1))
         goto free_and_exit;
 
@@ -698,68 +699,40 @@ fail_dealloc_cchain:
 }
 
 /*!
- * @brief: Open a file direntry on the fat filesystem
+ * @brief: Updates the cluster chain cache of a fat file
  */
-oss_object_t* __fat_open(dir_t* dir, const char* path)
+static error_t fat_file_update_cluster_chain(fat_file_t* fat_file, fat_dir_entry_t* current, u32 direntry_offset, u32 direntry_cluster)
 {
-    int error;
-    file_t* ret;
-    fat_file_t* fat_file;
-    fat_fs_info_t* info;
-    fat_dir_entry_t current;
+    error_t error;
     fs_root_object_t* fsroot;
-    oss_path_t oss_path;
 
-    u32 direntry_cluster;
-    u32 direntry_offset;
+    fsroot = fat_file_get_fsroot(fat_file);
 
-    if (!dir || !dir->fsroot || !path)
-        return nullptr;
+    if (!fsroot)
+        return -EINVAL;
 
-    fsroot = dir->fsroot;
-    info = GET_FAT_FSINFO(fsroot);
-    /* Copy the root entry copy =D */
-    current = info->root_entry_cpy;
-
-    oss_parse_path(path, &oss_path);
-
-    for (uintptr_t i = 0; i < oss_path.n_subpath; i++) {
-
-        /* Skip invalid subpaths */
-        if (!oss_path.subpath_vec[i])
-            continue;
-
-        /* Respect skip tokens */
-        if (oss_path.subpath_vec[i][0] == _OSS_PATH_SKIP)
-            continue;
-
-        /* Pre-cache the starting offset of the direntry we're searching in */
-        direntry_cluster = __fat32_dir_entry_get_start_cluster(&current);
-
-        /* Find the directory entry */
-        error = fat32_open_dir_entry(fsroot, &current, &current, oss_path.subpath_vec[i], &direntry_offset);
-
-        /* A single directory may have entries spanning over multiple clusters */
-        direntry_cluster += direntry_offset / info->cluster_size;
-        direntry_offset %= info->cluster_size;
-
-        if (error)
-            break;
-    }
-
-    /* Kill the path we don't need anymore */
-    oss_destroy_path(&oss_path);
+    /* Make sure the file knows about its cluster chain */
+    error = fat32_cache_cluster_chain(fsroot, fat_file, (current->first_cluster_low | ((uint32_t)current->first_cluster_hi << 16)));
 
     if (error)
-        return nullptr;
+        return error;
 
-    kernel_panic("[TODO] FATFS: Implement both dir and file opening");
+    /* Cache the offset of the clusterchain */
+    fat_file->clusterchain_offset = (current->first_cluster_low | ((uint32_t)current->first_cluster_hi << 16));
+    fat_file->direntry_offset = direntry_offset;
+    fat_file->direntry_cluster = direntry_cluster;
 
-    /*
-     * If we found our file (its not a directory) we can populate the file object and return it
-     */
-    if ((current.attr & (FAT_ATTR_DIR | FAT_ATTR_VOLUME_ID)) == FAT_ATTR_DIR)
-        return nullptr;
+    return 0;
+}
+
+static oss_object_t* __fat_open_file(fs_root_object_t* fsroot, dir_t* dir, const char* path, fat_dir_entry_t* current, u32 direntry_offset, u32 direntry_cluster)
+{
+    error_t error;
+    fat_file_t* fat_file;
+    fat_fs_info_t* info;
+    file_t* ret;
+
+    info = GET_FAT_FSINFO(fsroot);
 
     /* Create the fat directory once we've found it exists */
     ret = create_fat_file(info, NULL, path);
@@ -770,27 +743,105 @@ oss_object_t* __fat_open(dir_t* dir, const char* path)
     fat_file = ret->m_private;
 
     if (!fat_file)
-        return nullptr;
+        goto destroy_and_exit;
 
-    /* Make sure the file knows about its cluster chain */
-    error = fat32_cache_cluster_chain(fsroot, fat_file, (current.first_cluster_low | ((uint32_t)current.first_cluster_hi << 16)));
+    error = fat_file_update_cluster_chain(fat_file, current, direntry_offset, direntry_cluster);
 
     if (error)
         goto destroy_and_exit;
 
     ret->m_total_size = get_fat_file_size(fat_file);
-    ret->m_logical_size = current.size;
-
-    /* Cache the offset of the clusterchain */
-    fat_file->clusterchain_offset = (current.first_cluster_low | ((uint32_t)current.first_cluster_hi << 16));
-    fat_file->direntry_offset = direntry_offset;
-    fat_file->direntry_cluster = direntry_cluster;
+    ret->m_logical_size = current->size;
 
     return ret->m_obj;
 
 destroy_and_exit:
     oss_object_close(ret->m_obj);
     return nullptr;
+}
+
+static oss_object_t* __fat_open_dir(fs_root_object_t* fsroot, dir_t* dir, const char* path, fat_dir_entry_t* current, u32 direntry_offset, u32 direntry_cluster)
+{
+    error_t error;
+    fat_file_t* fat_file;
+    fat_fs_info_t* info;
+    dir_t* ret;
+
+    info = GET_FAT_FSINFO(fsroot);
+
+    ret = create_fat_dir(info, NULL, path);
+
+    if (!ret)
+        return nullptr;
+
+    fat_file = ret->priv;
+
+    /* Cache the cluster chain information of this fat file */
+    error = fat_file_update_cluster_chain(fat_file, current, direntry_offset, direntry_cluster);
+
+    if (error)
+        goto destroy_and_exit;
+
+    /* Update this guys directory entries */
+    // fat_file_update_dir_entries(fat_file);
+
+    // kernel_panic("FAT");
+    return ret->object;
+
+destroy_and_exit:
+    oss_object_close(ret->object);
+    return nullptr;
+}
+
+/*!
+ * @brief: Open a file direntry on the fat filesystem
+ */
+oss_object_t* __fat_open(dir_t* dir, const char* path)
+{
+    int error;
+    fat_file_t* dir_ffile;
+    fat_fs_info_t* info;
+    fat_dir_entry_t current;
+    fs_root_object_t* fsroot;
+
+    u32 direntry_cluster;
+    u32 direntry_offset;
+
+    if (!dir || !dir->fsroot || !path)
+        return nullptr;
+
+    fsroot = dir->fsroot;
+    info = GET_FAT_FSINFO(fsroot);
+    dir_ffile = dir->priv;
+    /* Copy the root entry copy =D */
+    current = (fat_dir_entry_t) {
+        .first_cluster_low = dir_ffile->clusterchain_offset & 0xffff,
+        .first_cluster_hi = (dir_ffile->clusterchain_offset >> 16) & 0xffff,
+        .attr = FAT_ATTR_DIR,
+    };
+
+    /* Pre-cache the starting offset of the direntry we're searching in */
+    direntry_cluster = __fat32_dir_entry_get_start_cluster(&current);
+
+    // KLOG_DBG("Trying to open fat dir entry: %s\n", path);
+
+    /* Find the directory entry */
+    error = fat32_open_dir_entry(fsroot, &current, &current, (char*)path, &direntry_offset);
+
+    /* A single directory may have entries spanning over multiple clusters */
+    direntry_cluster += direntry_offset / info->cluster_size;
+    direntry_offset %= info->cluster_size;
+
+    if (error)
+        return nullptr;
+
+    /*
+     * If we found our file (its not a directory) we can populate the file object and return it
+     */
+    if ((current.attr & (FAT_ATTR_DIR | FAT_ATTR_VOLUME_ID)) == FAT_ATTR_DIR)
+        return __fat_open_dir(fsroot, dir, path, &current, direntry_offset, direntry_cluster);
+
+    return __fat_open_file(fsroot, dir, path, &current, direntry_offset, direntry_cluster);
 }
 
 /*
@@ -802,6 +853,7 @@ oss_object_t* fat32_mount(fs_type_t* type, const char* mountpoint, volume_t* dev
     /* Get FAT =^) */
     fs_root_object_t* fsroot;
     fat_fs_info_t* ffi;
+    fat_file_t* root_file;
     uint8_t buffer[device->info.logical_sector_size];
     fat_boot_sector_t* boot_sector;
     fat_boot_fsinfo_t* internal_fs_info;
@@ -891,6 +943,12 @@ oss_object_t* fat32_mount(fs_type_t* type, const char* mountpoint, volume_t* dev
         .attr = FAT_ATTR_DIR,
         0
     };
+
+    /* Allocate a fat file for the root */
+    root_file = allocate_fat_file(fsroot->rootdir, FFILE_TYPE_DIR);
+
+    /* Update the root files stuff */
+    fat_file_update_cluster_chain(root_file, &ffi->root_entry_cpy, 0, boot_sector->fat32.root_cluster);
 
     /* NOTE: we reuse the buffer of the boot sector */
     if (!volume_bread(device, 1, buffer, 1))

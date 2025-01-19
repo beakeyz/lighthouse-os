@@ -3,6 +3,7 @@
 #include "lightos/api/dynldr.h"
 #include "lightos/api/handle.h"
 #include "lightos/syscall.h"
+#include "logging/log.h"
 #include "mem/kmem.h"
 #include "proc/handle.h"
 #include "proc/hdrv/driver.h"
