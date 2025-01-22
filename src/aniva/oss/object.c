@@ -63,7 +63,7 @@ oss_object_t* create_oss_object(const char* key, u16 flags, enum OSS_OBJECT_TYPE
     obj->key = strdup(key);
     obj->connections = init_list();
     obj->lock = create_mutex(NULL);
-    obj->nr_references = 1;
+    obj->nr_references = 0;
     obj->ops = ops;
     obj->type = type;
     obj->flags = flags;
@@ -160,11 +160,13 @@ error_t oss_object_close_connections(oss_object_t* object)
         /* Grab the connection this node holds */
         c_conn = c_conn_node->data;
 
+        KLOG_DBG("%s: Clearing connection from %s to %s\n", object->key, c_conn->parent->key, c_conn->child->key);
+
         /* This would be weird */
-        ASSERT(oss_connection_is_downstream(c_conn, object));
+        ASSERT_MSG(oss_connection_is_downstream(c_conn, object), "Weird upstream connection in oss_object_close_connections");
 
         /* Try to kill this connection */
-        error = oss_object_close(c_conn->child);
+        error = oss_object_disconnect(object, c_conn->child);
 
         if (error)
             return error;
@@ -319,8 +321,6 @@ error_t oss_object_disconnect(oss_object_t* parent, oss_object_t* child)
     error_t error;
     oss_connection_t* parent_conn;
 
-    KLOG_DBG("Doing discon of %s\n", child->key);
-
     /* Try to prepare for this disconnect */
     error = __oss_object_prep_disconnect(parent, child, &parent_conn);
 
@@ -332,15 +332,12 @@ error_t oss_object_disconnect(oss_object_t* parent, oss_object_t* child)
     if (parent->ops->f_Disconnect)
         error = parent->ops->f_Disconnect(parent, child);
 
-    KLOG_DBG("Did discon call of %s\n", child->key);
-
     /*
      * If we couldn't actually disconnect on the backend, just dip lol
      */
     if (IS_FATAL(error))
         return error;
 
-    KLOG_DBG("actual discon call of %s\n", child->key);
     /* Call the pertaining disconnection function for the subsystem */
     return oss_disconnect(parent_conn);
 }

@@ -191,7 +191,7 @@ oss_object_t* fsroot_mount(oss_object_t* object, fs_type_t* fstype, const char* 
     return fsroot_obj;
 }
 
-error_t fsroot_unmount(fs_root_object_t* fsroot)
+error_t fsroot_unmount(oss_object_t* connector, fs_root_object_t* fsroot)
 {
     error_t error;
     oss_object_t* object;
@@ -201,24 +201,35 @@ error_t fsroot_unmount(fs_root_object_t* fsroot)
 
     object = fsroot->rootdir->object;
 
-    if (fsroot->m_type->f_unmount) {
+    /* We're going to temporarily reference this object */
+    oss_object_ref(object);
+
+    /* Try to disconnect. This releases the reference @connector has on @fsroot */
+    error = oss_object_disconnect(connector, object);
+
+    /* Throw the error */
+    if (error)
+        goto close_and_exit;
+
+    /*
+     * Do the filesystem unmounting
+     * FIXME: What do to if this fails?
+     */
+    if (fsroot->m_type->f_unmount)
         /* Call the unmount function on the fsroot */
         error = fsroot->m_type->f_unmount(fsroot->m_type, object);
 
-        if (error)
-            return error;
-    }
+    /* temporarily assert until we figure out how to solve this */
+    ASSERT_MSG(IS_OK(error), "fsroot_unmount: f_unmount failed");
 
+close_and_exit:
     /*
-     * Clear the remaining connections, which should decrease the
-     * object reference count back to zero, destroying the object
+     * Close the kernels object reference
+     * Might prompt object deletion
      */
-    oss_object_close_upstream_connections(object);
-
-    /* Close the kernels object reference */
     oss_object_close(object);
 
-    return 0;
+    return error;
 }
 
 static int __fsroot_object_purge(oss_object_t* object)

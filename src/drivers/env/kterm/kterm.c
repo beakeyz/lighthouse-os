@@ -786,6 +786,8 @@ int kterm_set_cwd(const char* path, struct oss_object* object)
         oss_object_close(_c_login.c_obj);
 
     _c_login.cwd = oss_object_get_abs_path(object);
+
+    sfmt((char*)_c_login.cwd, "%lld ", object->nr_references);
     //_c_login.cwd = "TODO: cwd";
     _c_login.c_obj = object;
     return 0;

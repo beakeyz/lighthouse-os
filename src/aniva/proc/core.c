@@ -9,6 +9,7 @@
 #include "oss/connection.h"
 #include "oss/core.h"
 #include "oss/object.h"
+#include "proc/exec/exec.h"
 #include "proc/hdrv/driver.h"
 #include "proc/proc.h"
 #include "proc/thread.h"
@@ -278,6 +279,9 @@ ANIVA_STATUS init_proc_core()
      * the software interaction with system objects.
      */
     init_khandle_drivers();
+
+    /* Initialize the aniva execution model */
+    init_aniva_execution();
 
     return ANIVA_SUCCESS;
 }

@@ -210,16 +210,16 @@ error_t oss_connect_fsroot(struct oss_object* parent, const char* mountpoint, co
     return 0;
 }
 
-error_t oss_disconnect_fsroot(struct oss_object* object)
+error_t oss_disconnect_fsroot(struct oss_object* connector, struct oss_object* fs)
 {
     dir_t* dir;
     fs_root_object_t* fsroot;
 
-    if (!object)
+    if (!fs)
         return -EINVAL;
 
     /* A fsroot object must always be a directory */
-    dir = oss_object_unwrap(object, OT_DIR);
+    dir = oss_object_unwrap(fs, OT_DIR);
 
     /* We can only call disconnect fsroot on the actual root dir */
     if (!dir || !dir->fsroot || (dir->flags & DIR_FSROOT) != DIR_FSROOT)
@@ -228,7 +228,7 @@ error_t oss_disconnect_fsroot(struct oss_object* object)
     fsroot = dir->fsroot;
 
     /* Unmount the fsroot object */
-    return fsroot_unmount(fsroot);
+    return fsroot_unmount(connector, fsroot);
 }
 
 static oss_object_ops_t root_object_ops = {

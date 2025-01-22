@@ -474,14 +474,7 @@ void destroy_proc(proc_t* proc)
      * This releases the object reference that the process core has gained
      * when a process gets registered
      */
-    KLOG_DBG("PRocess still has %d references left\n", proc->obj->nr_references);
     ASSERT_MSG(proc_unregister(proc) == 0, "Failed to unregister proc");
-
-    KLOG_DBG("PRocess still has %d references left\n", proc->obj->nr_references);
-    /* Release the processes object reference */
-    oss_object_close(proc->obj);
-
-    KLOG_DBG("PRocess still has %d references left\n", proc->obj->nr_references);
 }
 
 static bool _await_proc_term_hook_condition(kevent_ctx_t* ctx, void* param)

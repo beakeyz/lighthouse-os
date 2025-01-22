@@ -617,7 +617,7 @@ static bool try_mount_root(volume_t* device)
 
         // vfs_unmount(VFS_ROOT_ID"/"VFS_DEFAULT_ROOT_MP);
         /* Detach the node first */
-        oss_disconnect_fsroot(c_object);
+        oss_disconnect_fsroot(storage_object, c_object);
     }
 
     /* Failed to scan for filesystem */
@@ -713,7 +713,7 @@ void init_root_volume()
     ASSERT(oss_open_object("Storage/" FS_DEFAULT_ROOT_MP, &initial_ramfs_node) == 0);
 
     /* Disconnect this guy */
-    oss_disconnect_fsroot(initial_ramfs_node);
+    oss_disconnect_fsroot(storage_object, initial_ramfs_node);
 
     /* Debug assert to ensure the initial ramfs node is successfully disconnected */
     ASSERT(oss_open_object("Storage/Root/System", &initial_ramfs_node) != 0);
