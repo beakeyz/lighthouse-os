@@ -764,32 +764,21 @@ bool kterm_is_logged_in()
  */
 int kterm_set_cwd(const char* path, struct oss_object* object)
 {
-    /*
-    if (!node)
-        error = oss_resolve_node(path, &node);
-
-    if (error)
-        return error;
-
-    error = oss_node_get_path(node, &_c_login.cwd);
-
-    if (error)
-        return error;
-        */
+    size_t cwd_len = sizeof _c_login.cwd;
 
     ASSERT_MSG(object, "TODO: (kterm_set_cdw) Resolve from path");
-
-    if (_c_login.cwd)
-        kfree((void*)_c_login.cwd);
 
     if (_c_login.c_obj)
         oss_object_close(_c_login.c_obj);
 
-    _c_login.cwd = oss_object_get_abs_path(object);
-
-    sfmt((char*)_c_login.cwd, "%lld ", object->nr_references);
-    //_c_login.cwd = "TODO: cwd";
+    /* Set the current object */
     _c_login.c_obj = object;
+
+    /* Check if we can get this path into our cwd buffer */
+    if (oss_object_get_abs_path(object, _c_login.cwd, &cwd_len))
+        /* Nope, Just copy in the default */
+        strcpy(_c_login.cwd, "[Path too long] ");
+
     return 0;
 }
 
@@ -843,10 +832,6 @@ int kterm_set_login(user_profile_t* profile)
         return 0;
     }
 
-    if (!_c_login.cwd)
-        return -1;
-
-    kfree((void*)_c_login.cwd);
     return 0;
 }
 
@@ -1692,7 +1677,7 @@ static void kterm_handle_newline_tag()
     kterm_print("$ ");
 
     /* Print the current working directory if we have that */
-    if (_c_login.cwd) {
+    if (_c_login.cwd[0]) {
         kterm_set_print_color(0);
 
         kterm_print(_c_login.cwd);

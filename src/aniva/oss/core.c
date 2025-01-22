@@ -14,6 +14,13 @@
 
 static hashmap_t* root_objects;
 static mutex_t* oss_lock;
+/*
+ * Generic oss object by default don't implement any
+ * oss methods
+ */
+static oss_object_ops_t __generic_oss_object_ops = {
+    NULL,
+};
 
 static const char* __root_object_keys[] = {
     [ORT_STORAGE_MAIN] = "Storage",
@@ -231,9 +238,10 @@ error_t oss_disconnect_fsroot(struct oss_object* connector, struct oss_object* f
     return fsroot_unmount(connector, fsroot);
 }
 
-static oss_object_ops_t root_object_ops = {
-    NULL
-};
+struct oss_object_ops* oss_get_generic_ops()
+{
+    return &__generic_oss_object_ops;
+}
 
 /*!
  * @brief: Create OSS root node registry
@@ -242,16 +250,19 @@ void init_oss()
 {
     oss_object_t* c_obj;
 
+    /* Initialize the actual oss */
     init_oss_objects();
     init_oss_connections();
 
+    /* Create supplementary objects */
     root_objects = create_hashmap(MAX_OSS_ROOT_OBJS, NULL);
     oss_lock = create_mutex(NULL);
 
+    /* Create the root objects */
     for (u32 i = 0; i < arrlen(__root_object_keys); i++) {
-        c_obj = create_oss_object(__root_object_keys[i], NULL, OT_GENERIC, &root_object_ops, NULL);
+        c_obj = create_oss_object(__root_object_keys[i], NULL, OT_GENERIC, &__generic_oss_object_ops, NULL);
 
-        /* Register  */
+        /* Register */
         oss_connect_root_object(c_obj);
     }
 }

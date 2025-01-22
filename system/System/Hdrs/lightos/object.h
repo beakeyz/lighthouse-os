@@ -17,6 +17,13 @@ error_t CloseObject(Object* obj);
 bool ObjectIsValid(Object* obj);
 
 /*!
+ * @brief: Attempts to set the type of @obj to a new type
+ *
+ * Only works if @obj is a generic and unconnected object
+ */
+error_t ObjectSetType(Object* obj, enum OSS_OBJECT_TYPE newtype);
+
+/*!
  * @brief: Read from an object
  */
 error_t ObjectRead(Object* obj, u64 offset, void* buffer, size_t size);

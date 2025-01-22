@@ -629,9 +629,14 @@ static bool try_mount_root(volume_t* device)
 
 static int maybe_set_bootdevice(volume_t* device)
 {
+    /*
+     * Create a path buffer
+     * WATCH OUT FOR STACK OVERFLOWS
+     */
+    char path_buff[124] = { 0 };
     int error = -KERR_INVAL;
     size_t bootdev_sz;
-    const char* path;
+    size_t path_buff_len = sizeof path_buff;
 
     /* If we already found a boot volume, we dont need to set it again */
     if (boot_volume)
@@ -659,14 +664,13 @@ static int maybe_set_bootdevice(volume_t* device)
     sysvar_t* sysvar;
     user_profile_t* profile = get_admin_profile();
 
-    path = oss_object_get_abs_path(device->dev->obj);
-
-    if (!path)
+    /* Try to get the absolute path of this object */
+    if (oss_object_get_abs_path(device->dev->obj, path_buff, &path_buff_len))
         return -1;
 
     /* Set the path */
-    sysvar_values[0].val = (void*)path;
-    sysvar_values[1].sz = strlen(path);
+    sysvar_values[0].val = (void*)path_buff;
+    sysvar_values[1].sz = strlen(path_buff);
 
     for (u32 i = 0; i < 3; i++) {
         sysvar = sysvar_get(profile->object, sysvar_names[i]);
@@ -687,7 +691,6 @@ static int maybe_set_bootdevice(volume_t* device)
     error = 0;
 free_and_exit:
     // KLOG_DBG("maybe_set_bootdevice status: %d\n", error);
-    kfree((void*)path);
     return error;
 }
 

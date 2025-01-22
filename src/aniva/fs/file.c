@@ -157,6 +157,9 @@ file_t* create_file(fs_root_object_t* fsroot, uint32_t flags, const char* key)
     if (!ret)
         return nullptr;
 
+    /* Clear the file buffer */
+    memset(ret, 0, sizeof(file_t));
+
     ret->m_flags = flags;
     ret->fsroot = fsroot;
     ret->m_obj = create_oss_object(key, NULL, OT_FILE, &file_oss_ops, ret);

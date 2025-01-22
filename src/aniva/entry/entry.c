@@ -216,6 +216,11 @@ static kerror_t _start_subsystems(void)
 
     KLOG_INFO("Initialized aniva buffers\n");
 
+    /* Initialize OSS */
+    init_oss();
+
+    KLOG_INFO("Initialized oss\n");
+
     // Initialize kevent
     init_kevents();
 
@@ -225,11 +230,6 @@ static kerror_t _start_subsystems(void)
     init_pci_early();
 
     KLOG_INFO("Initialized pci space\n");
-
-    /* Initialize OSS */
-    init_oss();
-
-    KLOG_INFO("Initialized oss\n");
 
     /* Initialize the filesystem core */
     init_fs_core();

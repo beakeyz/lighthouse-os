@@ -5,6 +5,7 @@
 #include "lightos/api/objects.h"
 #include "oss/connection.h"
 #include "sync/mutex.h"
+#include <libk/string.h>
 
 struct oss_object;
 
@@ -126,14 +127,41 @@ static inline void* oss_object_unwrap(oss_object_t* object, enum OSS_OBJECT_TYPE
     return object->private;
 }
 
+static inline bool oss_object_implements_any_method(oss_object_t* object)
+{
+    oss_object_ops_t unimplemented_ops = { NULL };
+
+    /* Check if all the fields inside object->ops are cleared. If that's not the case, this object implements at least one method */
+    return (object && object->ops != NULL && (memcmp(object->ops, &unimplemented_ops, sizeof(unimplemented_ops)) == false));
+}
+
+static inline size_t oss_object_get_nr_connections(oss_object_t* object)
+{
+    return (object && object->connections) ? object->connections->m_length : 0;
+}
+
+static inline bool oss_object_can_set_type(oss_object_t* object)
+{
+    /*
+     * Objects without a type can always have their type set. If
+     * a generic object doesn't yet have a private field, it can also be
+     * transformed.
+     *
+     * An object also can't be connected to any other object (either upstream or downstream) if
+     * we want to transform it's type
+     */
+    return (object && oss_object_get_nr_connections(object) == 0 && (object->type == OT_NONE || object->type == OT_GENERIC) && NULL == object->private && !oss_object_implements_any_method(object));
+}
+
 oss_object_t* create_oss_object(const char* key, u16 flags, enum OSS_OBJECT_TYPE type, oss_object_ops_t* ops, void* private);
 
 /* Take an object, increase the reference count */
 error_t oss_object_ref(oss_object_t* object);
 /* Release an object, decrease the reference count, maybe destroy the object */
 error_t oss_object_unref(oss_object_t* object);
+error_t oss_object_move_ref(oss_object_t* deref, oss_object_t* ref);
 
-error_t oss_object_settype(oss_object_t* object, enum OSS_OBJECT_TYPE type);
+error_t oss_object_settype(oss_object_t* object, enum OSS_OBJECT_TYPE type, oss_object_t** presult);
 error_t oss_object_rename(oss_object_t* object, const char* new_key);
 error_t oss_object_close_connections(oss_object_t* object);
 error_t oss_object_close_upstream_connections(oss_object_t* object);
@@ -153,7 +181,7 @@ error_t oss_object_open(oss_object_t* this, const char* key, oss_object_t** pobj
 error_t oss_object_close(oss_object_t* this);
 error_t oss_object_flush(oss_object_t* this);
 
-const char* oss_object_get_abs_path(oss_object_t* object);
+error_t oss_object_get_abs_path(oss_object_t* object, char* buffer, size_t* p_bsize);
 
 void init_oss_objects();
 

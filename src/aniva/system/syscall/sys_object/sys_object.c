@@ -25,6 +25,7 @@ enum OSS_OBJECT_TYPE sys_get_object_type(HANDLE handle)
 enum OSS_OBJECT_TYPE sys_set_object_type(HANDLE handle, enum OSS_OBJECT_TYPE ptype)
 {
     khandle_t* khandle;
+    oss_object_t* result;
     proc_t* c_proc;
 
     if (!ptype)
@@ -37,11 +38,12 @@ enum OSS_OBJECT_TYPE sys_set_object_type(HANDLE handle, enum OSS_OBJECT_TYPE pty
     if (!khandle || khandle->type != HNDL_TYPE_OBJECT)
         return OT_INVALID;
 
-    if (khandle->object->type != OT_NONE)
-        return OT_ALREADY_SET;
-
     /* Tries to set the type */
-    (void)oss_object_settype(khandle->object, ptype);
+    if (oss_object_settype(khandle->object, ptype, &result))
+        return OT_COULDNT_SET;
+
+    /* Set the new object in the handle */
+    khandle->object = result;
 
     /* Return the resulting object type */
     return khandle->object->type;

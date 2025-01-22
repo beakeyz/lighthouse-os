@@ -14,7 +14,6 @@
 #include "system/sysvar/var.h"
 
 struct loader_ctx {
-    const char* path;
     struct elf64_hdr* hdr;
     struct elf64_shdr* shdrs;
     char* section_strings;
@@ -23,6 +22,7 @@ struct loader_ctx {
     size_t size;
     size_t sym_count;
 
+    char path[124];
     uint32_t expdrv_idx, deps_idx, symtab_idx;
 };
 
@@ -496,6 +496,7 @@ driver_t* load_external_driver_ex(file_t* file)
     kerror_t error;
     uintptr_t driver_load_base;
     size_t read_size;
+    size_t path_len;
     driver_t* out;
     struct loader_ctx ctx = { 0 };
 
@@ -525,15 +526,16 @@ driver_t* load_external_driver_ex(file_t* file)
     if (!read_size)
         goto fail_and_deallocate;
 
+    /* Grab the size of the context path variable */
+    path_len = sizeof ctx.path;
+
     ctx.hdr = (struct elf64_hdr*)driver_load_base;
     ctx.size = read_size;
     ctx.driver = out;
-    /* NOTE: This strdups the full path */
-    ctx.path = oss_object_get_abs_path(file->m_obj);
+    /* First grab the length we need for this path */
+    oss_object_get_abs_path(file->m_obj, ctx.path, &path_len);
 
     error = __load_ext_driver(&ctx, false);
-
-    kfree((void*)ctx.path);
 
     if ((error))
         goto fail_and_deallocate;
@@ -605,7 +607,8 @@ driver_t* install_external_driver(const char* path)
     ctx.hdr = (struct elf64_hdr*)driver_load_base;
     ctx.size = read_size;
     ctx.driver = driver;
-    ctx.path = path;
+    /* Copy until the ctx path buffer is full */
+    strncpy(ctx.path, path, sizeof(ctx.path) - 1);
 
     /* Init the external driver with install-only enabled */
     error = __load_ext_driver(&ctx, true);

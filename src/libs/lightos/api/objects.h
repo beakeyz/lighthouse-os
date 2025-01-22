@@ -10,7 +10,7 @@
  */
 
 enum OSS_OBJECT_TYPE {
-    OT_ALREADY_SET = -2,
+    OT_COULDNT_SET = -2,
     OT_INVALID = -1,
     OT_NONE,
     OT_FILE,

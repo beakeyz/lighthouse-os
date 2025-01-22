@@ -1,4 +1,5 @@
 #include "lightos/api/handle.h"
+#include "lightos/api/objects.h"
 #include "logging/log.h"
 #include "oss/core.h"
 #include "oss/object.h"
@@ -13,6 +14,25 @@ static int oss_object_khdrv_open(struct khandle_driver* driver, const char* path
     switch (mode) {
     case HNDL_MODE_NORMAL:
         error = oss_open_object(path, &object);
+        break;
+    case HNDL_MODE_CREATE:
+        error = oss_open_object(path, &object);
+
+        if (EOK == error)
+            break;
+
+    case HNDL_MODE_CREATE_NEW:
+        /* Create a new object for this process */
+        object = create_oss_object(path, NULL, OT_GENERIC, oss_get_generic_ops(), NULL);
+
+        if (!object)
+            return -ENOMEM;
+
+        /*
+         * Need to take a reference, as this process will otherwise hold a loose
+         * oss object
+         */
+        oss_object_ref(object);
         break;
     default:
         return -ENOIMPL;

@@ -12,6 +12,7 @@
 
 struct volume;
 struct oss_object;
+struct oss_object_ops;
 
 void init_oss();
 void oss_test();
@@ -40,5 +41,6 @@ error_t oss_try_remove_object(struct oss_object* obj);
 
 /* Gets the last oss_path entry pretty much lol */
 const char* oss_get_endpoint_key(const char* path);
+struct oss_object_ops* oss_get_generic_ops();
 
 #endif // !__ANIVA_OSS_CORE__

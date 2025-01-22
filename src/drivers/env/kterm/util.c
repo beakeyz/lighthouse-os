@@ -311,17 +311,19 @@ uint32_t kterm_cmd_diskinfo(const char** argv, size_t argc)
         return 2;
     }
 
-    const char* path = oss_object_get_abs_path(device->dev->obj);
+    char path_buff[128];
+    size_t path_buff_len = sizeof(path_buff);
+
+    /* Try to get the path */
+    oss_object_get_abs_path(device->dev->obj, path_buff, &path_buff_len);
 
     kterm_print_keyvalue("Disk name", device->info.label);
-    kterm_print_keyvalue("Disk path", path);
+    kterm_print_keyvalue("Disk path", path_buff);
     kterm_print_keyvalue("Disk logical sector size", to_string(device->info.logical_sector_size));
     kterm_print_keyvalue("Disk physical sector size", to_string(device->info.physical_sector_size));
     kterm_print_keyvalue("Disk size", to_string(device->info.max_offset));
     kterm_print_keyvalue("Disk partition type", device->info.type == VOLUME_TYPE_GPT ? "gpt" : (device->info.type == VOLUME_TYPE_MBR ? "mbr" : "unknown"));
     kterm_print_keyvalue("Disk partition count", to_string(device->nr_volumes));
-
-    kfree((void*)path);
 
     this_part = device->vec_volumes;
 

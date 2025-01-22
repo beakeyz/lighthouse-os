@@ -1,4 +1,6 @@
 #include "object.h"
+#include "fs/dir.h"
+#include "fs/file.h"
 #include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"
 #include "lightos/api/objects.h"
@@ -98,14 +100,70 @@ error_t oss_object_unref(oss_object_t* object)
     return 0;
 }
 
+error_t oss_object_move_ref(oss_object_t* deref, oss_object_t* ref)
+{
+    /* If these guys are the same object, we don't have to do shit */
+    if (deref == ref)
+        return 0;
+
+    /* If deref has no references, ref also gets no references */
+    if (!deref->nr_references)
+        return 0;
+
+    /* First, reference @ref on behalf of @deref */
+    oss_object_ref(ref);
+    /* Then, unreference @deref as a result of the reference transfer */
+    return oss_object_unref(deref);
+}
+
 /*!
  * @brief: Tries to set an objects type
  *
- *
+ * @presult: Some transformations require us to create a new object
  */
-error_t oss_object_settype(oss_object_t* object, enum OSS_OBJECT_TYPE type)
+error_t oss_object_settype(oss_object_t* object, enum OSS_OBJECT_TYPE type, oss_object_t** presult)
 {
-    kernel_panic("TODO: Implement object type transforms");
+    /* Union to represent all the possible object we can transform into */
+    union {
+        file_t* file;
+        dir_t* dir;
+    } new_obj_child;
+    oss_object_t* new_object = NULL;
+
+    /* Also checks null */
+    if (oss_object_can_set_type(object) || !presult)
+        return -EINVAL;
+
+    /* Switch over the types we know to transform to */
+    switch (type) {
+    case OT_FILE:
+        /* We know there aren't any connections, so we can just create a new file and let it replace @object */
+        new_obj_child.file = create_file(NULL, NULL, object->key);
+
+        if (!new_obj_child.file)
+            return -ENOMEM;
+
+        /* Export the new object */
+        new_object = new_obj_child.file->m_obj;
+        break;
+    case OT_DIR:
+        new_obj_child.dir = create_dir(object->key, NULL, NULL, NULL, NULL);
+
+        if (!new_obj_child.dir)
+            return -ENOMEM;
+
+        new_object = new_obj_child.dir->object;
+        break;
+    default:
+        return -ENOIMPL;
+    }
+
+    /* Reference this object */
+    oss_object_move_ref(object, new_object);
+
+    /* Export the new object */
+    *presult = new_object;
+
     return 0;
 }
 
@@ -606,14 +664,16 @@ static int __walk_oss_obj_upstream_conn_recurs(oss_object_t* object, list_t* sub
  *         left, to create the absolute path
  *
  */
-const char* oss_object_get_abs_path(oss_object_t* object)
+error_t oss_object_get_abs_path(oss_object_t* object, char* buffer, size_t* p_bsize)
 {
-    char* buffer;
     char* write_head;
     u32 needed_bsize;
     u32 c_strlen;
     oss_object_t* c_object;
     list_t* subpath_list = init_list();
+
+    if (!object || !p_bsize)
+        return -EINVAL;
 
     KLOG_DBG("Trying to find abs path for object %s\n", object->key);
 
@@ -623,7 +683,7 @@ const char* oss_object_get_abs_path(oss_object_t* object)
     /* If this guy fails, we couldn't find an absolute path for this object */
     if (__walk_oss_obj_upstream_conn_recurs(object, subpath_list, &needed_bsize)) {
         destroy_list(subpath_list);
-        return nullptr;
+        return -EINVAL;
     }
 
     /* Lastly, append the object itself to the subpath list */
@@ -631,7 +691,17 @@ const char* oss_object_get_abs_path(oss_object_t* object)
 
     KLOG_DBG("Need a buffer of size: %lld\n", needed_bsize);
 
-    buffer = kmalloc(needed_bsize);
+    /* Check if the provided buffer is sufficient. (It also needs to fit the null byte) */
+    if ((*p_bsize) < needed_bsize) {
+        /* Notify the caller of the needed size for this object */
+        *p_bsize = needed_bsize;
+        return -ENOSPC;
+    }
+
+    if (!buffer)
+        return -EINVAL;
+
+    /* Initialize the write head */
     write_head = buffer;
 
     /* Walk the subpath list to append each part */
@@ -657,7 +727,7 @@ const char* oss_object_get_abs_path(oss_object_t* object)
     // kernel_panic("TODO: Test oss_object_get_abs_path");
 
     /* We're done */
-    return buffer;
+    return 0;
 }
 
 void init_oss_objects()

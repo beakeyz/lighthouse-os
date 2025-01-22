@@ -96,6 +96,14 @@ bool ObjectIsValid(Object* obj)
     return (obj && obj->type && handle_verify(obj->handle) == 0);
 }
 
+error_t ObjectSetType(Object* obj, enum OSS_OBJECT_TYPE newtype)
+{
+    if (!obj)
+        return -EINVAL;
+
+    return sys_set_object_type(obj->handle, newtype);
+}
+
 error_t ObjectRead(Object* obj, u64 offset, void* buffer, size_t size)
 {
     if (!ObjectIsValid(obj))
