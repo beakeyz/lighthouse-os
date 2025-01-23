@@ -6,15 +6,25 @@
 #include <lightos/types.h>
 
 /* Control functions for getting access to objects */
-Object CreateObject(const char* key, u16 flags, enum OSS_OBJECT_TYPE type);
-Object OpenObject(const char* path, u32 hndl_flags, enum HNDL_MODE mode);
-Object OpenObjectFrom(Object* rel, const char* path, u32 hndl_flags, enum HNDL_MODE mode);
+Object* CreateObject(const char* key, u16 flags, enum OSS_OBJECT_TYPE type);
+Object* OpenObject(const char* path, u32 hndl_flags, enum HNDL_MODE mode);
+Object* OpenObjectFrom(Object* rel, const char* path, u32 hndl_flags, enum HNDL_MODE mode);
+Object* OpenObjectFromIdx(Object* rel, u32 idx, u32 hndl_flags, enum HNDL_MODE mode);
 error_t CloseObject(Object* obj);
 
 /*!
  * @brief: Checks if an object is actually valid
  */
 bool ObjectIsValid(Object* obj);
+
+static inline Object InvalidObject()
+{
+    return (Object) {
+        .handle = HNDL_INVAL,
+        .type = OT_INVALID,
+        .key = "__inval__"
+    };
+}
 
 /*!
  * @brief: Attempts to set the type of @obj to a new type

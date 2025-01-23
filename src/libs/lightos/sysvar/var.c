@@ -3,30 +3,31 @@
 #include "lightos/api/objects.h"
 #include "lightos/api/sysvar.h"
 #include "lightos/handle.h"
-#include "lightos/object.h"
 #include "lightos/proc/profile.h"
 #include "lightos/syscall.h"
+#include <stdlib.h>
 
 /* Handle to the current process object */
 static HANDLE __proc_handle;
 
 HANDLE open_sysvar_ex(HANDLE handle, char* key, u32 flags)
 {
-    Object object;
-    Object rel = { 0 };
+    HANDLE ret;
+    enum OSS_OBJECT_TYPE type;
 
-    if (!key)
+    ret = open_handle_from(handle, key, HNDL_TYPE_OBJECT, flags, NULL);
+
+    if (handle_verify(ret))
         return HNDL_INVAL;
 
-    /* Set the dummy object */
-    rel.handle = handle;
+    type = sys_get_object_type(ret);
 
-    object = OpenObjectFrom(&rel, key, flags, HNDL_MODE_NORMAL);
+    if (type != OT_SYSVAR) {
+        close_handle(ret);
+        return HNDL_INVAL;
+    }
 
-    if (object.type != OT_SYSVAR)
-        CloseObject(&object);
-
-    return object.handle;
+    return ret;
 }
 
 HANDLE open_sysvar(char* key, u32 flags)

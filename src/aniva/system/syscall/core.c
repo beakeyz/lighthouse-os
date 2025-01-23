@@ -18,10 +18,13 @@ static const sys_fn_t __syscall_map[] = {
     [SYSID_READ] = (sys_fn_t)sys_read,
     [SYSID_WRITE] = (sys_fn_t)sys_write,
     [SYSID_OPEN] = (sys_fn_t)sys_open,
+    [SYSID_OPEN_IDX] = (sys_fn_t)sys_open_idx,
     [SYSID_SEND_MSG] = (sys_fn_t)sys_send_msg,
 
     [SYSID_GET_OBJECT_TYPE] = (sys_fn_t)sys_get_object_type,
     [SYSID_SET_OBJECT_TYPE] = (sys_fn_t)sys_set_object_type,
+    [SYSID_GET_OBJECT_KEY] = (sys_fn_t)sys_get_object_key,
+    [SYSID_SET_OBJECT_KEY] = (sys_fn_t)sys_set_object_key,
 
     [SYSID_ALLOC_VMEM] = (sys_fn_t)sys_alloc_vmem,
     [SYSID_DEALLOC_VMEM] = (sys_fn_t)sys_dealloc_vmem,
@@ -37,7 +40,6 @@ static const sys_fn_t __syscall_map[] = {
     [SYSID_CREATE_SYSVAR] = (sys_fn_t)sys_create_sysvar,
 
     [SYSID_DIR_CREATE] = (sys_fn_t)sys_dir_create,
-    [SYSID_DIR_READ] = (sys_fn_t)sys_dir_read,
 
     [SYSID_SEEK] = (sys_fn_t)sys_seek,
     [SYSID_GET_PROCESSTIME] = (sys_fn_t)sys_get_process_time,

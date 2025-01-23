@@ -4,6 +4,7 @@
 #include "lightos/syscall.h"
 #include "stdlib.h"
 #include <lightos/api/objects.h>
+#include <stdio.h>
 #include <string.h>
 
 static enum OSS_OBJECT_TYPE __get_object_type(HANDLE handle)
@@ -16,58 +17,68 @@ static enum OSS_OBJECT_TYPE __set_and_get_object_type(HANDLE handle, enum OSS_OB
     return sys_set_object_type(handle, type);
 }
 
-static void __get_object_key(const char* path, char* kbuff, size_t kbuff_len)
+Object* CreateObject(const char* key, u16 flags, enum OSS_OBJECT_TYPE type)
 {
-    const char* ret = path + strlen(path);
+    Object* ret;
 
-    /* Find the last slash slash  */
-    do {
-        ret--;
-    } while (ret != path && *ret != '/');
+    if (!key)
+        return nullptr;
 
-    /* Since ret is now pointing at a '/', we need to add one, in order to point to the actual key */
-    strncpy(kbuff, ret + 1, kbuff_len);
-}
+    ret = malloc(sizeof(*ret));
 
-Object CreateObject(const char* key, u16 flags, enum OSS_OBJECT_TYPE type)
-{
-    Object ret = { 0 };
+    if (!ret)
+        return nullptr;
 
-    ret.handle = open_handle(key, HNDL_TYPE_OBJECT, HNDL_FLAG_RW, HNDL_MODE_CREATE_NEW);
+    memset(ret, 0, sizeof(*ret));
+
+    ret->handle = open_handle(key, HNDL_TYPE_OBJECT, HNDL_FLAG_RW, HNDL_MODE_CREATE_NEW);
 
     /* If the handle isn't valid, we can just dip */
-    if (handle_verify(ret.handle))
-        return ret;
+    if (handle_verify(ret->handle)) {
+        free(ret);
+        return nullptr;
+    }
 
     /* Set the object type */
-    ret.type = __set_and_get_object_type(ret.handle, type);
+    ret->type = __set_and_get_object_type(ret->handle, type);
 
     /* Copy the key */
-    strncpy((char*)&ret.key[0], key, sizeof(ret.key));
+    strncpy((char*)&ret->key[0], key, sizeof(ret->key));
 
     return ret;
 }
 
-Object OpenObject(const char* path, u32 hndl_flags, enum HNDL_MODE mode)
+Object* OpenObject(const char* path, u32 hndl_flags, enum HNDL_MODE mode)
 {
     return OpenObjectFrom(nullptr, path, hndl_flags, mode);
 }
 
-Object OpenObjectFrom(Object* rel, const char* path, u32 hndl_flags, enum HNDL_MODE mode)
+Object* OpenObjectFrom(Object* relative, const char* path, u32 hndl_flags, enum HNDL_MODE mode)
 {
-    Object ret = { 0 };
+    Object* ret;
 
-    if (rel)
-        ret.handle = open_handle_from(rel->handle, path, HNDL_TYPE_OBJECT, hndl_flags, mode);
+    ret = malloc(sizeof(*ret));
+
+    if (!ret) {
+        exit(696969);
+        return nullptr;
+    }
+
+    memset(ret, 0, sizeof(*ret));
+
+    if (relative)
+        ret->handle = open_handle_from(relative->handle, path, HNDL_TYPE_OBJECT, hndl_flags, mode);
     else
-        ret.handle = open_handle(path, HNDL_TYPE_OBJECT, hndl_flags, mode);
+        ret->handle = open_handle(path, HNDL_TYPE_OBJECT, hndl_flags, mode);
 
     /* If the handle isn't valid, we can just dip */
-    if (handle_verify(ret.handle))
-        return ret;
+    if (handle_verify(ret->handle)) {
+        free(ret);
+        return nullptr;
+    }
 
     /* Ask the kernel what the type of this object is */
-    ret.type = __get_object_type(ret.handle);
+    ret->type = __get_object_type(ret->handle);
 
     /*
      * Get the object key from the path.
@@ -75,18 +86,52 @@ Object OpenObjectFrom(Object* rel, const char* path, u32 hndl_flags, enum HNDL_M
      * in a path, so we can just scan the path from the back to
      * find the last path entry
      */
-    __get_object_key(path, (char*)&ret.key[0], sizeof(ret.key));
+    sys_get_object_key(ret->handle, (char*)&ret->key[0], sizeof(ret->key));
+
+    return ret;
+}
+
+Object* OpenObjectFromIdx(Object* relative, u32 idx, u32 hndl_flags, enum HNDL_MODE mode)
+{
+    Object* ret;
+
+    ret = malloc(sizeof(*ret));
+
+    if (!ret)
+        return nullptr;
+
+    memset(ret, 0, sizeof(*ret));
+
+    ret->handle = sys_open_idx(relative->handle, idx, handle_flags(hndl_flags, HNDL_TYPE_OBJECT, HNDL_INVAL));
+
+    /* Check if the handle is actually valid */
+    if (handle_verify(ret->handle))
+        return nullptr;
+
+    /* Try to get the object type */
+    ret->type = __get_object_type(ret->handle);
+
+    /* Try to get the object key */
+    sys_get_object_key(ret->handle, (char*)&ret->key[0], sizeof(ret->key));
 
     return ret;
 }
 
 error_t CloseObject(Object* obj)
 {
+    if (!obj)
+        return -EINVAL;
+
     if (close_handle(obj->handle))
         return -EINVAL;
 
+    memset(obj->key, 0, sizeof(obj->key));
+
     obj->type = OT_NONE;
     obj->handle = HNDL_INVAL;
+
+    /* Free this object */
+    free(obj);
 
     return 0;
 }

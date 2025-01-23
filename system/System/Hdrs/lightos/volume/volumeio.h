@@ -29,7 +29,7 @@ typedef struct lightos_volume {
     volume_id_t device_id;
 } lightos_volume_t;
 
-Object open_volume(const char* path, uint32_t flags, enum HNDL_MODE mode);
+Object* open_volume(const char* path, uint32_t flags, enum HNDL_MODE mode);
 void close_volume(Object* volume);
 
 /* Functions to interface with volumes on a low level */

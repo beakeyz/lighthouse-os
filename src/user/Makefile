@@ -2,7 +2,8 @@ USER_OUT=$(OUT)/user
 USER_SRC=$(SRC)/user
 
 # Define where the userapp sources are located
-USER_PATHS := ./init
+USER_PATHS := ./init \
+			  ./ls
 
 # Currently there is no process extention lmao
 export PROCESS_EXT=

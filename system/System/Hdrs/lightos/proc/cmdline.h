@@ -9,6 +9,7 @@
  * NOTE: These functions are implemented in cmdline.c
  */
 
+#include "lightos/lightos.h"
 #include <stdint.h>
 
 #define CMDLINE_VARNAME "CMDLINE"
@@ -23,11 +24,13 @@ typedef struct lightos_cmdline {
     uint32_t argc;
 } lightos_cmdline_t, CMDLINE;
 
-extern int cmdline_get_len(size_t* bsize);
-extern int cmdline_get_raw(char* buffer, size_t bsize);
-extern int cmdline_get(CMDLINE* b_cmdline);
+LEXPORT int cmdline_get_len(size_t* bsize);
+LEXPORT u32 cmdline_get_argc();
+LEXPORT const char* cmdline_get_arg(int argi);
+LEXPORT int cmdline_get_raw(char* buffer, size_t bsize);
+LEXPORT int cmdline_get(CMDLINE* b_cmdline);
 
-extern void cmdline_destroy(CMDLINE* cmdline);
+LEXPORT void cmdline_destroy(CMDLINE* cmdline);
 
 /*
  * LightOS process parameters

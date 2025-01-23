@@ -3,8 +3,8 @@
 
 #include <stdint.h>
 
-#define SYSVAR_PROCNAME "NAME"
 #define SYSVAR_CMDLINE "CMDLINE"
+#define SYSVAR_CWD "CWD"
 
 /* Sysvar ids for standard i/o */
 #define SYSVAR_STDIO_HANDLE_TYPE "STDIO-HANDLE"

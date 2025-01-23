@@ -57,6 +57,10 @@ typedef struct oss_object_ops {
      */
     int (*f_Open)(struct oss_object* this, const char* key, struct oss_object** p_child);
     /*
+     * Tries to open an object on @this using the index @idx
+     */
+    int (*f_OpenIdx)(struct oss_object* this, u32 idx, struct oss_object** p_child);
+    /*
      * Flushes all object buffers to their backing stores
      * any cached shit is flushed down and removed.
      */
@@ -73,6 +77,8 @@ typedef struct oss_object_ops {
      */
     // int (*f_Remove)(struct oss_object* this);
 } oss_object_ops_t;
+
+#define OSS_OBJECT_MAX_KEY_LEN 128
 
 /* This is the value of ->height if it hasn't been set yet */
 #define OSS_OBJECT_HEIGHT_NOTSET ((u32) - 1)
@@ -167,9 +173,10 @@ error_t oss_object_close_connections(oss_object_t* object);
 error_t oss_object_close_upstream_connections(oss_object_t* object);
 
 oss_connection_t* oss_object_get_connection(oss_object_t* object, const char* key);
+oss_connection_t* oss_object_get_connection_idx(oss_object_t* object, u32 idx);
 oss_connection_t* oss_object_get_connection_down(oss_object_t* object, const char* key);
 oss_connection_t* oss_object_get_connection_up(oss_object_t* object, const char* key);
-oss_connection_t* oss_object_get_connection_up_nr(oss_object_t* object, u32 idx);
+oss_connection_t* oss_object_get_connection_up_idx(oss_object_t* object, u32 idx);
 
 /* Interface functions for talking with oss objects */
 error_t oss_object_connect(oss_object_t* parent, oss_object_t* child);

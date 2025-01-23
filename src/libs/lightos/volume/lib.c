@@ -9,21 +9,24 @@
 #include <lightos/lightos.h>
 #include <stdlib.h>
 
-Object open_volume(const char* path, uint32_t flags, enum HNDL_MODE mode)
+Object* open_volume(const char* path, uint32_t flags, enum HNDL_MODE mode)
 {
-    Object object;
+    Object* object;
 
     object = OpenObject(path, flags, mode);
 
     /* Invalid type. Just close the object */
-    if (object.type != OT_DEVICE)
-        CloseObject(&object);
+    if (object->type != OT_DEVICE)
+        CloseObject(object);
 
     return object;
 }
 
 void close_volume(Object* volume)
 {
+    if (!volume)
+        return;
+
     volume_flush(volume->handle);
 
     /* TODO: Volume specific cleaning */

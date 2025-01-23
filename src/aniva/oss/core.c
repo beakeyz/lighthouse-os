@@ -3,6 +3,7 @@
 #include "fs/dir.h"
 #include "libk/flow/error.h"
 #include "lightos/api/objects.h"
+#include "logging/log.h"
 #include "object.h"
 #include "oss/connection.h"
 #include "path.h"
@@ -145,6 +146,54 @@ error_t oss_open_object_from(const char* path, struct oss_object* rel, struct os
     oss_destroy_path(&oss_path);
 
     return error;
+}
+
+static error_t __oss_open_from_connection_idx(oss_object_t* rel, u32 idx, oss_object_t** pobj)
+{
+    oss_connection_t* conn;
+
+    conn = oss_object_get_connection_idx(rel, idx);
+
+    if (!conn)
+        return -ENOENT;
+
+    if (oss_connection_is_downstream(conn, rel))
+        *pobj = conn->child;
+    else
+        *pobj = conn->parent;
+
+    // KLOG_DBG("Looking for object at idx %d. Found: %s\n", idx, (*pobj)->key);
+
+    return 0;
+}
+
+error_t oss_open_object_from_idx(u32 idx, struct oss_object* rel, struct oss_object** pobj)
+{
+    error_t error = EOK;
+    oss_object_t* obj = NULL;
+
+    /* First, check if there is a connection with this index already */
+    error = __oss_open_from_connection_idx(rel, idx, &obj);
+
+    /* No. We'll need to ask the object itself */
+    if (error && rel->ops->f_OpenIdx)
+        error = rel->ops->f_OpenIdx(rel, idx, &obj);
+
+    if (error)
+        return error;
+
+    /* Maybe connect this object */
+    (void)oss_connect_at_idx(rel, obj, idx);
+
+    /* Reference this object as a result of the open action */
+    oss_object_ref(obj);
+
+    KLOG_DBG("Found: %s\n", obj->key);
+
+    /* Export the thing */
+    *pobj = obj;
+
+    return 0;
 }
 
 /* Tries to remove an object from the oss graph */

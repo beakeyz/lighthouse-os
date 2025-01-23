@@ -199,7 +199,7 @@ int sysvar_detach(struct oss_object* node, const char* key, struct sysvar** bvar
 
     if (var->parent == node) {
         /* Check if there is another upstream connection that becomes the parent now */
-        oss_connection_t* conn = oss_object_get_connection_up_nr(var->object, 0);
+        oss_connection_t* conn = oss_object_get_connection_up_idx(var->object, 0);
 
         var->parent = (!conn) ? nullptr : conn->parent;
     }

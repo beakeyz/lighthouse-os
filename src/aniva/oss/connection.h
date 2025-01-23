@@ -12,7 +12,7 @@ struct oss_object;
  * these guys are stored in linked lists
  */
 typedef struct oss_connection {
-    u32 flags;
+    u32 index;
     i32 gradient;
     struct oss_object* parent;
     struct oss_object* child;
@@ -41,10 +41,11 @@ static inline bool oss_connection_is_upstream(oss_connection_t* conn, struct oss
     return (conn->child == obj);
 }
 
-oss_connection_t* create_oss_connection(struct oss_object* parent, struct oss_object* child);
+oss_connection_t* create_oss_connection(struct oss_object* parent, struct oss_object* child, u32 idx);
 void destroy_oss_connection(oss_connection_t* conn);
 
 int oss_connect(struct oss_object* parent, struct oss_object* child);
+int oss_connect_at_idx(struct oss_object* parent, struct oss_object* child, u32 idx);
 int oss_disconnect(oss_connection_t* conn);
 
 void init_oss_connections();

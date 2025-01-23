@@ -21,6 +21,12 @@ proc_t* aniva_exec_by(struct aniva_exec_method* method, oss_object_t* object, u3
 typedef proc_t* (*f_AnivaExecMethod_Execute)(oss_object_t* object);
 
 /*
+ * Supplementary functions that the kernel can use to gather information about processes it has running
+ */
+typedef vaddr_t (*f_AnivaExecMethod_GetFuncAddr)(proc_t* process, const char* symbol);
+typedef const char* (*f_AnivaExecMethod_GetFuncSymbol)(proc_t* process, vaddr_t addr);
+
+/*
  * A single aniva execution method
  *
  * These guys always have a static lifetime

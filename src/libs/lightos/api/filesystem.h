@@ -27,7 +27,7 @@ enum LIGHTOS_FSTYPE {
  * storage (on oss)
  */
 typedef struct lightos_file {
-    Object object;
+    Object* object;
 
     /* User-side caches */
     u8* wr_buff;

@@ -1,6 +1,6 @@
 #include "cmdline.h"
-#include "lightos/handle.h"
 #include "lightos/api/handle.h"
+#include "lightos/handle.h"
 #include "lightos/sysvar/var.h"
 #include <lightos/lightos.h>
 #include <stdio.h>
@@ -21,6 +21,19 @@ int cmdline_get_len(size_t* bsize)
 
     *bsize = strlen(__this_cmdline.raw);
     return 0;
+}
+
+u32 cmdline_get_argc()
+{
+    return __this_cmdline.argc;
+}
+
+const char* cmdline_get_arg(int argi)
+{
+    if (argi >= __this_cmdline.argc)
+        return nullptr;
+
+    return __this_cmdline.argv[argi];
 }
 
 int cmdline_get_raw(char* buffer, size_t bsize)

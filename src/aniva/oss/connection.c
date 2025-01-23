@@ -6,7 +6,7 @@
 
 static zone_allocator_t* connection_pool;
 
-oss_connection_t* create_oss_connection(struct oss_object* parent, struct oss_object* child)
+oss_connection_t* create_oss_connection(struct oss_object* parent, struct oss_object* child, u32 idx)
 {
     oss_connection_t* ret;
 
@@ -17,6 +17,7 @@ oss_connection_t* create_oss_connection(struct oss_object* parent, struct oss_ob
 
     ret->parent = parent;
     ret->child = child;
+    ret->index = idx;
 
     /* Set the connection gradient */
     if (child->height == OSS_OBJECT_HEIGHT_NOTSET) {
@@ -42,6 +43,11 @@ void destroy_oss_connection(oss_connection_t* conn)
  */
 int oss_connect(oss_object_t* parent, oss_object_t* child)
 {
+    return oss_connect_at_idx(parent, child, parent->connections->m_length);
+}
+
+int oss_connect_at_idx(struct oss_object* parent, struct oss_object* child, u32 idx)
+{
     oss_connection_t* conn;
 
     if (!parent || !child)
@@ -60,7 +66,7 @@ int oss_connect(oss_object_t* parent, oss_object_t* child)
     if (oss_object_get_connection(child, parent->key) != nullptr)
         return -EDUPLICATE;
 
-    conn = create_oss_connection(parent, child);
+    conn = create_oss_connection(parent, child, idx);
 
     if (!conn)
         return -ENOMEM;

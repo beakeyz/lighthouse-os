@@ -171,6 +171,9 @@ error_t oss_object_rename(oss_object_t* object, const char* new_key)
 {
     error_t error = EOK;
 
+    if (!object || !new_key)
+        return -EINVAL;
+
     mutex_lock(object->lock);
 
     /* First call the rename hook if it's available */
@@ -293,6 +296,12 @@ oss_connection_t* oss_object_get_connection(oss_object_t* object, const char* ke
     __OSS_OBJECT_GET_CONN(object, conn, key, strncmp(conn->child->key, key, key_len) == 0);
 }
 
+oss_connection_t* oss_object_get_connection_idx(oss_object_t* object, u32 idx)
+{
+    /* Get all the connections where @object is the child, in order to get all the upstream connections with this object */
+    __OSS_OBJECT_GET_CONN(object, conn, nullptr, conn->index == idx);
+}
+
 oss_connection_t* oss_object_get_connection_down(oss_object_t* object, const char* key)
 {
     size_t key_len = strlen(key) + 1;
@@ -309,7 +318,7 @@ oss_connection_t* oss_object_get_connection_up(oss_object_t* object, const char*
     __OSS_OBJECT_GET_CONN(object, conn, key, conn->child == object && strncmp(conn->child->key, key, key_len) == 0);
 }
 
-oss_connection_t* oss_object_get_connection_up_nr(oss_object_t* object, u32 idx)
+oss_connection_t* oss_object_get_connection_up_idx(oss_object_t* object, u32 idx)
 {
     /* Get all the connections where @object is the child, in order to get all the upstream connections with this object */
     __OSS_OBJECT_GET_CONN(object, conn, nullptr, conn->child == object && idx-- == 0);
@@ -619,7 +628,7 @@ static int __walk_oss_obj_upstream_conn_recurs(oss_object_t* object, list_t* sub
     KLOG_DBG("Checking: %s %d\n", object->key, object->connections->m_length);
 
     for (u32 i = 0; i < object->connections->m_length; i++) {
-        conn = oss_object_get_connection_up_nr(object, upstream_idx);
+        conn = oss_object_get_connection_up_idx(object, upstream_idx);
 
         if (!conn)
             break;

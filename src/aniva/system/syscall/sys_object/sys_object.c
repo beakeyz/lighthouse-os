@@ -1,10 +1,11 @@
-
 #include "lightos/api/handle.h"
 #include "lightos/api/objects.h"
+#include "logging/log.h"
 #include "oss/object.h"
 #include "proc/handle.h"
 #include "proc/proc.h"
 #include "sched/scheduler.h"
+#include <libk/math/math.h>
 
 enum OSS_OBJECT_TYPE sys_get_object_type(HANDLE handle)
 {
@@ -47,4 +48,62 @@ enum OSS_OBJECT_TYPE sys_set_object_type(HANDLE handle, enum OSS_OBJECT_TYPE pty
 
     /* Return the resulting object type */
     return khandle->object->type;
+}
+
+error_t sys_get_object_key(HANDLE handle, char* key_buff, size_t key_buff_len)
+{
+    proc_t* c_proc;
+    khandle_t* khandle;
+
+    c_proc = get_current_proc();
+
+    /* Find this handle */
+    khandle = find_khandle(&c_proc->m_handle_map, handle);
+
+    if (!khandle)
+        return -EBADHANDLE;
+
+    if (khandle->type != HNDL_TYPE_OBJECT)
+        return -EBADHANDLE;
+
+    if ((khandle->flags & HNDL_FLAG_R) != HNDL_FLAG_R)
+        return -EPERM;
+
+    sfmt_sz(key_buff, key_buff_len, "%s", khandle->object->key);
+
+    KLOG_DBG("Getting obj key: %s\n", khandle->object->key);
+    KLOG_DBG("Key buff now contains: %s\n", key_buff);
+    return 0;
+}
+
+error_t sys_set_object_key(HANDLE handle, char* key_buff, size_t key_buff_len)
+{
+    proc_t* c_proc;
+    khandle_t* khandle;
+    char __key_buff[MIN(OSS_OBJECT_MAX_KEY_LEN, key_buff_len)];
+
+    /* Check this guy */
+    if (key_buff_len > OSS_OBJECT_MAX_KEY_LEN)
+        return -E2BIG;
+
+    c_proc = get_current_proc();
+
+    /* Find this handle */
+    khandle = find_khandle(&c_proc->m_handle_map, handle);
+
+    if (!khandle)
+        return -EBADHANDLE;
+
+    if (khandle->type != HNDL_TYPE_OBJECT)
+        return -EBADHANDLE;
+
+    /* Check for write perms */
+    if ((khandle->flags & HNDL_FLAG_W) != HNDL_FLAG_W)
+        return -EPERM;
+
+    /* Copy the string into the temporary buffer */
+    strncpy(__key_buff, key_buff, MIN(OSS_OBJECT_MAX_KEY_LEN, key_buff_len));
+
+    /* Call the rename function */
+    return oss_object_rename(khandle->object, key_buff);
 }

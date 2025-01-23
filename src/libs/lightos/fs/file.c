@@ -7,13 +7,13 @@
 #include <stdlib.h>
 #include <string.h>
 
-File __create_file(u32 flags, Object object)
+static File __create_file(u32 flags, Object* object)
 {
     File ret = { 0 };
 
     ret.object = object;
 
-    if (!ObjectIsValid(&ret.object))
+    if (!ObjectIsValid(ret.object))
         return ret;
 
     /* Initialize file buffers */
@@ -34,17 +34,17 @@ File OpenFile(const char* path, u32 hndl_flags, enum HNDL_MODE mode)
 
 File OpenFileFrom(Object* rel, const char* path, u32 hndl_flags, enum HNDL_MODE mode)
 {
-    Object object;
+    Object* object;
 
     if (!path)
         return (File) { 0 };
 
     object = OpenObjectFrom(rel, path, hndl_flags, mode);
 
-    if (!ObjectIsValid(&object))
+    if (!ObjectIsValid(object))
         return (File) { 0 };
 
-    if (object.type != OT_FILE)
+    if (object->type != OT_FILE)
         CloseObject(rel);
 
     return __create_file((hndl_flags & HNDL_FLAG_W) ? NULL : OF_READONLY, object);
@@ -58,7 +58,7 @@ error_t CloseFile(File* file)
     if (file->wr_buff)
         free(file->wr_buff);
 
-    return CloseObject(&file->object);
+    return CloseObject(file->object);
 }
 
 error_t FileSetBuffers(File* file, size_t r_bsize, size_t w_bsize)
@@ -84,7 +84,7 @@ error_t FileSetBuffers(File* file, size_t r_bsize, size_t w_bsize)
 
 bool FileIsValid(File* file)
 {
-    return ObjectIsValid(&file->object);
+    return ObjectIsValid(file->object);
 }
 
 int __read_byte(File* file, u64 offset, uint8_t* buffer)
@@ -97,7 +97,7 @@ int __read_byte(File* file, u64 offset, uint8_t* buffer)
         *buffer = file->rd_buff[offset - file->rd_bstart];
     else {
         /* This read is outside the current read buffer, pull in a new block */
-        if (ObjectRead(&file->object, offset, file->rd_buff, file->rd_bsize))
+        if (ObjectRead(file->object, offset, file->rd_buff, file->rd_bsize))
             return NULL;
 
         /* Set the new buffer start */
@@ -183,7 +183,7 @@ static int __file_maybe_init_write_buffer(File* file, u64 offset)
         return -ENOMEM;
 
     /* Read from the backing object */
-    ObjectRead(&file->object, offset, file->wr_buff, file->wr_bsize);
+    ObjectRead(file->object, offset, file->wr_buff, file->wr_bsize);
 
     /* Set the buffer start offset */
     file->wr_bstart = offset;
@@ -239,7 +239,7 @@ static int __write_byte(File* file, u64 offset, u8 byte)
     FileFlush(file);
 
     /* Try to read shit into the write buffer */
-    ObjectRead(&file->object, offset, file->wr_buff, file->wr_bsize);
+    ObjectRead(file->object, offset, file->wr_buff, file->wr_bsize);
 
     /* Set the new buffer start */
     file->wr_bstart = offset;
@@ -325,11 +325,11 @@ error_t FileFlush(File* file)
         return 0;
 
     /* This guy has no object, we can't flush lol */
-    if (!ObjectIsValid(&file->object))
+    if (!ObjectIsValid(file->object))
         return 0;
 
     /* Write back the write buffer */
-    ObjectWrite(&file->object, file->wr_bstart, file->wr_buff, file->wr_bsize);
+    ObjectWrite(file->object, file->wr_bstart, file->wr_buff, file->wr_bsize);
 
     /* Reset the cache hit count */
     file->wr_cache_hit_count = 0;

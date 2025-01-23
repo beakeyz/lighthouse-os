@@ -40,6 +40,11 @@ HANDLE sys_open(const char* path, handle_flags_t flags, enum HNDL_MODE mode, voi
     return syscall_5(SYSID_OPEN, (u64)path, flags.raw, mode, (u64)buffer, bsize);
 }
 
+HANDLE sys_open_idx(HANDLE handle, u32 idx, handle_flags_t flags)
+{
+    return syscall_3(SYSID_OPEN_IDX, handle, idx, flags.raw);
+}
+
 error_t sys_send_msg(HANDLE handle, u32 code, u64 offset, void* buffer, size_t bsize)
 {
     return syscall_5(SYSID_SEND_MSG, handle, code, offset, (u64)buffer, bsize);
@@ -53,6 +58,16 @@ enum OSS_OBJECT_TYPE sys_get_object_type(HANDLE handle)
 enum OSS_OBJECT_TYPE sys_set_object_type(HANDLE handle, enum OSS_OBJECT_TYPE ptype)
 {
     return syscall_2(SYSID_SET_OBJECT_TYPE, handle, ptype);
+}
+
+error_t sys_get_object_key(HANDLE handle, char* key_buff, size_t key_buff_len)
+{
+    return syscall_3(SYSID_GET_OBJECT_KEY, handle, (u64)key_buff, key_buff_len);
+}
+
+error_t sys_set_object_key(HANDLE handle, char* key_buff, size_t key_buff_len)
+{
+    return syscall_3(SYSID_SET_OBJECT_KEY, handle, (u64)key_buff, key_buff_len);
 }
 
 error_t sys_alloc_vmem(size_t size, u32 flags, vaddr_t* paddr)
@@ -108,11 +123,6 @@ HANDLE sys_create_sysvar(const char* key, handle_flags_t flags, enum SYSVAR_TYPE
 error_t sys_dir_create(const char* path, i32 mode)
 {
     return syscall_2(SYSID_DIR_CREATE, (u64)path, mode);
-}
-
-size_t sys_dir_read(HANDLE handle, u32 idx, Object* namebuffer, size_t blen)
-{
-    return syscall_4(SYSID_DIR_READ, handle, idx, (u64)namebuffer, blen);
 }
 
 size_t sys_seek(HANDLE handle, u64 c_offset, u64 new_offset, u32 type)

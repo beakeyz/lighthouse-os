@@ -16,7 +16,7 @@
 #define LIGHTENTRY static __attribute__((noinline, used, section(LIGHTENTRY_SECTION_NAME)))
 #define LIGHTEXIT static __attribute__((noinline, used, section(LIGHTEXIT_SECTION_NAME)))
 
-#define LEXPORT extern
+#define LEXPORT extern __attribute__((used))
 
 #define LIGHTOS_SFLAGS_NOCMDLINE 0x00000001ULL
 #define LIGHTOS_SFLAGS_NODEVICES 0x00000002ULL
