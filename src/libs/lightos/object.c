@@ -17,6 +17,11 @@ static enum OSS_OBJECT_TYPE __set_and_get_object_type(HANDLE handle, enum OSS_OB
     return sys_set_object_type(handle, type);
 }
 
+static void __get_object_key(Object* object)
+{
+    (void)sys_get_object_key(object->handle, object->key, sizeof(object->key));
+}
+
 Object* CreateObject(const char* key, u16 flags, enum OSS_OBJECT_TYPE type)
 {
     Object* ret;
@@ -86,7 +91,7 @@ Object* OpenObjectFrom(Object* relative, const char* path, u32 hndl_flags, enum 
      * in a path, so we can just scan the path from the back to
      * find the last path entry
      */
-    sys_get_object_key(ret->handle, (char*)&ret->key[0], sizeof(ret->key));
+    __get_object_key(ret);
 
     return ret;
 }
@@ -112,7 +117,7 @@ Object* OpenObjectFromIdx(Object* relative, u32 idx, u32 hndl_flags, enum HNDL_M
     ret->type = __get_object_type(ret->handle);
 
     /* Try to get the object key */
-    sys_get_object_key(ret->handle, (char*)&ret->key[0], sizeof(ret->key));
+    __get_object_key(ret);
 
     return ret;
 }

@@ -91,7 +91,7 @@ error_t main(HANDLE self)
         if (!ObjectIsValid(walker))
             break;
 
-        printf(" %s%s", walker->key, (walker->type == OT_DIR) ? "/\n" : "\n");
+        printf(" %s%s", walker->key, (walker->type == OT_DIR || walker->type == OT_DGROUP || walker->type == OT_GENERIC) ? "/\n" : "\n");
 
         /* Also make sure to close the object */
         CloseObject(walker);

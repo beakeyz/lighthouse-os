@@ -43,7 +43,7 @@ static int __device_oss_write(oss_object_t* object, u64 offset, void* buffer, si
 {
     device_t* dev;
 
-    KLOG_DBG("Device write %s\n", object->key);
+    KLOG_DBG("Device write %s (%s)\n", object->key, buffer);
 
     dev = oss_object_unwrap(object, OT_DEVICE);
 

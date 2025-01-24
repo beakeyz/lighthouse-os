@@ -227,10 +227,12 @@ static int __sprintf_cb(char c, char** out, size_t* p_cur_size, void* priv)
 int real_va_sprintf(uint8_t mode, FILE* stream, const char* fmt, va_list va)
 {
     int error;
+    u64 offset = 0;
 
     error = _vprintf(fmt, va, __sprintf_cb, NULL, 0, stream);
 
     FileFlush(stream);
+    FileSeek(stream, &offset, SEEK_SET);
 
     return error;
 }
