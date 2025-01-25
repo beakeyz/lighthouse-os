@@ -60,6 +60,36 @@ static int __oss_dir_open(oss_object_t* object, const char* path, oss_object_t**
     return 0;
 }
 
+static int __oss_dir_open_idx(oss_object_t* object, u32 idx, oss_object_t** pobj)
+{
+    dir_t* dir;
+    oss_object_t* ret;
+
+    /* Check for valid params */
+    if (!pobj)
+        return -EINVAL;
+
+    /* Try to unwrap the object */
+    dir = oss_object_unwrap(object, OT_DIR);
+
+    if (!dir)
+        return -EINVAL;
+
+    if (!dir->ops->f_open_idx)
+        return -ENOIMPL;
+
+    /* Call the directories find function */
+    ret = dir->ops->f_open_idx(dir, idx);
+
+    if (!ret)
+        return -ENOENT;
+
+    /* Export the thing */
+    *pobj = ret;
+
+    return 0;
+}
+
 /*!
  * @brief: Call the underlying connect call for this object
  *
@@ -143,6 +173,7 @@ static int __oss_dir_read(oss_object_t* object, u64 offset, void* buffer, size_t
 static oss_object_ops_t dir_oss_ops = {
     .f_Destroy = __destroy_dis,
     .f_Open = __oss_dir_open,
+    .f_OpenIdx = __oss_dir_open_idx,
     .f_Connect = __oss_dir_connect,
     .f_Disconnect = __oss_dir_disconnect,
     .f_ConnectNew = NULL,

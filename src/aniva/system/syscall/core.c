@@ -19,6 +19,7 @@ static const sys_fn_t __syscall_map[] = {
     [SYSID_WRITE] = (sys_fn_t)sys_write,
     [SYSID_OPEN] = (sys_fn_t)sys_open,
     [SYSID_OPEN_IDX] = (sys_fn_t)sys_open_idx,
+    [SYSID_OPEN_CONNECTED_IDX] = (sys_fn_t)sys_open_connected_idx,
     [SYSID_SEND_MSG] = (sys_fn_t)sys_send_msg,
 
     [SYSID_GET_OBJECT_TYPE] = (sys_fn_t)sys_get_object_type,

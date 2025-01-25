@@ -31,6 +31,7 @@ const char* oss_get_default_rootobj_key(enum OSS_ROOTOBJ_TYPE type);
 error_t oss_open_root_object(const char* path, struct oss_object** pobj);
 error_t oss_open_object(const char* path, struct oss_object** pobj);
 error_t oss_open_object_from(const char* path, struct oss_object* rel, struct oss_object** pobj);
+error_t oss_open_connected_object_from_idx(u32 idx, struct oss_object* rel, struct oss_object** pobj);
 error_t oss_open_object_from_idx(u32 idx, struct oss_object* rel, struct oss_object** pobj);
 
 error_t oss_connect_root_object(struct oss_object* object);

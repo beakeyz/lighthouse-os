@@ -18,6 +18,7 @@
 #include "libk/stddef.h"
 #include "libk/string.h"
 #include "lightos/api/device.h"
+#include "lightos/api/sysvar.h"
 #include "logging/log.h"
 #include "mem/heap.h"
 #include "mem/kmem.h"
@@ -34,6 +35,7 @@
 
 #include "exec.h"
 #include "system/profile/profile.h"
+#include "system/sysvar/map.h"
 #include "system/sysvar/var.h"
 
 #define KTERM_MAX_BUFFER_SIZE 512
@@ -841,6 +843,23 @@ int kterm_get_login(struct user_profile** profile)
         return -1;
 
     *profile = _c_login.profile;
+    return 0;
+}
+
+int kterm_connect_cwd_object(struct proc* proc)
+{
+    sysvar_t* sysvar;
+
+    sysvar = create_sysvar("CWD", &proc->profile->attr, SYSVAR_TYPE_STRING, NULL, _c_login.cwd, strlen(_c_login.cwd));
+
+    if (!sysvar)
+        return -ENOMEM;
+
+    if (sysvar_attach(proc->obj, sysvar)) {
+        release_sysvar(sysvar);
+        return -EINVAL;
+    }
+
     return 0;
 }
 

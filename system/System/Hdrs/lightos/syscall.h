@@ -39,6 +39,7 @@ enum SYSID {
     SYSID_WRITE, /* Write to a handle */
     SYSID_OPEN, /* Open/Create kernel objects */
     SYSID_OPEN_IDX, /* Open an oss object based on index */
+    SYSID_OPEN_CONNECTED_IDX, /* Open an oss object that's already connected based on index */
     SYSID_SEND_MSG, /* Send an object communication message. Might be a device ctlc */
 
     SYSID_GET_OBJECT_TYPE, /* Gets the type of an object */
@@ -93,6 +94,7 @@ extern error_t sys_read(HANDLE handle, u64 offset, void* buffer, size_t size, si
 extern error_t sys_write(HANDLE handle, u64 offset, void* buffer, size_t size);
 extern HANDLE sys_open(const char* path, handle_flags_t flags, enum HNDL_MODE mode, void* buffer, size_t bsize);
 extern HANDLE sys_open_idx(HANDLE handle, u32 idx, handle_flags_t flags);
+extern HANDLE sys_open_connected_idx(HANDLE handle, u32 idx, handle_flags_t flags);
 extern error_t sys_send_msg(HANDLE handle, u32 code, u64 offset, void* buffer, size_t bsize);
 
 extern enum OSS_OBJECT_TYPE sys_get_object_type(HANDLE handle);

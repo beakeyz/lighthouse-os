@@ -3,7 +3,6 @@
 #include "fs/dir.h"
 #include "libk/flow/error.h"
 #include "lightos/api/objects.h"
-#include "logging/log.h"
 #include "object.h"
 #include "oss/connection.h"
 #include "path.h"
@@ -148,47 +147,68 @@ error_t oss_open_object_from(const char* path, struct oss_object* rel, struct os
     return error;
 }
 
-static error_t __oss_open_from_connection_idx(oss_object_t* rel, u32 idx, oss_object_t** pobj)
-{
-    oss_connection_t* conn;
-
-    conn = oss_object_get_connection_idx(rel, idx);
-
-    if (!conn)
-        return -ENOENT;
-
-    if (oss_connection_is_downstream(conn, rel))
-        *pobj = conn->child;
-    else
-        *pobj = conn->parent;
-
-    // KLOG_DBG("Looking for object at idx %d. Found: %s\n", idx, (*pobj)->key);
-
-    return 0;
-}
-
+/*!
+ * @brief: Queries an object to open a new object based on index
+ */
 error_t oss_open_object_from_idx(u32 idx, struct oss_object* rel, struct oss_object** pobj)
 {
-    error_t error = EOK;
-    oss_object_t* obj = NULL;
+    error_t error;
+    oss_object_t* obj;
+    oss_object_t* alr_connected_obj;
 
-    /* First, check if there is a connection with this index already */
-    error = __oss_open_from_connection_idx(rel, idx, &obj);
+    if (!rel || !pobj)
+        return -EINVAL;
 
-    /* No. We'll need to ask the object itself */
-    if (error && rel->ops->f_OpenIdx)
-        error = rel->ops->f_OpenIdx(rel, idx, &obj);
+    if (!rel->ops->f_OpenIdx)
+        return -ENOIMPL;
+
+    error = rel->ops->f_OpenIdx(rel, idx, &obj);
 
     if (error)
         return error;
 
-    /* Maybe connect this object */
-    (void)oss_connect_at_idx(rel, obj, idx);
+    error = oss_connect(rel, obj);
+
+    // KLOG_DBG("Connecting obj %s to rel %s\n", obj->key, rel->key);
+
+    /* If this call fails, @obj is already connected to @rel. We'll grab and reference that guy */
+    if (IS_OK(error))
+        goto reference_and_return;
+
+    /* Get the connected object from the relative boi */
+    alr_connected_obj = oss_object_get_connected(rel, obj->key);
+
+    /* Close the old object */
+    oss_object_close(obj);
+
+    /* Switch around the objects, since @alr_connected_obj still needs to be referenced */
+    obj = alr_connected_obj;
+
+reference_and_return:
+    /* Reference the object as a part of the opening */
+    oss_object_ref(obj);
+
+    *pobj = obj;
+
+    return 0;
+}
+
+error_t oss_open_connected_object_from_idx(u32 idx, struct oss_object* rel, struct oss_object** pobj)
+{
+    oss_object_t* obj = NULL;
+    oss_connection_t* conn;
+
+    /* First, check if there is a connection with this index already */
+    conn = oss_object_get_connection_by_index(rel, idx);
+
+    if (!conn)
+        return -ENOENT;
+
+    /* Grab the right object */
+    obj = (oss_connection_is_downstream(conn, rel) ? conn->child : conn->parent);
 
     /* Reference this object as a result of the open action */
     oss_object_ref(obj);
-
-    KLOG_DBG("Found: %s\n", obj->key);
 
     /* Export the thing */
     *pobj = obj;

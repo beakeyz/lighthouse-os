@@ -5,6 +5,7 @@
 #include "fs/fat/core.h"
 #include "fs/file.h"
 #include "libk/flow/error.h"
+#include "logging/log.h"
 #include "mem/heap.h"
 
 static int fat_read(file_t* file, void* buffer, size_t* p_size, uintptr_t offset)
@@ -276,6 +277,8 @@ kerror_t fat_file_update_dir_entries(fat_file_t* file)
 
     fsize = get_fat_file_size(file);
     n_raw_dirent = fsize / sizeof(fat_dir_entry_t);
+
+    KLOG_DBG("fat_file_update_dir_entries; n_raw_dirent: %d\n", n_raw_dirent);
 
     /* Allocate buffer nr. 1 */
     tmp_buffer = kmalloc(fsize);

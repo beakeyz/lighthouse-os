@@ -10,6 +10,7 @@ Object* CreateObject(const char* key, u16 flags, enum OSS_OBJECT_TYPE type);
 Object* OpenObject(const char* path, u32 hndl_flags, enum HNDL_MODE mode);
 Object* OpenObjectFrom(Object* rel, const char* path, u32 hndl_flags, enum HNDL_MODE mode);
 Object* OpenObjectFromIdx(Object* rel, u32 idx, u32 hndl_flags, enum HNDL_MODE mode);
+Object* OpenConnectedObjectFromIdx(Object* rel, u32 idx, u32 hndl_flags, enum HNDL_MODE mode);
 error_t CloseObject(Object* obj);
 
 /*!

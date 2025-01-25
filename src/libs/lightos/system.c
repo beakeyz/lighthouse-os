@@ -45,6 +45,11 @@ HANDLE sys_open_idx(HANDLE handle, u32 idx, handle_flags_t flags)
     return syscall_3(SYSID_OPEN_IDX, handle, idx, flags.raw);
 }
 
+HANDLE sys_open_connected_idx(HANDLE handle, u32 idx, handle_flags_t flags)
+{
+    return syscall_3(SYSID_OPEN_CONNECTED_IDX, handle, idx, flags.raw);
+}
+
 error_t sys_send_msg(HANDLE handle, u32 code, u64 offset, void* buffer, size_t bsize)
 {
     return syscall_5(SYSID_SEND_MSG, handle, code, offset, (u64)buffer, bsize);

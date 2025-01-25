@@ -132,7 +132,7 @@ LOOPBACK_DEV=$(OUT)/loopback_dev
 
 $(OUT)/$(LIGHTOS_IMG):
 	@rm -f $@
-	@dd if=/dev/zero of=$@ iflag=fullblock bs=1M count=64 && sync
+	@dd if=/dev/zero of=$@ iflag=fullblock bs=1M count=1024 && sync
 
 image: $(OUT)/$(LIGHTOS_IMG)
 	@sudo rm -rf $(BOOTRT_DIR)
@@ -141,22 +141,33 @@ image: $(OUT)/$(LIGHTOS_IMG)
 	@echo -e [Image] Setting up disk image...
 	@sudo losetup -Pf --show $(OUT)/$(LIGHTOS_IMG) > $(LOOPBACK_DEV)
 	@sudo parted `cat $(LOOPBACK_DEV)` mklabel gpt
-	@sudo parted `cat $(LOOPBACK_DEV)` mkpart primary 2048s 100% >/dev/null
+	@sudo parted `cat $(LOOPBACK_DEV)` mkpart Boot 2048s 200M >/dev/null
 	@sudo parted `cat $(LOOPBACK_DEV)` set 1 boot on >/dev/null
 	@sudo parted `cat $(LOOPBACK_DEV)` set 1 hidden on >/dev/null
 	@sudo parted `cat $(LOOPBACK_DEV)` set 1 esp on >/dev/null
+	@sudo parted `cat $(LOOPBACK_DEV)` mkpart LightOS 200M 100%>/dev/null
+	@sudo parted `cat $(LOOPBACK_DEV)` set 2 boot off >/dev/null
+	@sudo parted `cat $(LOOPBACK_DEV)` set 2 hidden off >/dev/null
+	@sudo parted `cat $(LOOPBACK_DEV)` set 2 esp off >/dev/null
 	@sudo partprobe `cat $(LOOPBACK_DEV)` >/dev/null # Sync >
 
 	@echo -e [Image] Creating filesystem...
 	@sudo mkfs.fat -F 32 `cat $(LOOPBACK_DEV)`p1 >/dev/null
 	@sync
+	@sudo mkfs.fat -F 32 `cat $(LOOPBACK_DEV)`p2 >/dev/null
+	@sync
 	@sudo mount `cat $(LOOPBACK_DEV)`p1 $(BOOTRT_DIR)
 
-	@echo -e [Image] Copying filesystems...
+	@echo -e [Image] Preparing boot filesystems...
 	@sudo mkdir -p $(BOOTRT_DIR)/EFI/BOOT
 	@sudo cp $(LOADER_OUT)/$(LOADER_EFI) $(BOOTRT_DIR)/EFI/BOOT/BOOTX64.EFI # Copy bootloader binary
 	@sudo cp $(OUT)/$(KERNEL_FILENAME) $(BOOTRT_DIR) # Copy the kernel
 	@sudo cp $(OUT)/$(RAMDISK_FILENAME) $(BOOTRT_DIR) # Copy the ramdisk
+
+	@sudo umount $(BOOTRT_DIR)
+	@echo -e [Image] Preparing lightos filesystem
+	@sudo mount `cat $(LOOPBACK_DEV)`p2 $(BOOTRT_DIR)
+
 	@sudo cp -r $(SYSROOT_DIR)/* $(BOOTRT_DIR) # Copy the rest of the filesystem
 
 	@echo -e [Image] Cleaning up...

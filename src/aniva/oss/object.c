@@ -296,10 +296,10 @@ oss_connection_t* oss_object_get_connection(oss_object_t* object, const char* ke
     __OSS_OBJECT_GET_CONN(object, conn, key, strncmp(conn->child->key, key, key_len) == 0);
 }
 
-oss_connection_t* oss_object_get_connection_idx(oss_object_t* object, u32 idx)
+oss_connection_t* oss_object_get_connection_by_index(oss_object_t* object, u32 idx)
 {
     /* Get all the connections where @object is the child, in order to get all the upstream connections with this object */
-    __OSS_OBJECT_GET_CONN(object, conn, nullptr, conn->index == idx);
+    __OSS_OBJECT_GET_CONN(object, conn, nullptr, idx-- == 0);
 }
 
 oss_connection_t* oss_object_get_connection_down(oss_object_t* object, const char* key)
@@ -322,6 +322,22 @@ oss_connection_t* oss_object_get_connection_up_idx(oss_object_t* object, u32 idx
 {
     /* Get all the connections where @object is the child, in order to get all the upstream connections with this object */
     __OSS_OBJECT_GET_CONN(object, conn, nullptr, conn->child == object && idx-- == 0);
+}
+
+oss_object_t* oss_object_get_connected(oss_object_t* object, const char* key)
+{
+    oss_connection_t* conn;
+
+    if (!object || !key)
+        return nullptr;
+
+    /* Grab this guys connection */
+    conn = oss_object_get_connection(object, key);
+
+    if (!conn)
+        return nullptr;
+
+    return (oss_connection_is_downstream(conn, object) ? conn->child : conn->parent);
 }
 
 /*!

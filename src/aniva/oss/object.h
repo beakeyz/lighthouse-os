@@ -173,10 +173,12 @@ error_t oss_object_close_connections(oss_object_t* object);
 error_t oss_object_close_upstream_connections(oss_object_t* object);
 
 oss_connection_t* oss_object_get_connection(oss_object_t* object, const char* key);
-oss_connection_t* oss_object_get_connection_idx(oss_object_t* object, u32 idx);
+oss_connection_t* oss_object_get_connection_by_index(oss_object_t* object, u32 idx);
 oss_connection_t* oss_object_get_connection_down(oss_object_t* object, const char* key);
 oss_connection_t* oss_object_get_connection_up(oss_object_t* object, const char* key);
 oss_connection_t* oss_object_get_connection_up_idx(oss_object_t* object, u32 idx);
+
+oss_object_t* oss_object_get_connected(oss_object_t* object, const char* key);
 
 /* Interface functions for talking with oss objects */
 error_t oss_object_connect(oss_object_t* parent, oss_object_t* child);

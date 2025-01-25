@@ -119,6 +119,34 @@ HANDLE sys_open_idx(handle_t rel, uint32_t idx, handle_flags_t flags)
     return ret;
 }
 
+HANDLE sys_open_connected_idx(handle_t rel, uint32_t idx, handle_flags_t flags)
+{
+    HANDLE ret;
+    proc_t* c_proc;
+    khandle_t* khandle;
+    khandle_t new_handle;
+    oss_object_t* new_object;
+
+    c_proc = get_current_proc();
+
+    khandle = find_khandle(&c_proc->m_handle_map, rel);
+
+    if (!khandle || khandle->type != HNDL_TYPE_OBJECT)
+        return HNDL_INVAL;
+
+    /* Try to find an object on this guy */
+    if (oss_open_connected_object_from_idx(idx, khandle->object, &new_object))
+        return HNDL_INVAL;
+
+    /* First initialize the new handle */
+    init_khandle_ex(&new_handle, HNDL_TYPE_OBJECT, flags.s_flags, new_object);
+
+    /* Bind the handle */
+    bind_khandle(&c_proc->m_handle_map, &new_handle, (u32*)&ret);
+
+    return ret;
+}
+
 void* sys_get_function(HANDLE lib_handle, const char __user* path)
 {
     proc_t* c_proc;

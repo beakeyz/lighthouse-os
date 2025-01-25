@@ -532,8 +532,12 @@ int fat32_read_dir_entry(fat_file_t* dir, fat_dir_entry_t* out, char* namebuf, u
     if (dir->type != FFILE_TYPE_DIR)
         return -KERR_INVAL;
 
-    if (!dir->dir_parent || !dir->dir_entries)
+    if (!dir->dir_parent)
         return -KERR_INVAL;
+
+    /* Update the dir entries if that wasn't yet done */
+    if (!dir->dir_entries)
+        fat_file_update_dir_entries(dir);
 
     /* Loop over all entries in the directory */
     for (u32 i = 0; i < dir->n_direntries; i++) {
@@ -783,7 +787,7 @@ static oss_object_t* __fat_open_dir(fs_root_object_t* fsroot, dir_t* dir, const 
         goto destroy_and_exit;
 
     /* Update this guys directory entries */
-    // fat_file_update_dir_entries(fat_file);
+    fat_file_update_dir_entries(fat_file);
 
     // kernel_panic("FAT");
     return ret->object;

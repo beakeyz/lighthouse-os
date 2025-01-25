@@ -58,32 +58,20 @@ Object* OpenObject(const char* path, u32 hndl_flags, enum HNDL_MODE mode)
     return OpenObjectFrom(nullptr, path, hndl_flags, mode);
 }
 
-Object* OpenObjectFrom(Object* relative, const char* path, u32 hndl_flags, enum HNDL_MODE mode)
+static Object* __open_object(HANDLE handle)
 {
     Object* ret;
 
     ret = malloc(sizeof(*ret));
 
-    if (!ret) {
-        exit(696969);
+    if (!ret)
         return nullptr;
-    }
 
     memset(ret, 0, sizeof(*ret));
 
-    if (relative)
-        ret->handle = open_handle_from(relative->handle, path, HNDL_TYPE_OBJECT, hndl_flags, mode);
-    else
-        ret->handle = open_handle(path, HNDL_TYPE_OBJECT, hndl_flags, mode);
-
-    /* If the handle isn't valid, we can just dip */
-    if (handle_verify(ret->handle)) {
-        free(ret);
-        return nullptr;
-    }
-
+    ret->handle = handle;
     /* Ask the kernel what the type of this object is */
-    ret->type = __get_object_type(ret->handle);
+    ret->type = __get_object_type(handle);
 
     /*
      * Get the object key from the path.
@@ -96,28 +84,52 @@ Object* OpenObjectFrom(Object* relative, const char* path, u32 hndl_flags, enum 
     return ret;
 }
 
-Object* OpenObjectFromIdx(Object* relative, u32 idx, u32 hndl_flags, enum HNDL_MODE mode)
+Object* OpenObjectFrom(Object* relative, const char* path, u32 hndl_flags, enum HNDL_MODE mode)
 {
     Object* ret;
+    HANDLE handle;
 
-    ret = malloc(sizeof(*ret));
+    /* Open the objects handle */
+    if (relative)
+        handle = open_handle_from(relative->handle, path, HNDL_TYPE_OBJECT, hndl_flags, mode);
+    else
+        handle = open_handle(path, HNDL_TYPE_OBJECT, hndl_flags, mode);
+
+    /* Create the object */
+    ret = __open_object(handle);
 
     if (!ret)
-        return nullptr;
+        close_handle(handle);
 
-    memset(ret, 0, sizeof(*ret));
+    return ret;
+}
 
-    ret->handle = sys_open_idx(relative->handle, idx, handle_flags(hndl_flags, HNDL_TYPE_OBJECT, HNDL_INVAL));
+Object* OpenObjectFromIdx(Object* relative, u32 idx, u32 hndl_flags, enum HNDL_MODE mode)
+{
+    HANDLE handle;
+    Object* ret;
 
-    /* Check if the handle is actually valid */
-    if (handle_verify(ret->handle))
-        return nullptr;
+    handle = sys_open_idx(relative->handle, idx, handle_flags(hndl_flags, HNDL_TYPE_OBJECT, HNDL_INVAL));
 
-    /* Try to get the object type */
-    ret->type = __get_object_type(ret->handle);
+    ret = __open_object(handle);
 
-    /* Try to get the object key */
-    __get_object_key(ret);
+    if (!ret)
+        close_handle(handle);
+
+    return ret;
+}
+
+Object* OpenConnectedObjectFromIdx(Object* rel, u32 idx, u32 hndl_flags, enum HNDL_MODE mode)
+{
+    HANDLE handle;
+    Object* ret;
+
+    handle = sys_open_connected_idx(rel->handle, idx, handle_flags(hndl_flags, HNDL_TYPE_OBJECT, HNDL_INVAL));
+
+    ret = __open_object(handle);
+
+    if (!ret)
+        close_handle(handle);
 
     return ret;
 }

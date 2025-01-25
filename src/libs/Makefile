@@ -4,7 +4,8 @@ export LIBRARY_SRC=$(SRC)/libs
 # Excluded libraries:
 #  - raylib: Until we feature an OpenGL implementation
 LIBRARY_PATHS := ./lightos \
-				 ./lsdk
+				 ./lsdk \
+				 ./lwindow
 
 export LIBRARY_SHARED_FILE_EXT := .lib
 export LIBRARY_STATIC_FILE_EXT := .obj

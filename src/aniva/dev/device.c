@@ -34,16 +34,12 @@ static int __device_oss_read(oss_object_t* object, u64 offset, void* buffer, siz
     if (!dev)
         return -EINVAL;
 
-    KLOG_DBG("Device read %s\n", object->key);
-
     return device_read(dev, buffer, offset, size);
 }
 
 static int __device_oss_write(oss_object_t* object, u64 offset, void* buffer, size_t size)
 {
     device_t* dev;
-
-    KLOG_DBG("Device write %s (%s)\n", object->key, buffer);
 
     dev = oss_object_unwrap(object, OT_DEVICE);
 

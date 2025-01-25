@@ -1,12 +1,15 @@
 #include "lightos/api/handle.h"
 #include "lightos/api/objects.h"
 #include "lightos/proc/cmdline.h"
+#include "lsdk/lists/list.h"
 #include <lightos/handle.h>
 #include <lightos/object.h>
 #include <stdio.h>
+#include <string.h>
 
 /* Holds the relative path where we want to search from */
 const char* __relative_path = NULL;
+static list_t* __entry_list;
 
 static void __parse_flag(const char* flag_arg)
 {
@@ -48,7 +51,7 @@ static Object* __get_relative_object(Object* self_obj)
     Object* cwd = OpenObjectFrom(self_obj, "CWD", HNDL_FLAG_R, NULL);
 
     if (!ObjectIsValid(cwd))
-        return cwd;
+        return nullptr;
 
     if (ObjectRead(cwd, 0, path_buff, sizeof(path_buff)))
         return nullptr;
@@ -58,6 +61,21 @@ static Object* __get_relative_object(Object* self_obj)
 
     /* Try to open the object pointed to by CWD */
     return OpenObject(path_buff, HNDL_FLAG_R, NULL);
+}
+
+static error_t __maybe_add_object(Object* obj)
+{
+    foreach_list(i, __entry_list)
+    {
+        Object* cur_obj = i->data;
+
+        /* Duplicate entry? */
+        if (strncmp(cur_obj->key, obj->key, sizeof(obj->key)) == 0)
+            return -EDUPLICATE;
+    }
+
+    list_add(__entry_list, obj);
+    return 0;
 }
 
 error_t main(HANDLE self)
@@ -84,20 +102,49 @@ error_t main(HANDLE self)
     if (!ObjectIsValid(rel_obj))
         return -ENOENT;
 
-    while (true) {
+    /* Create a list for the entries */
+    __entry_list = create_list();
+
+    /* First, gather all the non-connected objects */
+    for (idx = 0;; idx++) {
         /* Grab this guy */
         Object* walker = OpenObjectFromIdx(rel_obj, idx, HNDL_FLAG_R, NULL);
 
         if (!ObjectIsValid(walker))
             break;
 
+        /* Add thie entry to the list */
+        list_add(__entry_list, walker);
+    }
+
+    /* Then, gather the connected, non-duplicate objects */
+    for (idx = 0;; idx++) {
+        /* Grab this guy */
+        Object* walker = OpenConnectedObjectFromIdx(rel_obj, idx, HNDL_FLAG_R, NULL);
+
+        if (!ObjectIsValid(walker))
+            break;
+
+        error = __maybe_add_object(walker);
+
+        if (error)
+            /* Also make sure to close the object */
+            CloseObject(walker);
+    }
+
+    foreach_list(i, __entry_list)
+    {
+        Object* walker = i->data;
+
         printf(" %s%s", walker->key, (walker->type == OT_DIR || walker->type == OT_DGROUP || walker->type == OT_GENERIC) ? "/\n" : "\n");
 
-        /* Also make sure to close the object */
+        /* Close the object */
         CloseObject(walker);
-
-        idx++;
     }
+
+    destroy_list(__entry_list);
+
+    CloseObject(rel_obj);
 
     return 0;
 }

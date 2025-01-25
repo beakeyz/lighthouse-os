@@ -1,6 +1,5 @@
 #include "lightos/api/handle.h"
 #include "lightos/api/objects.h"
-#include "logging/log.h"
 #include "oss/core.h"
 #include "oss/object.h"
 #include "proc/handle.h"
@@ -82,13 +81,11 @@ static int ossobj_khdrv_close(khandle_driver_t* driver, khandle_t* handle)
 
 int oss_object_khdrv_read(struct khandle_driver* driver, khandle_t* hndl, u64 offset, void* buffer, size_t bsize)
 {
-    KLOG_DBG("oss_object_read\n");
     return oss_object_read(hndl->object, offset, buffer, bsize);
 }
 
 int oss_object_khdrv_write(struct khandle_driver* driver, khandle_t* hndl, u64 offset, void* buffer, size_t bsize)
 {
-    KLOG_DBG("oss_object_write\n");
     return oss_object_write(hndl->object, offset, buffer, bsize);
 }
 

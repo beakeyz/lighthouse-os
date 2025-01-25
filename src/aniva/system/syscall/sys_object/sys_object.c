@@ -71,8 +71,6 @@ error_t sys_get_object_key(HANDLE handle, char* key_buff, size_t key_buff_len)
 
     sfmt_sz(key_buff, key_buff_len, "%s", khandle->object->key);
 
-    KLOG_DBG("Getting obj key: %s\n", khandle->object->key);
-    KLOG_DBG("Key buff now contains: %s\n", key_buff);
     return 0;
 }
 

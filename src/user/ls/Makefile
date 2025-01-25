@@ -1,5 +1,5 @@
 PROCESS_NAME=ls
 LINK_TYPE=dynamic
-LIBRARIES:=
+LIBRARIES:=lsdk
 
 include ../user.mk

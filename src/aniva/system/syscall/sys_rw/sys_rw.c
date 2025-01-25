@@ -4,7 +4,6 @@
 #include "lightos/api/handle.h"
 #include "lightos/api/objects.h"
 #include "lightos/syscall.h"
-#include "logging/log.h"
 #include "mem/kmem.h"
 #include "oss/object.h"
 #include "proc/handle.h"
@@ -23,8 +22,6 @@ error_t sys_write(HANDLE handle, u64 offset, void __user* buffer, size_t length)
     khandle_t* khandle;
     khandle_driver_t* khandle_driver;
 
-    KLOG_DBG("Writing\n");
-
     if (!buffer)
         return EINVAL;
 
@@ -34,8 +31,6 @@ error_t sys_write(HANDLE handle, u64 offset, void __user* buffer, size_t length)
         return EINVAL;
 
     khandle = find_khandle(&current_proc->m_handle_map, handle);
-
-    KLOG_DBG("Writing to %s\n", khandle->object->key);
 
     if ((khandle->flags & HNDL_FLAG_WRITEACCESS) != HNDL_FLAG_WRITEACCESS)
         return EPERM;

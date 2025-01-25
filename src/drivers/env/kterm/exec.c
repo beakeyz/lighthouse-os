@@ -167,6 +167,9 @@ uint32_t kterm_try_exec(const char** argv, size_t argc, const char* cmdline)
     /* Make sure the profile has the correct rights */
     kterm_get_login(&login_profile);
 
+    /* Connect the CWD sysvar */
+    kterm_connect_cwd_object(p);
+
     /* Wait for process termination if we don't want to run in the background */
     // if (true)
     ASSERT_MSG(proc_schedule_and_await(p, login_profile, cmdline, "Devices/kterm", HNDL_TYPE_OBJECT, SCHED_PRIO_MID) == 0, "Process termination failed");
