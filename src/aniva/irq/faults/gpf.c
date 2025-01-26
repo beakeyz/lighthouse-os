@@ -14,7 +14,7 @@ enum FAULT_RESULT gpf_handler(const aniva_fault_t* fault, registers_t* regs)
     c_thrd = get_current_scheduling_thread();
 
     printf("GPF in (p: %s, t: %s)\n",
-        c_proc ? c_proc->m_name : "None",
+        c_proc ? c_proc->name : "None",
         c_thrd ? c_thrd->m_name : "None");
 
     if (!c_proc || !c_thrd)

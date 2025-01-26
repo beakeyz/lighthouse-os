@@ -1,17 +1,16 @@
 #include "proc.h"
 #include "core.h"
 #include "dev/core.h"
-#include "fs/file.h"
 #include "kevent/event.h"
 #include "kevent/types/proc.h"
 #include "kevent/types/thread.h"
-#include "libk/bin/elf.h"
 #include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"
 #include "libk/stddef.h"
 #include "lightos/api/dynldr.h"
 #include "lightos/api/handle.h"
 #include "lightos/api/objects.h"
+#include "lightos/api/process.h"
 #include "lightos/api/sysvar.h"
 #include "lightos/error.h"
 #include "lightos/syscall.h"
@@ -19,8 +18,10 @@
 #include "mem/kmem.h"
 #include "mem/phys.h"
 #include "mem/tracker/tracker.h"
+#include "oss/core.h"
 #include "oss/object.h"
 #include "oss/path.h"
+#include "proc/exec/exec.h"
 #include "proc/handle.h"
 #include "proc/kprocs/reaper.h"
 #include "sched/scheduler.h"
@@ -117,11 +118,10 @@ static oss_object_ops_t proc_oss_ops = {
  *
  * TODO: remove sockets from existing
  */
-proc_t* create_proc(proc_t* parent, struct user_profile* profile, char* name, FuncPtr entry, uintptr_t args, uint32_t flags)
+proc_t* create_proc(const char* name, struct user_profile* profile, u32 flags)
 {
     proc_t* proc;
     /* NOTE: ->m_init_thread gets set by proc_add_thread */
-    thread_t* init_thread;
     system_time_t time;
 
     if (!name)
@@ -139,18 +139,16 @@ proc_t* create_proc(proc_t* parent, struct user_profile* profile, char* name, Fu
     memset(proc, 0, sizeof(proc_t));
 
     /* TODO: move away from the idea of idle threads */
-    proc->m_parent = parent;
-    proc->m_flags = flags | PROC_UNRUNNED;
-    proc->m_thread_count = 1;
-    proc->m_threads = init_list();
-    proc->m_lock = create_mutex(NULL);
+    proc->flags = flags;
+    proc->threads = init_list();
+    proc->lock = create_mutex(NULL);
     proc->obj = create_oss_object(name, OF_NO_DISCON, OT_PROCESS, &proc_oss_ops, proc);
-    proc->m_name = proc->obj->key;
+    proc->name = proc->obj->key;
     proc->profile = profile;
 
     /* Set the process launch time */
     if (time_get_system_time(&time) == 0)
-        proc->m_dt_since_boot = time.s_since_boot;
+        proc->proc_launch_time_rel_boot_sec = time.s_since_boot;
 
     /* Create a pagemap */
     _proc_init_pagemap(proc);
@@ -161,126 +159,23 @@ proc_t* create_proc(proc_t* parent, struct user_profile* profile, char* name, Fu
     /* Initialize this fucker */
     __proc_init_page_tracker(proc, PROC_DEFAULT_PAGE_TRACKER_BSIZE);
 
-    init_thread = create_thread_for_proc(proc, entry, args, "main");
-
-    ASSERT_MSG(init_thread, "Failed to create main thread for process!");
-
-    ASSERT(proc_add_thread(proc, init_thread) == 0);
-
     /* Yikes */
-    if (proc_register(proc, profile)) {
-        destroy_proc(proc);
-        return nullptr;
-    }
+    if (IS_OK(proc_register(proc, profile)))
+        return proc;
 
-    return proc;
+    destroy_proc(proc);
+    return nullptr;
 }
 
 extern void NORETURN __userproc_entry_wrapper(FuncPtr entry);
-
-static int _userproc_wrap_entry(proc_t* p, FuncPtr entry)
-{
-    int error;
-    thread_t* init_thread;
-    void* entry_buffer;
-    vaddr_t k_entry_buffer;
-    paddr_t p_entry_buffer;
-
-    /* Allocate a userbuffer where we can put the entry wrapper */
-    error = kmem_user_alloc_range(&entry_buffer, p, SMALL_PAGE_SIZE, NULL, KMEM_FLAG_WRITABLE);
-
-    if (error)
-        return error;
-
-    /* Grab the physical address of the buffer */
-    p_entry_buffer = kmem_to_phys(p->m_root_pd.m_root, (vaddr_t)entry_buffer);
-    k_entry_buffer = kmem_from_phys(p_entry_buffer, KERNEL_MAP_BASE);
-
-    /* Map this fucker to the kernel */
-    kmem_map_page(NULL, k_entry_buffer, p_entry_buffer, NULL, KMEM_FLAG_WRITABLE | KMEM_FLAG_KERNEL);
-
-    /* Copy the entry wrapper stub into the buffer */
-    memcpy((void*)k_entry_buffer, __userproc_entry_wrapper, SMALL_PAGE_SIZE);
-
-    /* Unmap the page from the kernel */
-    kmem_unmap_page(NULL, k_entry_buffer);
-
-    /* Create a thread that starts at the entry wrapper stub */
-    init_thread = create_thread_for_proc(p, entry_buffer, (u64)entry, "main");
-
-    ASSERT_MSG(init_thread, "Failed to create main thread for cloned process!");
-
-    ASSERT(proc_add_thread(p, init_thread) == 0);
-
-    return 0;
-}
-
-/*!
- * @brief: Create a duplicate process
- *
- * Make sure that there are no threads in this process that hold any mutexes, since the clone
- * can't hold these at the same time.
- *
- * NOTE: Only copies process state (handles, pagemap, resourcemaps, ect.)
- */
-int proc_clone(proc_t* p, FuncPtr clone_entry, const char* clone_name, proc_t** clone)
-{
-    proc_t* cloneproc;
-
-    /* Create new 'clone' process */
-    /* Copy handle map */
-    /* Copy resource list */
-    /* Copy environment */
-    /* Copy thread state */
-    /* ... */
-
-    if (!p || !clone_entry || !clone_name || !clone)
-        return -KERR_INVAL;
-
-    cloneproc = kmalloc(sizeof(*cloneproc));
-
-    if (!cloneproc)
-        return -KERR_NOMEM;
-
-    memset(cloneproc, 0, sizeof(proc_t));
-
-    /* TODO: move away from the idea of idle threads */
-    cloneproc->m_parent = p->m_parent;
-    cloneproc->m_flags = (cloneproc->m_flags | PROC_UNRUNNED) & ~PROC_FINISHED;
-    cloneproc->m_thread_count = 1;
-    cloneproc->m_threads = init_list();
-    cloneproc->m_lock = create_mutex(NULL);
-    cloneproc->obj = create_oss_object(clone_name, OF_NO_DISCON, OT_PROCESS, &proc_oss_ops, cloneproc);
-    cloneproc->m_name = cloneproc->obj->key;
-
-    /* Copy the pagemap */
-    kmem_copy_page_dir(&cloneproc->m_root_pd, &p->m_root_pd);
-
-    /* Copy the handle map */
-    copy_khandle_map(&cloneproc->m_handle_map, &p->m_handle_map);
-
-    /* Yoink the virtual tracker */
-    page_tracker_copy(&p->m_virtual_tracker, &cloneproc->m_virtual_tracker);
-
-    /* Wrap the entry in a healthy environment and create a thread for it */
-    _userproc_wrap_entry(cloneproc, clone_entry);
-
-    /* Yikes */
-    if ((proc_register(cloneproc, p->profile))) {
-        destroy_proc(cloneproc);
-        return -KERR_INVAL;
-    }
-
-    /* Export the bitch */
-    *clone = cloneproc;
-    return 0;
-}
 
 /* This should probably be done by kmem lmao */
 #define IS_KERNEL_FUNC(func) true
 
 proc_t* create_kernel_proc(FuncPtr entry, uintptr_t args)
 {
+    proc_t* ret;
+    thread_t* main_thread;
     user_profile_t* admin;
 
     /* TODO: check */
@@ -291,7 +186,22 @@ proc_t* create_kernel_proc(FuncPtr entry, uintptr_t args)
     admin = get_admin_profile();
 
     /* TODO: don't limit to one name */
-    return create_proc(nullptr, admin, PROC_CORE_PROCESS_NAME, entry, args, PROC_KERNEL);
+    ret = create_proc(PROC_CORE_PROCESS_NAME, admin, PF_KERNEL);
+
+    if (!ret)
+        return nullptr;
+
+    main_thread = create_thread(entry, args, "main", ret, true);
+
+    if (!main_thread) {
+        destroy_proc(ret);
+        return 0;
+    }
+
+    /* Add the main thread */
+    proc_add_thread(ret, main_thread);
+
+    return ret;
 }
 
 /*!
@@ -307,37 +217,46 @@ proc_t* create_kernel_proc(FuncPtr entry, uintptr_t args)
  * @profile: The profile to which we want to register this process
  * @flags: Flags to be passed to the process
  */
-proc_t* proc_exec(const char* cmd, sysvar_vector_t vars, struct user_profile* profile, u32 flags)
+proc_t* proc_exec(const char* cmd, const char* pname, sysvar_vector_t vars, struct user_profile* profile, u32 flags)
 {
     int error;
     proc_t* p;
-    file_t* file;
+    oss_object_t* object = nullptr;
     oss_path_t oss_path = { 0 };
+
+    /* Try to create a process */
+    p = create_proc(pname, profile, flags);
+
+    if (!p)
+        return nullptr;
 
     /* Parse the path on it's spaces */
     error = oss_parse_path_ex(cmd, &oss_path, ' ');
 
     /* Failed to parse */
     if (error || !oss_path.n_subpath)
-        return nullptr;
+        goto error_and_exit;
 
     /* Open the file which hopefully houses our executable */
-    file = file_open(oss_path.subpath_vec[0]);
+    error = oss_open_object(oss_path.subpath_vec[0], &object);
 
-    if (!file)
-        return nullptr;
+    /* Destroy the parsed path, since we don't need that guy anymore */
+    oss_destroy_path(&oss_path);
 
-    /* Create a process from this file */
-    p = elf_exec_64(file, (flags & PROC_KERNEL) == PROC_KERNEL);
+    if (error)
+        goto error_and_exit;
+
+    /* The exec call will bind the contents of the object to a thread complex for the process */
+    error = aniva_exec(object, p, NULL);
+
+    /* Bruh =( */
+    if (error)
+        goto error_and_exit;
 
     /* Close the file */
-    file_close(file);
+    oss_object_close(object);
 
-    /* Fuck, could not create process */
-    if (!p)
-        return nullptr;
-
-    if ((flags & PROC_SYNC) == PROC_SYNC)
+    if ((flags & PF_SYNC) == PF_SYNC)
         error = proc_schedule_and_await(p, profile, cmd, NULL, NULL, SCHED_PRIO_HIGH);
     else
         error = proc_schedule(p, profile, cmd, NULL, NULL, SCHED_PRIO_HIGH);
@@ -348,24 +267,14 @@ proc_t* proc_exec(const char* cmd, sysvar_vector_t vars, struct user_profile* pr
     }
 
     return p;
-}
 
-/*!
- * @brief: Try to set the entry of a process
- */
-kerror_t proc_set_entry(proc_t* p, FuncPtr entry, uintptr_t arg0, uintptr_t arg1)
-{
-    if (!p || !p->m_init_thread)
-        return -KERR_INVAL;
+error_and_exit:
+    if (object)
+        oss_object_close(object);
 
-    mutex_lock(p->m_init_thread->m_lock);
+    destroy_proc(p);
 
-    p->m_init_thread->f_entry = (f_tentry_t)entry;
-
-    thread_set_entrypoint(p->m_init_thread, entry, arg0, arg1);
-
-    mutex_unlock(p->m_init_thread->m_lock);
-    return KERR_NONE;
+    return nullptr;
 }
 
 /*
@@ -403,7 +312,7 @@ static inline void __proc_kill_threads(proc_t* proc)
     temp_tlist = init_list();
 
     /* Put all threads on a seperate temporary list */
-    FOREACH(i, proc->m_threads)
+    FOREACH(i, proc->threads)
     {
         /* Kill every thread */
         list_append(temp_tlist, i->data);
@@ -420,7 +329,7 @@ static inline void __proc_kill_threads(proc_t* proc)
     }
 
     destroy_list(temp_tlist);
-    destroy_list(proc->m_threads);
+    destroy_list(proc->threads);
 }
 
 /*!
@@ -444,16 +353,13 @@ static int __destroy_proc(oss_object_t* object)
     __proc_kill_threads(proc);
 
     /* Free everything else */
-    destroy_mutex(proc->m_lock);
+    destroy_mutex(proc->lock);
 
     destroy_khandle_map(&proc->m_handle_map);
-
-    KLOG_DBG("Doing proc tracker\n");
 
     /* loop over all the resources of this process and release them by using kmem_dealloc */
     __proc_destroy_page_tracker(proc);
 
-    KLOG_DBG("Doing page dir\n");
     /*
      * Kill the root pd if it has one, other than the currently active page dir.
      * We already kinda expect this to only be called from kernel context, but
@@ -514,7 +420,7 @@ int proc_schedule_and_await(proc_t* proc, struct user_profile* profile, const ch
     /* Pause the scheduler so we don't get fucked while registering the hook */
     pause_scheduler();
 
-    kevent_add_poll_hook("proc", proc->m_name, _await_proc_term_hook_condition, proc);
+    kevent_add_poll_hook("proc", proc->name, _await_proc_term_hook_condition, proc);
 
     /* Do an instant rescedule */
     error = proc_schedule(proc, profile, cmd, stdio_path, stdio_type, prio);
@@ -529,11 +435,11 @@ int proc_schedule_and_await(proc_t* proc, struct user_profile* profile, const ch
     resume_scheduler();
 
     /* Wait for the process to be bopped */
-    error = kevent_await_hook_fire("proc", proc->m_name, NULL, NULL);
+    error = kevent_await_hook_fire("proc", proc->name, NULL, NULL);
 
 remove_hook_and_fail:
     /* Remove the hook */
-    kevent_remove_hook("proc", proc->m_name);
+    kevent_remove_hook("proc", proc->name);
 
     return error;
 }
@@ -557,7 +463,7 @@ int proc_schedule(proc_t* proc, struct user_profile* profile, const char* cmd, c
     }
 
     if (!cmd)
-        cmd = proc->m_name;
+        cmd = proc->name;
 
     proc_obj = proc->obj;
 
@@ -608,13 +514,13 @@ kerror_t try_terminate_process_ex(proc_t* proc, bool defer_yield)
     if (!proc)
         return -1;
 
-    if ((proc->m_flags & PROC_FINISHED) == PROC_FINISHED)
+    if ((proc->flags & PF_FINISHED) == PF_FINISHED)
         return KERR_HANDLED;
 
     this_thread = get_current_scheduling_thread();
 
     /* Check every thread to see if there are any pending syscalls */
-    FOREACH(i, proc->m_threads)
+    FOREACH(i, proc->threads)
     {
         c_thread = i->data;
 
@@ -647,7 +553,7 @@ kerror_t try_terminate_process_ex(proc_t* proc, bool defer_yield)
     pause_scheduler();
 
     /* Mark as finished, since we know we won't be seeing it again after we return from this call */
-    proc->m_flags |= PROC_FINISHED;
+    proc->flags |= PF_FINISHED;
 
     /*
      * Register to the reaper
@@ -692,13 +598,13 @@ kerror_t proc_add_thread(proc_t* proc, struct thread* thread)
 
     error = -1;
 
-    mutex_lock(proc->m_lock);
+    mutex_lock(proc->lock);
 
-    if ((proc->m_flags & PROC_FINISHED) == PROC_FINISHED)
+    if ((proc->flags & PF_FINISHED) == PF_FINISHED)
         goto unlock_and_exit;
 
     /* We just need to know that this thread is not yet added to the process */
-    error = list_indexof(proc->m_threads, NULL, thread);
+    error = list_indexof(proc->threads, NULL, thread);
 
     if (error == 0)
         goto unlock_and_exit;
@@ -715,17 +621,14 @@ kerror_t proc_add_thread(proc_t* proc, struct thread* thread)
     kevent_fire("thread", &thread_ctx, sizeof(thread_ctx));
 
     /* If this is the first thread, we need to make sure it gets ran first */
-    if (proc->m_threads->m_length == 0 && proc->m_init_thread == nullptr) {
-        proc->m_init_thread = thread;
-        /* Ensure the schedulers picks up on this fact */
-        proc->m_flags |= PROC_UNRUNNED;
-    }
+    if (proc->threads->m_length == 0 && proc->main_thread == nullptr)
+        proc->main_thread = thread;
 
     /* Add the thread to the processes list (NOTE: ->m_thread_count has already been updated at this point) */
-    list_append(proc->m_threads, thread);
+    list_append(proc->threads, thread);
 
 unlock_and_exit:
-    mutex_unlock(proc->m_lock);
+    mutex_unlock(proc->lock);
     return error;
 }
 
@@ -739,12 +642,10 @@ kerror_t proc_remove_thread(proc_t* proc, struct thread* thread)
 
     error = -KERR_INVAL;
 
-    mutex_lock(proc->m_lock);
+    mutex_lock(proc->lock);
 
-    if (!list_remove_ex(proc->m_threads, thread))
+    if (!list_remove_ex(proc->threads, thread))
         goto unlock_and_exit;
-
-    proc->m_thread_count--;
 
     thread_ctx.thread = thread;
     thread_ctx.type = THREAD_EVENTTYPE_DESTROY;
@@ -756,15 +657,8 @@ kerror_t proc_remove_thread(proc_t* proc, struct thread* thread)
     (void)kevent_fire("thread", &thread_ctx, sizeof(thread_ctx));
 
 unlock_and_exit:
-    mutex_unlock(proc->m_lock);
+    mutex_unlock(proc->lock);
     return error;
-}
-
-void proc_add_async_task_thread(proc_t* proc, FuncPtr entry, uintptr_t args)
-{
-    // TODO: generate new unique name
-    // list_append(proc->m_threads, create_thread_for_proc(proc, entry, args, "AsyncThread #TODO"));
-    kernel_panic("TODO: implement async task threads");
 }
 
 const char* proc_try_get_symname(proc_t* proc, uintptr_t addr)
@@ -780,7 +674,7 @@ const char* proc_try_get_symname(proc_t* proc, uintptr_t addr)
     proc_path = kmalloc(0x1000);
 
     /* Format the path. We know process objects are always attached to Proc/<proc_name> */
-    sfmt_sz(proc_path, 0x1000, "Proc/%s", proc->m_name);
+    sfmt_sz(proc_path, 0x1000, "Proc/%s", proc->name);
 
     dynldr_getfuncname_msg_t msg_block = {
         .proc_path = proc_path,

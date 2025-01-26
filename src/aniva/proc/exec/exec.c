@@ -1,4 +1,5 @@
 #include "exec.h"
+#include "proc/exec/elf/elf.h"
 
 static aniva_exec_method_t* __exec_methods = NULL;
 
@@ -7,31 +8,31 @@ static aniva_exec_method_t* __exec_methods = NULL;
  *
  *
  */
-proc_t* aniva_exec(oss_object_t* object, u32 flags)
+error_t aniva_exec(oss_object_t* object, proc_t* target, u32 flags)
 {
-    proc_t* proc = nullptr;
+    error_t error = -ENOIMPL;
 
     /*
      * Loop over all methods and try to execute @object
      * All these methods should have the ->f_execute field set, otherwise sm
      * went wrong during register, or the field got corrupted
      */
-    for (aniva_exec_method_t* method = __exec_methods; method && !proc; method = method->next)
-        proc = method->f_execute(object);
+    for (aniva_exec_method_t* method = __exec_methods; method && !IS_OK(error); method = method->next)
+        error = method->f_execute(object, target);
 
-    return proc;
+    return error;
 }
 
 /*!
  * @brief: Try to execute @object using the exec method @method
  */
-proc_t* aniva_exec_by(struct aniva_exec_method* method, oss_object_t* object, u32 flags)
+error_t aniva_exec_by(struct aniva_exec_method* method, oss_object_t* object, proc_t* target, u32 flags)
 {
     if (!method)
-        return nullptr;
+        return -EINVAL;
 
     /* Try to execute */
-    return method->f_execute(object);
+    return method->f_execute(object, target);
 }
 
 /*!
@@ -115,4 +116,5 @@ aniva_exec_method_t* aniva_exec_method_get(const char* key)
 
 void init_aniva_execution()
 {
+    init_elf_exec_method();
 }

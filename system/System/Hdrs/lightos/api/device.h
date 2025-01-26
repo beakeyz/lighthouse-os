@@ -132,6 +132,10 @@ enum DEVICE_CTLC {
 
     /* Video control codes */
     DEVICE_CTLC_GET_FBINFO,
+    DEVICE_CTLC_VID_SETBUFF,
+    DEVICE_CTLC_VID_GETBUFF,
+    DEVICE_CTLC_VID_IS_VBLANK,
+    DEVICE_CTLC_VID_VPORCH,
 
     /* Device event codes */
     DEVICE_CTLC_KEVENT_POLL,

@@ -648,13 +648,13 @@ kerror_t scheduler_add_proc_ex(scheduler_t* scheduler, proc_t* p, enum SCHEDULER
     if (!scheduler || !p)
         return -KERR_INVAL;
 
-    KLOG_DBG("Scheduler: Adding proc %s\n", p->m_name);
+    KLOG_DBG("Scheduler: Adding proc %s\n", p->name);
 
-    FOREACH(i, p->m_threads)
+    FOREACH(i, p->threads)
     {
         c_thread = i->data;
 
-        KLOG_DBG(" - Sched: Adding thread %s for proc %s\n", c_thread->m_name, p->m_name);
+        KLOG_DBG(" - Sched: Adding thread %s for proc %s\n", c_thread->m_name, p->name);
 
         error = scheduler_add_thread_ex(scheduler, c_thread, prio);
 
@@ -689,7 +689,7 @@ kerror_t scheduler_remove_proc_ex(scheduler_t* scheduler, proc_t* p)
     /* Pause the scheduler just in case */
     pause_scheduler();
 
-    FOREACH(i, p->m_threads)
+    FOREACH(i, p->threads)
     {
         c_thread = i->data;
 

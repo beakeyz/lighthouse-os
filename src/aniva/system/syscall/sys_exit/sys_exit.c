@@ -27,12 +27,11 @@ void sys_exit(error_t code)
     ASSERT_MSG(current_thread->m_parent_proc == current_proc, "Process to Thread mismatch!");
 
     /* In this case we may always kill the entire process */
-    if (current_thread == current_proc->m_init_thread) {
+    if (current_thread == current_proc->main_thread)
         goto exit_and_terminate;
-    }
 
     /* There are more threads in this process */
-    if (current_proc->m_thread_count > 1) {
+    if (proc_get_nr_threads(current_proc) > 1) {
         /* We're dying ;-; */
         thread_set_state(current_thread, DYING);
 
@@ -41,20 +40,6 @@ void sys_exit(error_t code)
 
         /* Remove from this mofoking scheduler */
         scheduler_remove_thread(current_thread);
-
-        goto exit_and_yield;
-    }
-
-    /*
-     * This process was a shared library or a socket that finished initilization and we are waiting on
-     * the signal for destruction
-     */
-    if (current_proc->m_flags & PROC_SHOULD_STALL) {
-
-        current_proc->m_flags |= PROC_STALLED | PROC_IDLE;
-
-        /* This thread will be idle forever */
-        thread_set_state(current_thread, BLOCKED);
 
         goto exit_and_yield;
     }

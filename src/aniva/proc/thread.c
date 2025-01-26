@@ -56,8 +56,7 @@ thread_t* create_thread(FuncPtr entry, uintptr_t data, const char* name, proc_t*
     thread->f_entry = (f_tentry_t)entry;
 
     /* TODO: thread locking */
-    thread->m_tid = proc->m_thread_count;
-    proc->m_thread_count = thread->m_tid + 1;
+    thread->m_tid = proc_get_nr_threads(proc);
 
     memcpy(&thread->m_fpu_state, &standard_fpu_state, sizeof(FpuState));
 
@@ -127,7 +126,7 @@ thread_t* create_thread_for_proc(proc_t* proc, FuncPtr entry, uintptr_t args, co
     if (proc == nullptr)
         return nullptr;
 
-    const bool is_kernel = ((proc->m_flags & PROC_KERNEL) == PROC_KERNEL) || ((proc->m_flags & PROC_DRIVER) == PROC_DRIVER);
+    const bool is_kernel = ((proc->flags & PF_KERNEL) == PF_KERNEL) || ((proc->flags & PF_DRIVER) == PF_DRIVER);
 
     return create_thread(entry, args, name, proc, is_kernel);
 }

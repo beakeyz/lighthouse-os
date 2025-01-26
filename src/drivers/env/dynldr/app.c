@@ -12,6 +12,7 @@
 #include "priv.h"
 #include "proc/handle.h"
 #include "proc/proc.h"
+#include "proc/thread.h"
 #include <libk/string.h>
 
 loaded_app_t* create_loaded_app(file_t* file, proc_t* proc)
@@ -308,7 +309,7 @@ kerror_t loaded_app_set_entry_tramp(loaded_app_t* app)
     ASSERT(!error);
 
     /* FIXME: args? */
-    proc_set_entry(proc, (FuncPtr)app->entry, (u64)ctx, NULL);
+    proc_add_thread(proc, create_thread((FuncPtr)app->entry, (u64)ctx, "main", proc, false));
 
     return 0;
 }

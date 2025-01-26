@@ -22,10 +22,15 @@
  *  - Find the vector of further bootstrap applications to run and run them
  */
 #include "lightos/api/handle.h"
+#include <lightos/proc/process.h>
 #include <stdio.h>
 
 int main(HANDLE self)
 {
+    // HANDLE proc = create_process("test", NULL, NULL, NULL, NULL);
+
+    //(void)proc;
+
     printf("Hello, World!\n");
     return -69;
 }

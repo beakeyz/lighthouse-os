@@ -2,6 +2,7 @@
 #include "libk/data/queue.h"
 #include "libk/flow/error.h"
 #include "libk/stddef.h"
+#include "lightos/api/process.h"
 #include "logging/log.h"
 #include "proc/core.h"
 #include "proc/proc.h"
@@ -39,7 +40,7 @@ static inline thread_t* _reaper_get_thread()
     mutex_unlock(__reaper_thread_lock);
 
     /* Parent process is already in our queue, just fking wait a bit */
-    if (thread && thread->m_parent_proc && (thread->m_parent_proc->m_flags & PROC_FINISHED) == PROC_FINISHED)
+    if (thread && thread->m_parent_proc && (thread->m_parent_proc->flags & PF_FINISHED) == PF_FINISHED)
         return nullptr;
 
     return thread;
@@ -114,7 +115,7 @@ kerror_t reaper_register_process(proc_t* proc)
         return -1;
 
     /* TODO: If the reaper thread is idle, wake it up */
-    ASSERT_MSG(!(__reaper_thread->m_parent_proc->m_flags & PROC_IDLE), "Kernelprocess seems to be idle!");
+    ASSERT_MSG(!(__reaper_thread->m_parent_proc->flags & PF_IDLE), "Kernelprocess seems to be idle!");
 
     /* Get the reaper lock so we know we can safely queue up the process */
     mutex_lock(__reaper_process_lock);
@@ -151,11 +152,11 @@ int reaper_register_thread(thread_t* thread)
 
 kerror_t init_reaper(proc_t* proc)
 {
-    if (!proc || !(proc->m_flags & PROC_KERNEL))
+    if (!proc || !(proc->flags & PF_KERNEL))
         return -1;
 
     /* Make sure we know this is the process that contains the reaper */
-    proc->m_flags |= PROC_REAPER;
+    // proc->flags |= PF_REAPER;
 
     __reaper_port = 0;
 

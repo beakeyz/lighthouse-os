@@ -10,6 +10,7 @@
 #include "mem/heap.h"
 #include "mem/kmem.h"
 #include "proc/proc.h"
+#include "proc/thread.h"
 #include "sched/scheduler.h"
 #include "sys/types.h"
 #include "system/profile/profile.h"
@@ -181,7 +182,6 @@ proc_t* elf_exec_64(file_t* file, bool kernel)
     page_dir_t prev_pdir;
     struct elf64_phdr* phdrs = NULL;
     struct elf64_hdr header;
-    struct proc_image image;
     uintptr_t proc_flags;
     uint32_t page_flags;
 
@@ -211,16 +211,15 @@ proc_t* elf_exec_64(file_t* file, bool kernel)
 
     /* When executing elf files in 'kernel' mode, they internally run as a driver */
     if (kernel)
-        proc_flags |= PROC_DRIVER;
+        proc_flags |= PF_DRIVER;
 
-    proc = create_proc(nullptr, nullptr, (char*)file->m_obj->key, (void*)header.e_entry, 0, proc_flags);
+    proc = create_proc((char*)file->m_obj->key, nullptr, proc_flags);
 
     if (!proc)
         goto error_and_out;
 
-    image.m_total_exe_bytes = file->m_total_size;
-    image.m_lowest_addr = (vaddr_t)-1;
-    image.m_highest_addr = 0;
+    /* Add this fucker */
+    ASSERT(IS_OK(proc_add_thread(proc, create_thread((FuncPtr)header.e_entry, NULL, "main", proc, false))));
 
     /* Cache the current addressspace */
     kmem_get_addrspace(&prev_pdir);
@@ -260,12 +259,6 @@ proc_t* elf_exec_64(file_t* file, bool kernel)
                 phdr.p_filesz > phdr.p_memsz ? &phdr.p_memsz : &phdr.p_filesz,
                 phdr.p_offset);
 
-            if ((virtual_phdr_base + phdr_size) > image.m_highest_addr) {
-                image.m_highest_addr = ALIGN_UP(virtual_phdr_base + phdr_size, SMALL_PAGE_SIZE);
-            }
-            if (virtual_phdr_base < image.m_lowest_addr) {
-                image.m_lowest_addr = ALIGN_DOWN(virtual_phdr_base, SMALL_PAGE_SIZE);
-            }
         } break;
         }
     }
@@ -274,9 +267,6 @@ proc_t* elf_exec_64(file_t* file, bool kernel)
     //__elf_init_appctx(proc, file, &header);
 
     kfree(phdrs);
-
-    /* Copy over the image object */
-    proc->m_image = image;
 
     /* Switch back to the kernel page */
     kmem_set_addrspace_ex(&prev_pdir, get_current_proc());

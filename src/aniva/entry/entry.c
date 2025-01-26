@@ -414,23 +414,6 @@ void kthread_entry(void)
     /* Do late initialization of the default profiles */
     init_profiles_late();
 
-    /* Allocate a quick buffer for our init process */
-    driver_t* drv;
-    char init_buffer[256] = { 0 };
-
-    /* Format the buffer */
-    sfmt(init_buffer, "Storage/Root/Users/Admin/Core/init %s", kopts_get_bool("use_kterm") ? "--use-kterm" : " ");
-
-    /* Construct the sysvar vector */
-    sysvar_vector_t vec = {
-        SYSVAR_VEC_BYTE("USE_KTERM", kopts_get_bool("use_kterm")),
-        SYSVAR_VEC_BYTE("NO_PIPES", false),
-        SYSVAR_VEC_END,
-    };
-
-    /* Execute the buffer */
-    ASSERT_MSG(proc_exec(init_buffer, vec, get_admin_profile(), PROC_KERNEL | PROC_SYNC) != nullptr, "Failed to launch init process");
-
     // kernel_panic("TEST");
 
     /*
@@ -439,20 +422,31 @@ void kthread_entry(void)
      */
     destroy_early_tty();
 
-    drv = nullptr;
-
-    if (!kopts_get_bool("use_kterm"))
-        drv = load_external_driver("Storage/Root/System/lwnd.drv");
-
-    if (!drv)
-        drv = load_external_driver("Storage/Root/System/kterm.drv");
-
-    /* Launch the usb monitor */
-    proc_exec("Storage/Root/Users/Admin/Core/usbmntr", NULL, get_admin_profile(), PROC_KERNEL);
+    /* If we want to use kterm, just short towards that */
+    if (kopts_get_bool("use_kterm"))
+        ASSERT(load_external_driver("Storage/Root/System/kterm.drv"));
+    /* Otherwise, boot up the init process, which should load the core system environment */
+    else {
+        // /* Allocate a quick buffer for our init process */
+        // char init_buffer[256] = { 0 };
+        //
+        // /* Format the buffer */
+        // sfmt(init_buffer, "Storage/Root/Users/Admin/Core/init %s", kopts_get_bool("use_kterm") ? "--use-kterm" : " ");
+        //
+        // /* Construct the sysvar vector */
+        // sysvar_vector_t vec = {
+        //     SYSVAR_VEC_BYTE("USE_KTERM", kopts_get_bool("use_kterm")),
+        //     SYSVAR_VEC_BYTE("NO_PIPES", false),
+        //     SYSVAR_VEC_END,
+        // };
+        //
+        // /* Execute the buffer */
+        // ASSERT_MSG(proc_exec(init_buffer, vec, get_admin_profile(), PROC_KERNEL | PROC_SYNC) != nullptr, "Failed to launch init process");
+    }
 
     while (true)
         /* Block this thread to save cycles */
-        thread_sleep(root_proc->m_init_thread);
+        thread_sleep(root_proc->main_thread);
 
     /* Should not happen lmao */
     kernel_panic("Reached end of start_thread");

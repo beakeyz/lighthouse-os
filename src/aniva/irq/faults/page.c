@@ -43,7 +43,7 @@ enum FAULT_RESULT pagefault_handler(const aniva_fault_t* fault, registers_t* reg
 
     if (current_proc && current_thread) {
         printf("fault occured in: %s:%s (cr3: 0x%llx)\n",
-            current_proc->m_name,
+            current_proc->name,
             current_thread->m_name,
             current_proc->m_root_pd.m_phys_root);
         p_addr = kmem_to_phys(current_proc->m_root_pd.m_root, err_addr);
@@ -66,10 +66,10 @@ enum FAULT_RESULT pagefault_handler(const aniva_fault_t* fault, registers_t* reg
 
     /* Drivers and other kernel processes should get insta-nuked */
     /* FIXME: a driver can be a non-kernel process. Should user drivers meet the same fate as kernel drivers? */
-    if ((current_proc->m_flags & PROC_KERNEL) == PROC_KERNEL)
+    if ((current_proc->flags & PF_KERNEL) == PF_KERNEL)
         goto panic;
 
-    if ((current_proc->m_flags & PROC_DRIVER) == PROC_DRIVER)
+    if ((current_proc->flags & PF_DRIVER) == PF_DRIVER)
         goto panic;
 
     // /* NOTE: This yields and exits the interrupt context cleanly */

@@ -140,7 +140,7 @@ thread_t* find_thread(proc_t* proc, thread_id_t tid)
     if (!proc)
         return nullptr;
 
-    FOREACH(i, proc->m_threads)
+    FOREACH(i, proc->threads)
     {
         ret = i->data;
 
@@ -160,13 +160,13 @@ kerror_t proc_register(struct proc* proc, user_profile_t* profile)
     processor_t* cpu;
     kevent_proc_ctx_t ctx;
 
-    mutex_lock(proc->m_lock);
+    mutex_lock(proc->lock);
 
     error = oss_object_connect(__proc_root_obj, proc->obj);
 
     proc->profile = profile;
 
-    mutex_unlock(proc->m_lock);
+    mutex_unlock(proc->lock);
 
     /* Oops */
     if (error)
@@ -199,7 +199,7 @@ kerror_t proc_unregister(struct proc* proc)
     /* Add a count to the runtime proccount */
     runtime_remove_proccount();
 
-    mutex_lock(proc->m_lock);
+    mutex_lock(proc->lock);
 
     /* Disconnect the process */
     oss_object_disconnect(__proc_root_obj, proc->obj);
@@ -213,7 +213,7 @@ kerror_t proc_unregister(struct proc* proc)
 
     kevent_fire("proc", &ctx, sizeof(ctx));
 
-    mutex_unlock(proc->m_lock);
+    mutex_unlock(proc->lock);
 
     return 0;
 }

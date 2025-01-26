@@ -9,8 +9,11 @@ thread_t* __kernel_idle_thread;
 
 void init_kernel_idle()
 {
-    __kernel_idle_proc = create_proc(NULL, get_admin_profile(), "kernel_idle", __generic_proc_idle, NULL, PROC_KERNEL);
-    __kernel_idle_thread = __kernel_idle_proc->m_init_thread;
+    __kernel_idle_proc = create_proc("kernel_idle", get_admin_profile(), PF_KERNEL);
+
+    __kernel_idle_thread = create_thread(__generic_proc_idle, NULL, "main", __kernel_idle_proc, true);
+
+    proc_add_thread(__kernel_idle_proc, __kernel_idle_thread);
 }
 
 void __generic_proc_idle()

@@ -3,7 +3,7 @@
 
 #include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"
-#include "lightos/api/sysvar.h"
+#include "lightos/api/process.h"
 #include "mem/kmem.h"
 #include "mem/page_dir.h"
 #include "mem/tracker/tracker.h"
@@ -35,24 +35,6 @@ struct user_profile;
  * every resource also keeps a linked list of owners
  */
 
-typedef struct proc_image {
-    /* NOTE: make sure the low and high addresses are page-aligned */
-    vaddr_t m_lowest_addr;
-    vaddr_t m_highest_addr;
-    size_t m_total_exe_bytes;
-} proc_image_t;
-
-inline bool proc_image_is_correctly_aligned(proc_image_t* image)
-{
-    return (ALIGN_UP(image->m_highest_addr, SMALL_PAGE_SIZE) == image->m_highest_addr && ALIGN_DOWN(image->m_lowest_addr, SMALL_PAGE_SIZE) == image->m_lowest_addr);
-}
-
-inline void proc_image_align(proc_image_t* image)
-{
-    image->m_highest_addr = ALIGN_UP(image->m_highest_addr, SMALL_PAGE_SIZE);
-    image->m_lowest_addr = ALIGN_DOWN(image->m_lowest_addr, SMALL_PAGE_SIZE);
-}
-
 /*
  * This struct may get quite big, so let's make sure to put
  * frequently used fields close to eachother in order to minimize
@@ -61,15 +43,21 @@ inline void proc_image_align(proc_image_t* image)
  * TODO: proc should prob be protected by atleast a few mutexes or spinlocks
  */
 typedef struct proc {
-    const char* m_name;
+    /* Name of this process. Points to the objects key */
+    const char* name;
     struct oss_object* obj;
-    uint32_t m_flags;
-    uint32_t m_dt_since_boot;
+
+    u32 flags;
+    /*
+     * How many seconds it has been since boot that this process has been launched
+     * This guy only overflows if the system has been running for 4000+ days and there is a new
+     * process launch.. I think we should be fine
+     */
+    u32 proc_launch_time_rel_boot_sec;
 
     /* This is used to compare a processes status in relation to other processes */
     struct user_profile* profile;
-    struct proc* m_parent;
-    struct mutex* m_lock;
+    struct mutex* lock;
 
     /* Resource tracking */
     page_dir_t m_root_pd;
@@ -77,55 +65,37 @@ typedef struct proc {
     page_tracker_t m_virtual_tracker;
 
     /* A couple of static pointers to certain threads */
-    struct thread* m_init_thread;
+    struct thread* main_thread;
 
     /* Simple linked list that contains all our threads */
-    list_t* m_threads;
+    list_t* threads;
 
-    size_t m_thread_count;
-    size_t m_ticks_elapsed;
-
-    /* Represent the image that this proc stems from (either from disk or in-ram) */
-    struct proc_image m_image;
+    size_t ticks_elapsed;
 } proc_t;
 
-/* We will probably find more usages for this */
-#define PROC_IDLE (0x00000001)
-#define PROC_KERNEL (0x00000002) /* This process runs directly in the kernel */
-#define PROC_DRIVER (0x00000004) /* This process runs with kernel privileges in its own pagemap */
-#define PROC_STALLED (0x00000008) /* This process ran as either a socket or a shared library and is now waiting detachment or an exit signal of some sort */
-#define PROC_UNRUNNED (0x00000010) /* V-card still intact */
-#define PROC_FINISHED (0x00000020) /* Process should be cleaned up by the scheduler */
-#define PROC_REAPER (0x00000040) /* Process capable of killing other processes and threads */
-#define PROC_HAD_HANDLE (0x00000080) /* Process is referenced in userspace by a handle */
-#define PROC_SHOULD_STALL (0x00000100) /* Process was launched as an entity that needs explicit signaling for actual exit and destruction */
-#define PROC_SYNC (0x00000200) /* Launcher should await process termination */
+static inline size_t proc_get_nr_threads(proc_t* proc)
+{
+    return proc->threads->m_length;
+}
 
-proc_t* create_proc(proc_t* parent, struct user_profile* profile, char* name, FuncPtr entry, uintptr_t args, uint32_t flags);
+static inline size_t proc_get_ticks_elapsed(proc_t* proc)
+{
+    return proc->ticks_elapsed;
+}
+
+proc_t* create_proc(const char* name, struct user_profile* profile, u32 flags);
 proc_t* create_kernel_proc(FuncPtr entry, uintptr_t args);
+void destroy_proc(proc_t* proc);
 
-proc_t* proc_exec(const char* cmd, sysvar_vector_t vars, struct user_profile* profile, u32 flags);
+// proc_t* proc_exec(const char* cmd, sysvar_vector_t vars, struct user_profile* profile, u32 flags);
 
 /* Block until the process has ended execution */
 int proc_schedule_and_await(proc_t* proc, struct user_profile* profile, const char* cmd, const char* stdio_path, HANDLE_TYPE stdio_type, enum SCHEDULER_PRIORITY prio);
 int proc_schedule(proc_t* proc, struct user_profile* profile, const char* cmd, const char* stdio_path, HANDLE_TYPE stdio_type, enum SCHEDULER_PRIORITY prio);
-int proc_clone(proc_t* p, FuncPtr clone_entry, const char* clone_name, proc_t** clone);
-kerror_t proc_set_entry(proc_t* p, FuncPtr entry, uintptr_t arg0, uintptr_t arg1);
 const char* proc_try_get_symname(proc_t* proc, uintptr_t addr);
-
-/*
- * Murder a proc object with all its threads as well.
- * TODO: we need to verify that these cleanups happen
- * gracefully, meaning that there is no leftover
- * debris from killing all those threads.
- * We really want threads to have their own heaps, so that
- * we don't have to keep track of what they allocated...
- */
-void destroy_proc(proc_t*);
 
 kerror_t proc_add_thread(proc_t* proc, struct thread* thread);
 kerror_t proc_remove_thread(proc_t* proc, struct thread* thread);
-void proc_add_async_task_thread(proc_t* proc, FuncPtr entry, uintptr_t args);
 
 kerror_t try_terminate_process(proc_t* proc);
 kerror_t try_terminate_process_ex(proc_t* proc, bool defer_yield);
@@ -136,10 +106,10 @@ void proc_exit();
 
 static inline bool proc_can_schedule(proc_t* proc)
 {
-    if (!proc || (proc->m_flags & PROC_FINISHED) == PROC_FINISHED || (proc->m_flags & PROC_IDLE) == PROC_IDLE)
+    if (!proc || (proc->flags & PF_FINISHED) == PF_FINISHED || (proc->flags & PF_IDLE) == PF_IDLE)
         return false;
 
-    if (!proc->m_threads || !proc->m_thread_count || !proc->m_init_thread || !proc->m_init_thread->f_entry)
+    if (!proc->threads || !proc_get_nr_threads(proc))
         return false;
 
     /* If none of the conditions above are met, it seems like we can schedule */
@@ -158,7 +128,7 @@ void stall_process(proc_t* proc);
  */
 static inline bool is_kernel(proc_t* proc)
 {
-    return (strncmp(proc->m_name, PROC_CORE_PROCESS_NAME, strlen(PROC_CORE_PROCESS_NAME)) == 0);
+    return (strncmp(proc->name, PROC_CORE_PROCESS_NAME, strlen(PROC_CORE_PROCESS_NAME)) == 0);
 }
 
 /*!
@@ -166,12 +136,12 @@ static inline bool is_kernel(proc_t* proc)
  */
 static inline bool is_kernel_proc(proc_t* proc)
 {
-    return ((proc->m_flags & PROC_KERNEL) == PROC_KERNEL);
+    return ((proc->flags & PF_KERNEL) == PF_KERNEL);
 }
 
 static inline bool is_driver_proc(proc_t* proc)
 {
-    return ((proc->m_flags & PROC_DRIVER) == PROC_DRIVER);
+    return ((proc->flags & PF_DRIVER) == PF_DRIVER);
 }
 
 #endif // !__ANIVA_PROC__

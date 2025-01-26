@@ -14,11 +14,11 @@
 struct aniva_exec_method;
 
 /* 'Executes' a task by creating a new process for it */
-proc_t* aniva_exec(oss_object_t* object, u32 flags);
-proc_t* aniva_exec_by(struct aniva_exec_method* method, oss_object_t* object, u32 flags);
+error_t aniva_exec(oss_object_t* object, proc_t* target, u32 flags);
+error_t aniva_exec_by(struct aniva_exec_method* method, oss_object_t* object, proc_t* target, u32 flags);
 
 /* Function prototype for the execute function */
-typedef proc_t* (*f_AnivaExecMethod_Execute)(oss_object_t* object);
+typedef error_t (*f_AnivaExecMethod_Execute)(oss_object_t* object, proc_t* target);
 
 /*
  * Supplementary functions that the kernel can use to gather information about processes it has running

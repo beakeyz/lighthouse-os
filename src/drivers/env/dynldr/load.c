@@ -379,7 +379,7 @@ kerror_t load_app(file_t* file, loaded_app_t** out_app, proc_t** p_proc)
     parent_proc = get_current_proc();
 
     /* Create an addressspsace for this bitch */
-    proc = create_proc(is_kernel_proc(parent_proc) ? nullptr : parent_proc, nullptr, (char*)file->m_obj->key, NULL, NULL, NULL);
+    proc = create_proc(file->m_obj->key, NULL, NULL);
 
     if (!proc)
         return -KERR_NULL;
