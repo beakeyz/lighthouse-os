@@ -25,7 +25,7 @@ device_t* create_device(driver_t* parent, char* name, void* priv)
     return create_device_ex(parent, name, priv, DEVICE_CTYPE_SOFTDEV, NULL, NULL);
 }
 
-static int __device_oss_read(oss_object_t* object, u64 offset, void* buffer, size_t size)
+static ssize_t __device_oss_read(oss_object_t* object, u64 offset, void* buffer, size_t size)
 {
     device_t* dev;
 
@@ -37,7 +37,7 @@ static int __device_oss_read(oss_object_t* object, u64 offset, void* buffer, siz
     return device_read(dev, buffer, offset, size);
 }
 
-static int __device_oss_write(oss_object_t* object, u64 offset, void* buffer, size_t size)
+static ssize_t __device_oss_write(oss_object_t* object, u64 offset, void* buffer, size_t size)
 {
     device_t* dev;
 

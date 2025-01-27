@@ -1,5 +1,0 @@
-{
-  "name": "dynldr.drv",
-  "linking": "static",
-  "type": "driver"
-}

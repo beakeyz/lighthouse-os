@@ -40,7 +40,7 @@ static error_t __parse_cmdline(u32 argc)
     return 0;
 }
 
-static Object* __get_relative_object(Object* self_obj)
+static Object* __get_target_object(Object* self_obj)
 {
     char path_buff[256] = { 0 };
 
@@ -97,7 +97,7 @@ error_t main(HANDLE self)
     if (error)
         return error;
 
-    rel_obj = __get_relative_object(&self_obj);
+    rel_obj = __get_target_object(&self_obj);
 
     if (!ObjectIsValid(rel_obj))
         return -ENOENT;
@@ -117,6 +117,9 @@ error_t main(HANDLE self)
         list_add(__entry_list, walker);
     }
 
+    if (__entry_list->head != nullptr)
+        goto itterate;
+
     /* Then, gather the connected, non-duplicate objects */
     for (idx = 0;; idx++) {
         /* Grab this guy */
@@ -132,11 +135,12 @@ error_t main(HANDLE self)
             CloseObject(walker);
     }
 
+itterate:
     foreach_list(i, __entry_list)
     {
         Object* walker = i->data;
 
-        printf(" %s%s", walker->key, (walker->type == OT_DIR || walker->type == OT_DGROUP || walker->type == OT_GENERIC) ? "/\n" : "\n");
+        printf("%s%s\n", walker->key, (walker->type == OT_DIR || walker->type == OT_DGROUP || walker->type == OT_GENERIC) ? "/" : "");
 
         /* Close the object */
         CloseObject(walker);

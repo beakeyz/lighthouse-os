@@ -136,40 +136,6 @@ static int __oss_dir_disconnect(oss_object_t* object, oss_object_t* child)
     return dir->ops->f_disconnect_child(dir, child->key);
 }
 
-/*!
- * @brief: Directory reads. This is simply used to access objects based on index xD
- */
-static int __oss_dir_read(oss_object_t* object, u64 offset, void* buffer, size_t bsize)
-{
-    dir_t* dir;
-    oss_object_t* ret;
-
-    if (!buffer && bsize != sizeof(oss_object_t*))
-        return -EINVAL;
-
-    dir = oss_object_unwrap(object, OT_DIR);
-
-    if (!dir)
-        return -EINVAL;
-
-    if (!dir->ops->f_open_idx)
-        return ENOIMPL;
-
-    /* Ask the driver nicely to find the object at the index for us =) */
-    ret = dir->ops->f_open_idx(dir, offset);
-
-    if (!ret)
-        return -ENOENT;
-
-    /*
-     * Export lol
-     * This is so unsafe, but do we care? no
-     */
-    *(oss_object_t**)buffer = ret;
-
-    return 0;
-}
-
 static oss_object_ops_t dir_oss_ops = {
     .f_Destroy = __destroy_dis,
     .f_Open = __oss_dir_open,
@@ -177,7 +143,6 @@ static oss_object_ops_t dir_oss_ops = {
     .f_Connect = __oss_dir_connect,
     .f_Disconnect = __oss_dir_disconnect,
     .f_ConnectNew = NULL,
-    .f_Read = __oss_dir_read,
 };
 
 /*!

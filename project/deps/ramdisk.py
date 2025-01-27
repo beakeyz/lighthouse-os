@@ -89,7 +89,7 @@ class RamdiskManager(object):
 
         # Copy the init application into the admin core
         self.__copy_app("init", self.ADMIN_CORE_PATH)
-        self.__copy_app("usbmntr", self.ADMIN_CORE_PATH)
+        # self.__copy_app("usbmntr", self.ADMIN_CORE_PATH)
 
         return True
 
@@ -101,13 +101,14 @@ class RamdiskManager(object):
 
         self.__ensure_existance(self.APPS_PATH)
 
-        self.__copy_app("doom", self.APPS_PATH)
-        self.__copy_app("gfx_test", self.APPS_PATH)
+        # self.__copy_app("doom", self.APPS_PATH)
+        # self.__copy_app("gfx_test", self.APPS_PATH)
+        # self.__copy_app("kill", self.APPS_PATH)
+        # self.__copy_app("mndlbrt", self.APPS_PATH)
+        # self.__copy_app("test", self.APPS_PATH)
+        # self.__copy_app("diskutil", self.APPS_PATH)
         self.__copy_app("ls", self.APPS_PATH)
-        self.__copy_app("kill", self.APPS_PATH)
-        self.__copy_app("mndlbrt", self.APPS_PATH)
-        self.__copy_app("test", self.APPS_PATH)
-        self.__copy_app("diskutil", self.APPS_PATH)
+        self.__copy_app("cat", self.APPS_PATH)
 
         return True
 

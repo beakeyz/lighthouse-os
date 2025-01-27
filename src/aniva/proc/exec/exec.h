@@ -9,22 +9,28 @@
  */
 
 #include <oss/object.h>
-#include <proc/proc.h>
 
+struct proc;
 struct aniva_exec_method;
 
+/* Every execution method may have their own definition of 'library' */
+typedef void process_library_t;
+
 /* 'Executes' a task by creating a new process for it */
-error_t aniva_exec(oss_object_t* object, proc_t* target, u32 flags);
-error_t aniva_exec_by(struct aniva_exec_method* method, oss_object_t* object, proc_t* target, u32 flags);
+error_t aniva_exec(oss_object_t* object, struct proc* target, u32 flags);
+error_t aniva_exec_by(struct aniva_exec_method* method, oss_object_t* object, struct proc* target, u32 flags);
 
 /* Function prototype for the execute function */
-typedef error_t (*f_AnivaExecMethod_Execute)(oss_object_t* object, proc_t* target);
+typedef error_t (*f_AnivaExecMethod_Execute)(oss_object_t* object, struct proc* target);
 
 /*
  * Supplementary functions that the kernel can use to gather information about processes it has running
  */
-typedef vaddr_t (*f_AnivaExecMethod_GetFuncAddr)(proc_t* process, const char* symbol);
-typedef const char* (*f_AnivaExecMethod_GetFuncSymbol)(proc_t* process, vaddr_t addr);
+typedef vaddr_t (*f_AnivaExecMethod_GetFuncAddr)(struct proc* process, const char* symbol);
+typedef const char* (*f_AnivaExecMethod_GetFuncSymbol)(struct proc* process, vaddr_t addr);
+
+typedef process_library_t* (*f_AnivaExecMethod_LoadLib)(struct proc* process, oss_object_t* object);
+typedef process_library_t* (*f_AnivaExecMethod_GetLib)(struct proc* process, const char* lib);
 
 /*
  * A single aniva execution method
@@ -35,6 +41,10 @@ typedef struct aniva_exec_method {
     const char* key;
     /* Actually executes the object */
     f_AnivaExecMethod_Execute f_execute;
+    f_AnivaExecMethod_GetFuncAddr f_get_func_addr;
+    f_AnivaExecMethod_GetFuncSymbol f_get_func_symbol;
+    f_AnivaExecMethod_GetLib f_get_lib;
+    f_AnivaExecMethod_LoadLib f_load_lib;
     /* Next method in the link */
     struct aniva_exec_method* next;
 } aniva_exec_method_t;

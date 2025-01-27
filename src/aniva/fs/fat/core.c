@@ -288,7 +288,7 @@ __fat32_find_free_cluster(fs_root_object_t* fsroot, uint32_t* buffer)
     return 0;
 }
 
-static uint32_t __fat32_dir_entry_get_start_cluster(fat_dir_entry_t* e)
+uint32_t __fat32_dir_entry_get_start_cluster(fat_dir_entry_t* e)
 {
     return ((uint32_t)e->first_cluster_low & 0xffff) | ((uint32_t)e->first_cluster_hi << 16);
 }
@@ -702,6 +702,11 @@ fail_dealloc_cchain:
     return error;
 }
 
+static inline bool __should_exempt_cluster_chain_updating(fat_dir_entry_t* entry)
+{
+    return (entry->name[0] == '.' && (entry->name[1] == '\0' || entry->name[1] == '.'));
+}
+
 /*!
  * @brief: Updates the cluster chain cache of a fat file
  */
@@ -709,6 +714,9 @@ static error_t fat_file_update_cluster_chain(fat_file_t* fat_file, fat_dir_entry
 {
     error_t error;
     fs_root_object_t* fsroot;
+
+    if (__should_exempt_cluster_chain_updating(current))
+        return 0;
 
     fsroot = fat_file_get_fsroot(fat_file);
 
@@ -729,7 +737,7 @@ static error_t fat_file_update_cluster_chain(fat_file_t* fat_file, fat_dir_entry
     return 0;
 }
 
-static oss_object_t* __fat_open_file(fs_root_object_t* fsroot, dir_t* dir, const char* path, fat_dir_entry_t* current, u32 direntry_offset, u32 direntry_cluster)
+oss_object_t* __fat_open_file(fs_root_object_t* fsroot, dir_t* dir, const char* path, fat_dir_entry_t* current, u32 direntry_offset, u32 direntry_cluster)
 {
     error_t error;
     fat_file_t* fat_file;
@@ -764,7 +772,7 @@ destroy_and_exit:
     return nullptr;
 }
 
-static oss_object_t* __fat_open_dir(fs_root_object_t* fsroot, dir_t* dir, const char* path, fat_dir_entry_t* current, u32 direntry_offset, u32 direntry_cluster)
+oss_object_t* __fat_open_dir(fs_root_object_t* fsroot, dir_t* dir, const char* path, fat_dir_entry_t* current, u32 direntry_offset, u32 direntry_cluster)
 {
     error_t error;
     fat_file_t* fat_file;
@@ -834,7 +842,6 @@ oss_object_t* __fat_open(dir_t* dir, const char* path)
 
     /* A single directory may have entries spanning over multiple clusters */
     direntry_cluster += direntry_offset / info->cluster_size;
-    direntry_offset %= info->cluster_size;
 
     if (error)
         return nullptr;

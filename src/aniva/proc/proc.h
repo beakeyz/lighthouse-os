@@ -45,6 +45,8 @@ struct user_profile;
 typedef struct proc {
     /* Name of this process. Points to the objects key */
     const char* name;
+    /* Key of the execution method. Can only be set once */
+    const char* exec_key;
     struct oss_object* obj;
 
     u32 flags;
@@ -72,6 +74,15 @@ typedef struct proc {
 
     size_t ticks_elapsed;
 } proc_t;
+
+static inline error_t proc_set_exec_method(proc_t* proc, const char* key)
+{
+    if (proc->exec_key)
+        return -EALREADY;
+
+    proc->exec_key = key;
+    return 0;
+}
 
 static inline size_t proc_get_nr_threads(proc_t* proc)
 {

@@ -14,7 +14,6 @@
 #include "fs/core.h"
 #include "irq/interrupts.h"
 #include "kevent/event.h"
-#include "libk/bin/elf.h"
 #include "libk/flow/error.h"
 #include "libk/kopts/parser.h"
 #include "libk/lib.h"
@@ -25,6 +24,7 @@
 #include "mem/zalloc/zalloc.h"
 #include "oss/core.h"
 #include "proc/core.h"
+#include "proc/exec/exec.h"
 #include "proc/kprocs/idle.h"
 #include "proc/kprocs/reaper.h"
 #include "proc/proc.h"
@@ -407,9 +407,7 @@ void kthread_entry(void)
     /*
      * Late environment stuff right before we are done bootstrapping kernel systems
      */
-
-    /* (libk/bin/elf.c): Load the driver for dynamic executables */
-    init_dynamic_loader();
+    init_aniva_execution();
 
     /* Do late initialization of the default profiles */
     init_profiles_late();

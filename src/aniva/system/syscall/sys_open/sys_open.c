@@ -1,6 +1,4 @@
-#include "dev/core.h"
 #include "libk/flow/error.h"
-#include "lightos/api/dynldr.h"
 #include "lightos/api/handle.h"
 #include "lightos/syscall.h"
 #include "mem/kmem.h"
@@ -150,7 +148,6 @@ HANDLE sys_open_connected_idx(handle_t rel, uint32_t idx, handle_flags_t flags)
 void* sys_get_function(HANDLE lib_handle, const char __user* path)
 {
     proc_t* c_proc;
-    void* out;
 
     c_proc = get_current_proc();
 
@@ -161,10 +158,7 @@ void* sys_get_function(HANDLE lib_handle, const char __user* path)
     if (!strlen(path))
         return NULL;
 
-    if (driver_send_msg_a(DYN_LDR_NAME, DYN_LDR_GET_FUNC_ADDR, (void*)path, sizeof(path), &out, sizeof(out)))
-        return NULL;
-
-    return out;
+    kernel_panic("TODO: sys_get_function");
 }
 
 error_t sys_close(HANDLE handle)

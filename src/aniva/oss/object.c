@@ -430,7 +430,7 @@ error_t oss_object_disconnect(oss_object_t* parent, oss_object_t* child)
  *
  * TODO: Check if we can implement some subsystem stuff with buffer juggling or some shit
  */
-error_t oss_object_read(oss_object_t* this, u64 offset, void* buffer, size_t size)
+ssize_t oss_object_read(oss_object_t* this, u64 offset, void* buffer, size_t size)
 {
     /* Check if the parameters are valid */
     if (!this || !buffer || !size)
@@ -448,11 +448,12 @@ error_t oss_object_read(oss_object_t* this, u64 offset, void* buffer, size_t siz
  * @brief: Call the object write routine
  *
  * This is a function that may propegate down the connection stream
+ * FIXME: Investigate if that is desired behaviour
  */
-error_t oss_object_write(oss_object_t* this, u64 offset, void* buffer, size_t size)
+ssize_t oss_object_write(oss_object_t* this, u64 offset, void* buffer, size_t size)
 {
     oss_connection_t* conn;
-    error_t error;
+    ssize_t error;
 
     /* Check if the parameters are valid */
     if (!this || !buffer || !size)
@@ -465,7 +466,7 @@ error_t oss_object_write(oss_object_t* this, u64 offset, void* buffer, size_t si
     error = this->ops->f_Write(this, offset, buffer, size);
 
     /* If this call failed, just dip */
-    if (error)
+    if (IS_FATAL(error))
         return error;
 
     FOREACH(i, this->connections)
@@ -484,11 +485,11 @@ error_t oss_object_write(oss_object_t* this, u64 offset, void* buffer, size_t si
         error = oss_object_write(conn->child, offset, buffer, size);
 
         /* If any write call fails, just dip */
-        if (error)
+        if (IS_FATAL(error))
             return error;
     }
 
-    return 0;
+    return error;
 }
 
 /*!

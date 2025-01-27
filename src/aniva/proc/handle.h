@@ -2,8 +2,8 @@
 #define __ANIVA_HANDLE__
 
 #include "libk/flow/error.h"
-#include "lightos/api/dynldr.h"
 #include "lightos/api/handle.h"
+#include "proc/exec/exec.h"
 #include "sync/mutex.h"
 #include <libk/stddef.h>
 
@@ -27,7 +27,7 @@ typedef struct kernel_handle {
         struct thread* thread;
         struct oss_object* object;
         struct kevent_hook* hook;
-        dynamic_library_t* dynlib;
+        process_library_t* lib;
         void* kobj;
     };
 } khandle_t;

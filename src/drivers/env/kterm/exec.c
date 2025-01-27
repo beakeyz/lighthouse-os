@@ -1,13 +1,12 @@
 #include "exec.h"
 #include "drivers/env/kterm/kterm.h"
-#include "libk/bin/elf.h"
 #include "libk/flow/error.h"
 #include "lightos/api/handle.h"
-#include "lightos/api/objects.h"
 #include "logging/log.h"
 #include "mem/heap.h"
 #include "oss/core.h"
 #include "oss/object.h"
+#include "proc/exec/exec.h"
 #include "proc/proc.h"
 #include "sched/scheduler.h"
 #include "system/profile/profile.h"
@@ -119,6 +118,7 @@ static int _kterm_exec_find_obj(const char* path, oss_object_t** bobj)
 uint32_t kterm_try_exec(const char** argv, size_t argc, const char* cmdline)
 {
     proc_t* p;
+    error_t error;
     oss_object_t* obj;
     const char* buffer;
     user_profile_t* login_profile;
@@ -136,24 +136,20 @@ uint32_t kterm_try_exec(const char** argv, size_t argc, const char* cmdline)
         return 3;
     }
 
-    /* Try to grab the file */
-    file_t* file = oss_object_unwrap(obj, OT_FILE);
-
-    if (!file) {
-        logln("Could not execute object!");
-
-        oss_object_close(obj);
-        return 4;
-    }
+    /* Create a process for this guy */
+    p = create_proc(argv[0], NULL, NULL);
 
     /* NOTE: defer the schedule here, since we still need to attach a few handles to the process */
-    p = elf_exec_64(file, false);
+    error = aniva_exec(obj, p, NULL);
 
-    oss_object_close(file->m_obj);
+    /* Close the object */
+    oss_object_close(obj);
 
-    if (!p) {
-        logln("Coult not execute object!");
-        return 5;
+    if (error) {
+        logln("Could not execute object!");
+
+        destroy_proc(p);
+        return 4;
     }
 
     KLOG_DBG("Got proc: %s %s\n", p->name, cmdline);

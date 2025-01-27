@@ -153,7 +153,7 @@ kerror_t khandle_driver_close(khandle_driver_t* driver, khandle_t* handle)
     return driver->f_close(driver, handle);
 }
 
-kerror_t khandle_driver_read(khandle_driver_t* driver, khandle_t* hndl, u64 offset, void* buffer, size_t bsize)
+ssize_t khandle_driver_read(khandle_driver_t* driver, khandle_t* hndl, u64 offset, void* buffer, size_t bsize)
 {
     if (!driver || !driver->f_read)
         return -KERR_INVAL;
@@ -164,7 +164,7 @@ kerror_t khandle_driver_read(khandle_driver_t* driver, khandle_t* hndl, u64 offs
     return driver->f_read(driver, hndl, offset, buffer, bsize);
 }
 
-kerror_t khandle_driver_write(khandle_driver_t* driver, khandle_t* hndl, u64 offset, void* buffer, size_t bsize)
+ssize_t khandle_driver_write(khandle_driver_t* driver, khandle_t* hndl, u64 offset, void* buffer, size_t bsize)
 {
     if (!driver || !driver->f_write)
         return -KERR_INVAL;

@@ -6,7 +6,6 @@
 #include "proc/proc.h"
 #include "proc/thread.h"
 #include "sched/time.h"
-#include "time/core.h"
 #include <mem/zalloc/zalloc.h>
 
 struct squeue;

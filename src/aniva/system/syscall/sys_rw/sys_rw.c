@@ -16,35 +16,31 @@
  * When writing to a handle (filediscriptor in unix terms) we have to
  * obey the privileges that the handle was opened with
  */
-error_t sys_write(HANDLE handle, u64 offset, void __user* buffer, size_t length)
+ssize_t sys_write(HANDLE handle, u64 offset, void __user* buffer, size_t length)
 {
     proc_t* current_proc;
     khandle_t* khandle;
     khandle_driver_t* khandle_driver;
 
     if (!buffer)
-        return EINVAL;
+        return -EINVAL;
 
     current_proc = get_current_proc();
 
     if (!current_proc || kmem_validate_ptr(current_proc, (uintptr_t)buffer, length))
-        return EINVAL;
+        return -EINVAL;
 
     khandle = find_khandle(&current_proc->m_handle_map, handle);
 
     if ((khandle->flags & HNDL_FLAG_WRITEACCESS) != HNDL_FLAG_WRITEACCESS)
-        return EPERM;
+        return -EPERM;
 
     /* If we can't find a driver, the system does not support writing to this type of handle
      * in it's current state... */
     if (khandle_driver_find(khandle->type, &khandle_driver))
-        return EINVAL;
+        return -EINVAL;
 
-    if (khandle_driver_write(khandle_driver, khandle, offset, buffer, length))
-        return 0;
-
-    /* TODO: Return actual written length */
-    return 0;
+    return khandle_driver_write(khandle_driver, khandle, offset, buffer, length);
 }
 
 /*!
@@ -54,9 +50,8 @@ error_t sys_write(HANDLE handle, u64 offset, void __user* buffer, size_t length)
  * both treaded like data-streams by the kernel). It's up to the underlying libc to abstract devices and
  * files further.
  */
-error_t sys_read(HANDLE handle, u64 offset, void* buffer, size_t size, size_t* pread_size)
+ssize_t sys_read(HANDLE handle, u64 offset, void* buffer, size_t size)
 {
-    error_t error;
     proc_t* current_proc;
     khandle_t* khandle;
     khandle_driver_t* khandle_driver;
@@ -72,20 +67,14 @@ error_t sys_read(HANDLE handle, u64 offset, void* buffer, size_t size, size_t* p
     khandle = find_khandle(&current_proc->m_handle_map, handle);
 
     if ((khandle->flags & HNDL_FLAG_READACCESS) != HNDL_FLAG_READACCESS)
-        return EPERM;
+        return -EPERM;
 
     /* If we can't find a driver, the system does not support reading this type of handle
      * in it's current state... */
     if (khandle_driver_find(khandle->type, &khandle_driver))
-        return EINVAL;
+        return -EINVAL;
 
-    error = khandle_driver_read(khandle_driver, khandle, offset, buffer, size);
-
-    /* FIXME: Do we need to check this address? */
-    if (pread_size)
-        *pread_size = size;
-
-    return error;
+    return khandle_driver_read(khandle_driver, khandle, offset, buffer, size);
 }
 
 size_t sys_seek(HANDLE handle, u64 c_offset, u64 new_offset, u32 type)

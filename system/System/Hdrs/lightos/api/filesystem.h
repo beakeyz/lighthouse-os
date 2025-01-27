@@ -37,11 +37,13 @@ typedef struct lightos_file {
     size_t rd_bsize;
 
     /* Read/Write offsets */
-    u64 wr_bstart;
     /* Head offset where the buffer starts in the backing file */
-    u64 wr_bhead;
+    u64 wr_file_offset;
+    u64 wr_file_head;
     /* How many writes have hit the cache since the last flush */
     u32 wr_cache_hit_count;
+    /* Write offset inside our local buffer */
+    u32 wr_buffer_offset;
 
     /* Read offset inside the local file buffer */
     u64 rd_bstart;

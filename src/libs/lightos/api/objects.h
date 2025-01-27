@@ -2,6 +2,7 @@
 #define __LIGHTOS_OBJECTS_H__
 
 #include "lightos/api/handle.h"
+#include <time.h>
 
 /*
  * API file for the oss
@@ -33,6 +34,17 @@ enum OSS_OBJECT_TYPE {
 #define OF_NO_DISCON 0x0002 // Object can't be disconnected by anyone
 #define OF_NO_CON 0x0004 // Object can't be connected by anyone
 #define OF_READONLY 0x0008 // An object can be only readable (by userspace)
+
+/*
+ * Object Info buffer, similar to stat
+ */
+typedef struct object_info {
+    size_t obj_sz;
+    time_t access_time;
+    time_t modify_time;
+    time_t create_time;
+    u32 obj_flags;
+} object_info_t;
 
 /*
  * User struct to represent generic oss objects

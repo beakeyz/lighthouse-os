@@ -1021,14 +1021,12 @@ EXPORT_DRIVER(base_kterm_driver) = {
 
 static int kterm_write(device_t* device, driver_t* kterm, u64 offset, void* buffer, size_t bsize)
 {
-    char* str = (char*)buffer;
-
     /* Make sure the end of the buffer is null-terminated and the start is non-null */
     // if ((kmem_validate_ptr(get_current_proc(), (uintptr_t)buffer, 1)))
     // return DRV_STAT_INVAL;
 
     /* TODO; string.h: char validation */
-    kterm_print(str);
+    kterm_write_msg(buffer, bsize);
 
     return DRV_STAT_OK;
 }
@@ -1900,20 +1898,28 @@ int kterm_putc(char msg)
  */
 int kterm_print(const char* msg)
 {
+    return kterm_write_msg(msg, strlen(msg));
+}
+
+int kterm_write_msg(const char* buffer, size_t bsize)
+{
     uint32_t idx;
 
-    if (!msg /* || mode != KTERM_MODE_TERMINAL */)
+    if (!buffer /* || mode != KTERM_MODE_TERMINAL */)
         return 0;
 
     idx = 0;
 
-    while (msg[idx]) {
+    while (bsize--) {
+
+        if (!buffer[idx])
+            goto cycle;
 
         /*
          * When we encounter a newline character during a kterm_print, we should simply do the following:
          * Shift y of the cursor and don't do anything else
          */
-        if (msg[idx] == '\n') {
+        if (buffer[idx] == '\n') {
             kterm_cursor_shift_y();
             goto cycle;
         }
@@ -1922,7 +1928,7 @@ int kterm_print(const char* msg)
          * Draw the char
          * FIXME: currently we only draw these white, support other colors
          */
-        kterm_draw_char(_chars_cursor_x, _chars_cursor_y, msg[idx], _current_color_idx, false);
+        kterm_draw_char(_chars_cursor_x, _chars_cursor_y, buffer[idx], _current_color_idx, false);
         kterm_cursor_shift_x();
 
     cycle:

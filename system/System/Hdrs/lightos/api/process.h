@@ -1,6 +1,9 @@
 #ifndef __LIGHTOS_PROC_SHARED__
 #define __LIGHTOS_PROC_SHARED__
 
+#include <lightos/types.h>
+#include <sys/types.h>
+
 /*
  * Either forces process creation or destruction
  * Simply bypasses some safety checks xD
@@ -19,5 +22,11 @@
 #define PF_FINISHED 0x00000010
 /* Current thread should block until this process is done */
 #define PF_SYNC 0x00000020
+
+typedef struct proc_exitvec {
+    u32 nr_exit_fn;
+    u32 res;
+    FuncPtr exit_vec[];
+} proc_exitvec_t;
 
 #endif // !__LIGHTOS_PROC_SHARED__

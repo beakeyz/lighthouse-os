@@ -2,7 +2,6 @@
 #include "libk/flow/error.h"
 #include "lightos/api/objects.h"
 #include "lightos/api/sysvar.h"
-#include "logging/log.h"
 #include "mem/heap.h"
 #include "mem/zalloc/zalloc.h"
 #include "oss/object.h"
@@ -154,22 +153,27 @@ static error_t __sysvar_allocate_value(sysvar_t* var, enum SYSVAR_TYPE type, voi
     return 0;
 }
 
-static int __sysvar_oss_read(oss_object_t* object, u64 offset, void* buffer, size_t size)
+static ssize_t __sysvar_oss_read(oss_object_t* object, u64 offset, void* buffer, size_t size)
 {
+    error_t error;
     sysvar_t* var;
-
-    KLOG_DBG("SYSVAR_READ\n");
 
     var = oss_object_unwrap(object, OT_SYSVAR);
 
     if (!var)
         return -EINVAL;
 
-    return sysvar_read(var, buffer, size);
+    error = sysvar_read(var, buffer, size);
+
+    if (error)
+        return error;
+
+    return MIN(size, var->len);
 }
 
-static int __sysvar_oss_write(oss_object_t* object, u64 offset, void* buffer, size_t size)
+static ssize_t __sysvar_oss_write(oss_object_t* object, u64 offset, void* buffer, size_t size)
 {
+    error_t error;
     sysvar_t* var;
 
     var = oss_object_unwrap(object, OT_SYSVAR);
@@ -181,7 +185,12 @@ static int __sysvar_oss_write(oss_object_t* object, u64 offset, void* buffer, si
     if (var->flags & SYSVAR_FLAG_CONSTANT)
         return -ECONST;
 
-    return sysvar_write(var, buffer, size);
+    error = sysvar_write(var, buffer, size);
+
+    if (error)
+        return error;
+
+    return MIN(size, var->len);
 }
 
 oss_object_ops_t sysvar_oss_ops = {

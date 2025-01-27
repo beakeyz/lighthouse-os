@@ -2,7 +2,6 @@
 #include "dev/core.h"
 #include "dev/driver.h"
 #include "fs/file.h"
-#include "libk/bin/elf.h"
 #include "libk/bin/elf_types.h"
 #include "libk/bin/ksyms.h"
 #include "libk/flow/error.h"
@@ -10,6 +9,7 @@
 #include "logging/log.h"
 #include "mem/heap.h"
 #include "mem/kmem.h"
+#include "proc/exec/elf/elf.h"
 #include "system/profile/profile.h"
 #include "system/sysvar/var.h"
 

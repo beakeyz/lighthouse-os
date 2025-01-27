@@ -1,7 +1,6 @@
-#include "dev/core.h"
 #include "libk/stddef.h"
-#include "lightos/api/dynldr.h"
 #include "lightos/api/handle.h"
+#include "lightos/api/process.h"
 #include "lightos/syscall.h"
 #include "lightos/types.h"
 #include "proc/proc.h"
@@ -45,7 +44,7 @@ uintptr_t sys_get_process_time()
  *
  * This is only applicable if we're using the dynldr driver to load dynamic libraries.
  */
-error_t sys_get_exitvec(dynldr_exit_vector_t** p_exitvec)
+error_t sys_get_exitvec(proc_exitvec_t** p_exitvec)
 {
-    return driver_send_msg_a(DYN_LDR_NAME, DYN_LDR_GET_EXIT_VEC, NULL, NULL, p_exitvec, sizeof(dynldr_exit_vector_t*));
+    return -ENOIMPL;
 }

@@ -84,6 +84,11 @@ static Object* __open_object(HANDLE handle)
     return ret;
 }
 
+Object* CreateObjectFromHandle(HANDLE handle)
+{
+    return __open_object(handle);
+}
+
 Object* OpenObjectFrom(Object* relative, const char* path, u32 hndl_flags, enum HNDL_MODE mode)
 {
     Object* ret;
@@ -166,7 +171,7 @@ error_t ObjectSetType(Object* obj, enum OSS_OBJECT_TYPE newtype)
     return sys_set_object_type(obj->handle, newtype);
 }
 
-error_t ObjectRead(Object* obj, u64 offset, void* buffer, size_t size)
+ssize_t ObjectRead(Object* obj, u64 offset, void* buffer, size_t size)
 {
     if (!ObjectIsValid(obj))
         return -EINVAL;
@@ -174,7 +179,7 @@ error_t ObjectRead(Object* obj, u64 offset, void* buffer, size_t size)
     return handle_read(obj->handle, offset, buffer, size);
 }
 
-error_t ObjectWrite(Object* obj, u64 offset, void* buffer, size_t size)
+ssize_t ObjectWrite(Object* obj, u64 offset, void* buffer, size_t size)
 {
     if (!ObjectIsValid(obj))
         return -EINVAL;

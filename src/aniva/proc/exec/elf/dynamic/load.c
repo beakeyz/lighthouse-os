@@ -8,11 +8,11 @@
 #include "mem/kmem.h"
 #include "mem/page_dir.h"
 #include "mem/zalloc/zalloc.h"
-#include "priv.h"
 #include "proc/proc.h"
 #include "sched/scheduler.h"
 #include "system/profile/profile.h"
 #include "system/sysvar/var.h"
+#include <proc/exec/elf/dynamic.h>
 
 /*
  * Load procedures for the dynamic loader
@@ -355,15 +355,14 @@ static kerror_t _do_load(file_t* file, loaded_app_t* app)
  * When loading an app, we will temporarily switch into the addresspace of the process
  * we're trying to create, as to make our lives with memory handling much easier
  */
-kerror_t load_app(file_t* file, loaded_app_t** out_app, proc_t** p_proc)
+extern kerror_t load_app(file_t* file, loaded_app_t** out_app, struct proc* proc)
 {
     kerror_t error;
-    proc_t* proc;
     proc_t* parent_proc;
     page_dir_t prev_pdir;
     loaded_app_t* app;
 
-    if (!out_app || !file)
+    if (!out_app || !file || !proc)
         return -KERR_INVAL;
 
     *out_app = NULL;
@@ -377,12 +376,6 @@ kerror_t load_app(file_t* file, loaded_app_t** out_app, proc_t** p_proc)
      * This doe not mean they get to inherit any of it's privileges though =)
      */
     parent_proc = get_current_proc();
-
-    /* Create an addressspsace for this bitch */
-    proc = create_proc(file->m_obj->key, NULL, NULL);
-
-    if (!proc)
-        return -KERR_NULL;
 
     /* This gathers the needed ELF info */
     app = create_loaded_app(file, proc);
@@ -411,7 +404,6 @@ kerror_t load_app(file_t* file, loaded_app_t** out_app, proc_t** p_proc)
     /* TODO: Do actual cleanup here */
     ASSERT_MSG(KERR_OK(error), "FUCK: Failed to do a dynamic app load =(");
 
-    *p_proc = proc;
     *out_app = app;
     return error;
 }

@@ -37,6 +37,7 @@ typedef uint32_t (*f_kterm_command_handler_t)(const char** argv, size_t argc, co
  */
 int kterm_println(const char* msg);
 int kterm_print(const char* msg);
+int kterm_write_msg(const char* buffer, size_t bsize);
 int kterm_putc(char msg);
 
 void kterm_clear();

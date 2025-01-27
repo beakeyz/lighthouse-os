@@ -7,6 +7,11 @@
 struct device;
 struct driver;
 
+/*
+ * Device control nodes
+ * These are pretty much the same as ioctls lmao
+ * FIXME: Let these guys return ssize_t s
+ */
 typedef int (*f_device_ctl_t)(struct device* device, struct driver* driver, u64 offset, void* buffer, size_t bsize);
 
 /* control can be rerouted by a different driver */

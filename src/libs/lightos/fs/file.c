@@ -186,7 +186,8 @@ static int __file_maybe_init_write_buffer(File* file, u64 offset)
     ObjectRead(file->object, offset, file->wr_buff, file->wr_bsize);
 
     /* Set the buffer start offset */
-    file->wr_bstart = offset;
+    file->wr_file_offset = offset;
+    file->wr_buffer_offset = 0;
 
     return 0;
 }
@@ -199,10 +200,12 @@ static int __file_maybe_init_write_buffer(File* file, u64 offset)
  */
 static inline int __file_try_write_in_buffer(File* file, u64 offset, u8 byte)
 {
-    if (offset >= file->wr_bstart && offset < (file->wr_bstart + file->wr_bsize)) {
+    /* Check if this write is inbetween the bounds of where we have our buffer currently */
+    if (offset >= file->wr_file_offset && offset < (file->wr_file_offset + file->wr_bsize)) {
+        /* Set the current buffer offset */
+        file->wr_buffer_offset = offset - file->wr_file_offset;
         /* Write into the files write buffer */
-        file->wr_buff[offset - file->wr_bstart] = byte;
-
+        file->wr_buff[file->wr_buffer_offset] = byte;
         /* Increase the cache hit count */
         file->wr_cache_hit_count++;
 
@@ -242,7 +245,8 @@ static int __write_byte(File* file, u64 offset, u8 byte)
     ObjectRead(file->object, offset, file->wr_buff, file->wr_bsize);
 
     /* Set the new buffer start */
-    file->wr_bstart = offset;
+    file->wr_file_offset = offset;
+    file->wr_buffer_offset = 0;
     /* This write did in fact hit the cache (we just synced lol) */
     file->wr_cache_hit_count = 1;
 
@@ -275,10 +279,9 @@ size_t FileWrite(File* file, void* buffer, size_t bsize)
 {
     size_t write_size;
 
-    write_size = FileWriteEx(file, file->wr_bhead, buffer, bsize, 1);
+    write_size = FileWriteEx(file, file->wr_file_head, buffer, bsize, 1);
 
-    /* Increase the read offset */
-    file->wr_bhead += write_size;
+    file->wr_file_head += write_size;
 
     return write_size;
 }
@@ -329,10 +332,13 @@ error_t FileFlush(File* file)
         return 0;
 
     /* Write back the write buffer */
-    ObjectWrite(file->object, file->wr_bstart, file->wr_buff, file->wr_bsize);
+    ObjectWrite(file->object, file->wr_file_offset, file->wr_buff, file->wr_buffer_offset);
+
+    memset(file->wr_buff, 0, file->wr_buffer_offset);
 
     /* Reset the cache hit count */
     file->wr_cache_hit_count = 0;
+    file->wr_buffer_offset = NULL;
 
     return 0;
 }
@@ -364,11 +370,11 @@ error_t FileSeekWHead(File* file, u64* offset, int whence)
     case SEEK_CUR:
         break;
     case SEEK_SET:
-        file->wr_bhead = *offset;
+        file->wr_file_head = *offset;
         break;
     }
 
-    *offset = file->wr_bhead;
+    *offset = file->wr_file_head;
 
     return 0;
 }

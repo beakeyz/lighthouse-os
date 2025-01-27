@@ -1,4 +1,5 @@
 #include "system.h"
+#include "lightos/api/process.h"
 #include "lightos/api/sysvar.h"
 #include "syscall.h"
 #include <lightos/api/handle.h>
@@ -15,7 +16,7 @@ void sys_exit(error_t status)
     syscall_1(SYSID_EXIT, status);
 }
 
-error_t sys_get_exitvec(dynldr_exit_vector_t** p_exitvec)
+error_t sys_get_exitvec(proc_exitvec_t** p_exitvec)
 {
     return syscall_1(SYSID_GET_EXITVEC, (u64)p_exitvec);
 }
@@ -25,12 +26,12 @@ error_t sys_close(HANDLE handle)
     return syscall_1(SYSID_CLOSE, handle);
 }
 
-error_t sys_read(HANDLE handle, u64 offset, void* buffer, size_t size, size_t* pread_size)
+ssize_t sys_read(HANDLE handle, u64 offset, void* buffer, size_t size)
 {
-    return syscall_5(SYSID_READ, handle, offset, (u64)buffer, size, (u64)pread_size);
+    return syscall_4(SYSID_READ, handle, offset, (u64)buffer, size);
 }
 
-error_t sys_write(HANDLE handle, u64 offset, void* buffer, size_t size)
+ssize_t sys_write(HANDLE handle, u64 offset, void* buffer, size_t size)
 {
     return syscall_4(SYSID_WRITE, handle, offset, (u64)buffer, size);
 }

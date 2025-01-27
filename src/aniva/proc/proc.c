@@ -1,13 +1,11 @@
 #include "proc.h"
 #include "core.h"
-#include "dev/core.h"
 #include "kevent/event.h"
 #include "kevent/types/proc.h"
 #include "kevent/types/thread.h"
 #include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"
 #include "libk/stddef.h"
-#include "lightos/api/dynldr.h"
 #include "lightos/api/handle.h"
 #include "lightos/api/objects.h"
 #include "lightos/api/process.h"
@@ -663,37 +661,13 @@ unlock_and_exit:
 
 const char* proc_try_get_symname(proc_t* proc, uintptr_t addr)
 {
-    kerror_t error;
-    char* proc_path;
-    const char* buffer;
+    aniva_exec_method_t* method;
 
-    if (!proc || !addr)
+    /* Try to get the execution method that handled this process */
+    method = aniva_exec_method_get(proc->exec_key);
+
+    if (!method || !method->f_get_func_symbol)
         return nullptr;
 
-    /* Malloc a page just to process this path lol */
-    proc_path = kmalloc(0x1000);
-
-    /* Format the path. We know process objects are always attached to Proc/<proc_name> */
-    sfmt_sz(proc_path, 0x1000, "Proc/%s", proc->name);
-
-    dynldr_getfuncname_msg_t msg_block = {
-        .proc_path = proc_path,
-        .func_addr = (void*)addr,
-    };
-
-    error = driver_send_msg_a(
-        DYN_LDR_NAME,
-        DYN_LDR_GET_FUNC_NAME,
-        &msg_block,
-        sizeof(msg_block),
-        &buffer,
-        sizeof(char*));
-
-    /* Free the path */
-    kfree((void*)proc_path);
-
-    if ((error) || !buffer || !strlen(buffer))
-        return nullptr;
-
-    return buffer;
+    return method->f_get_func_symbol(proc, addr);
 }

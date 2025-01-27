@@ -23,7 +23,6 @@ USB_DRIVERS := \
 DRIVER_PATHS := \
 	./env/login \
 	./env/kterm \
-	./env/dynldr \
 	./env/prism \
 	./video/nvidia \
 	./video/radeon \

@@ -225,7 +225,12 @@ int fat32_read_clusters(fs_root_object_t* fsroot, uint8_t* buffer, struct fat_fi
 int fat32_write_clusters(fs_root_object_t* fsroot, uint8_t* buffer, struct fat_file* ffile, uint32_t offset, size_t size);
 int fat32_read_dir_entry(struct fat_file* dir, fat_dir_entry_t* out, char* namebuf, u32 namelen, uint32_t idx, uint32_t* diroffset);
 
+uint32_t __fat32_dir_entry_get_start_cluster(fat_dir_entry_t* e);
+
 /* This is the FAT routine for opening objects */
 oss_object_t* __fat_open(dir_t* dir, const char* path);
+
+oss_object_t* __fat_open_file(fs_root_object_t* fsroot, dir_t* dir, const char* path, fat_dir_entry_t* current, u32 direntry_offset, u32 direntry_cluster);
+oss_object_t* __fat_open_dir(fs_root_object_t* fsroot, dir_t* dir, const char* path, fat_dir_entry_t* current, u32 direntry_offset, u32 direntry_cluster);
 
 #endif // !__ANIVA_GENERIC_FAT__

@@ -7,6 +7,7 @@
 
 /* Control functions for getting access to objects */
 Object* CreateObject(const char* key, u16 flags, enum OSS_OBJECT_TYPE type);
+Object* CreateObjectFromHandle(HANDLE handle);
 Object* OpenObject(const char* path, u32 hndl_flags, enum HNDL_MODE mode);
 Object* OpenObjectFrom(Object* rel, const char* path, u32 hndl_flags, enum HNDL_MODE mode);
 Object* OpenObjectFromIdx(Object* rel, u32 idx, u32 hndl_flags, enum HNDL_MODE mode);
@@ -36,13 +37,16 @@ error_t ObjectSetType(Object* obj, enum OSS_OBJECT_TYPE newtype);
 
 /*!
  * @brief: Read from an object
+ *
+ * @returns: The size that was read on succes, negative error code otherwise
  */
-error_t ObjectRead(Object* obj, u64 offset, void* buffer, size_t size);
+ssize_t ObjectRead(Object* obj, u64 offset, void* buffer, size_t size);
 
 /*!
  * @brief: Write to an object
+ * @returns: The size that was written on succes, negative error code otherwise
  */
-error_t ObjectWrite(Object* obj, u64 offset, void* buffer, size_t size);
+ssize_t ObjectWrite(Object* obj, u64 offset, void* buffer, size_t size);
 
 /*!
  * @brief: Tries to send a message to the underlying object type

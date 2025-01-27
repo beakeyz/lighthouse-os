@@ -4,9 +4,7 @@
  * NOTE: Most ELF loading procedures in this files will be run inside the addresspace of the proc inside elf_image_t. This
  * means we don't need to do weird kernel address lookups
  */
-#include "libk/bin/elf.h"
-#include <libk/math/math.h>
-#include "drivers/env/dynldr/priv.h"
+#include "proc/exec/elf/elf.h"
 #include "fs/file.h"
 #include "libk/bin/elf_types.h"
 #include "libk/data/hashmap.h"
@@ -19,7 +17,9 @@
 #include "mem/zalloc/zalloc.h"
 #include "proc/core.h"
 #include "proc/proc.h"
+#include <libk/math/math.h>
 #include <lightos/lightos.h>
+#include <proc/exec/elf/dynamic.h>
 
 /*!
  * @brief: Load static information of an elf image
@@ -120,7 +120,7 @@ kerror_t _elf_load_phdrs(elf_image_t* image)
     /* Get the pointer */
     image->user_base = (void*)page_range_to_ptr(&range);
 
-    //page_tracker_dump(&image->proc->m_virtual_tracker);
+    // page_tracker_dump(&image->proc->m_virtual_tracker);
 
     KLOG_DBG("Found elf image user base: 0x%p (size=%lld bytes)\n", image->user_base, image->user_image_size);
 
@@ -143,7 +143,7 @@ kerror_t _elf_load_phdrs(elf_image_t* image)
                        KMEM_FLAG_WRITABLE)
                 == 0);
 
-            //KLOG_DBG("Allocated %lld bytes at 0x%llx (base=0x%llx)\n", phdr_size, v_user_phdr_start, c_phdr->p_vaddr);
+            // KLOG_DBG("Allocated %lld bytes at 0x%llx (base=0x%llx)\n", phdr_size, v_user_phdr_start, c_phdr->p_vaddr);
 
             /* Then, zero the rest of the buffer */
             /* TODO: ??? */
@@ -159,7 +159,7 @@ kerror_t _elf_load_phdrs(elf_image_t* image)
             /* Remap to the kernel */
             image->elf_dyntbl_mapsize = ALIGN_UP(c_phdr->p_memsz, SMALL_PAGE_SIZE);
             image->elf_dyntbl = image->user_base + c_phdr->p_vaddr;
-            //ASSERT(kmem_get_kernel_address((vaddr_t*)&image->elf_dyntbl, (vaddr_t)image->user_base + c_phdr->p_vaddr, proc->m_root_pd.m_root) == 0);
+            // ASSERT(kmem_get_kernel_address((vaddr_t*)&image->elf_dyntbl, (vaddr_t)image->user_base + c_phdr->p_vaddr, proc->m_root_pd.m_root) == 0);
 
             // printf("Setting PT_DYNAMIC addr=0x%p size=0x%llx\n", image->elf_dyntbl, image->elf_dyntbl_mapsize);
             break;
@@ -253,7 +253,7 @@ static inline kerror_t __elf_parse_symbol_table(loaded_app_t* app, list_t* symli
         const char* sym_name = (const char*)((uint64_t)strtab + current_symbol->st_name);
 
         /* Debug print lmao */
-        //KLOG_DBG("Found a symbol (\'%s\'). addr=0x%llx (user_base=0x%p)\n", sym_name, current_symbol->st_value, image->user_base);
+        // KLOG_DBG("Found a symbol (\'%s\'). addr=0x%llx (user_base=0x%p)\n", sym_name, current_symbol->st_value, image->user_base);
 
         current_symbol->st_value += (vaddr_t)image->user_base;
 
@@ -295,7 +295,7 @@ static inline kerror_t __elf_parse_symbol_table(loaded_app_t* app, list_t* symli
             if (type == STT_FUNC)
                 sym->flags |= LDSYM_FLAG_EXPORT;
 
-            //KLOG_DBG("Found symbol: %s (address=0x%llx)\n", sym_name, sym->uaddr);
+            // KLOG_DBG("Found symbol: %s (address=0x%llx)\n", sym_name, sym->uaddr);
 
             /* Add both to the symbol map for easy lookup and the list for easy cleanup */
             hashmap_put(symmap, (hashmap_key_t)sym_name, sym);
@@ -419,17 +419,17 @@ static kerror_t __elf_get_dynsect_info(elf_image_t* image)
         switch (dyns_entry->d_tag) {
         case DT_STRTAB:
             /* We can do this, since we have assured a kernel mapping through loading this pheader beforehand */
-            //ASSERT(kmem_get_kernel_address((vaddr_t*)&strtab, (vaddr_t)image->user_base + dyns_entry->d_un.d_ptr, image->proc->m_root_pd.m_root) == 0);
+            // ASSERT(kmem_get_kernel_address((vaddr_t*)&strtab, (vaddr_t)image->user_base + dyns_entry->d_un.d_ptr, image->proc->m_root_pd.m_root) == 0);
             strtab = image->user_base + dyns_entry->d_un.d_ptr;
             break;
         case DT_SYMTAB:
-            //ASSERT(kmem_get_kernel_address((vaddr_t*)&dyn_syms, (vaddr_t)image->user_base + dyns_entry->d_un.d_ptr, image->proc->m_root_pd.m_root) == 0);
+            // ASSERT(kmem_get_kernel_address((vaddr_t*)&dyn_syms, (vaddr_t)image->user_base + dyns_entry->d_un.d_ptr, image->proc->m_root_pd.m_root) == 0);
             dyn_syms = image->user_base + dyns_entry->d_un.d_ptr;
             break;
         case DT_HASH:
             // image->elf_dynsym_count = ((Elf64_Word*)(Must(kmem_get_kernel_address((vaddr_t)image->user_base + dyns_entry->d_un.d_ptr, image->proc->m_root_pd.m_root))))[1];
             /* Get the address */
-            //ASSERT(kmem_get_kernel_address((uint64_t*)&_elf_dynsym_count_p, (vaddr_t)image->user_base + dyns_entry->d_un.d_ptr, image->proc->m_root_pd.m_root) == 0);
+            // ASSERT(kmem_get_kernel_address((uint64_t*)&_elf_dynsym_count_p, (vaddr_t)image->user_base + dyns_entry->d_un.d_ptr, image->proc->m_root_pd.m_root) == 0);
             _elf_dynsym_count_p = image->user_base + dyns_entry->d_un.d_ptr;
 
             /* Yoink the value */
@@ -552,7 +552,7 @@ kerror_t _elf_do_relocations(elf_image_t* image, loaded_app_t* app)
             vaddr_t P = (vaddr_t)image->user_base + current->r_offset;
 
             /* Yoink it from the kernel address */
-            //ASSERT(kmem_get_kernel_address(&P, (vaddr_t)image->user_base + current->r_offset, image->proc->m_root_pd.m_root) == 0);
+            // ASSERT(kmem_get_kernel_address(&P, (vaddr_t)image->user_base + current->r_offset, image->proc->m_root_pd.m_root) == 0);
 
             /* The value of the symbol we are referring to */
             vaddr_t A = current->r_addend;
@@ -566,7 +566,7 @@ kerror_t _elf_do_relocations(elf_image_t* image, loaded_app_t* app)
             if (c_ldsym)
                 val = c_ldsym->uaddr;
 
-            //KLOG_DBG("Need to relocate symbol %s (addr=0x%llx, found=%s)\n", symname, val, (c_ldsym == nullptr ? "false" : "true"));
+            // KLOG_DBG("Need to relocate symbol %s (addr=0x%llx, found=%s)\n", symname, val, (c_ldsym == nullptr ? "false" : "true"));
 
             /* Copy is special snowflake lmao */
             if (ELF64_R_TYPE(current->r_info) == R_X86_64_COPY) {
@@ -622,4 +622,3 @@ kerror_t _elf_do_relocations(elf_image_t* image, loaded_app_t* app)
 
     return KERR_NONE;
 }
-

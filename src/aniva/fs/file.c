@@ -90,7 +90,7 @@ static int destroy_file(oss_object_t* object)
     return 0;
 }
 
-static int __file_oss_read(oss_object_t* object, u64 offset, void* buffer, size_t size)
+static ssize_t __file_oss_read(oss_object_t* object, u64 offset, void* buffer, size_t size)
 {
     file_t* file = get_file_from_object(object);
 
@@ -101,7 +101,7 @@ static int __file_oss_read(oss_object_t* object, u64 offset, void* buffer, size_
     return file_read(file, buffer, size, offset);
 }
 
-static int __file_oss_write(oss_object_t* object, u64 offset, void* buffer, size_t size)
+static ssize_t __file_oss_write(oss_object_t* object, u64 offset, void* buffer, size_t size)
 {
     file_t* file = get_file_from_object(object);
 

@@ -79,12 +79,12 @@ static int ossobj_khdrv_close(khandle_driver_t* driver, khandle_t* handle)
     return oss_object_close(handle->object);
 }
 
-int oss_object_khdrv_read(struct khandle_driver* driver, khandle_t* hndl, u64 offset, void* buffer, size_t bsize)
+ssize_t oss_object_khdrv_read(struct khandle_driver* driver, khandle_t* hndl, u64 offset, void* buffer, size_t bsize)
 {
     return oss_object_read(hndl->object, offset, buffer, bsize);
 }
 
-int oss_object_khdrv_write(struct khandle_driver* driver, khandle_t* hndl, u64 offset, void* buffer, size_t bsize)
+ssize_t oss_object_khdrv_write(struct khandle_driver* driver, khandle_t* hndl, u64 offset, void* buffer, size_t bsize)
 {
     return oss_object_write(hndl->object, offset, buffer, bsize);
 }

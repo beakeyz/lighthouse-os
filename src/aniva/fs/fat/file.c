@@ -125,29 +125,32 @@ static void fat_8_3_to_filename(char* fat8_3, char* b_name, uint32_t bsize)
 oss_object_t* fat_dir_read(dir_t* dir, uint64_t idx)
 {
     fat_dir_entry_t entry;
-    file_t* f = NULL;
-    dir_t* d = NULL;
+    u32 diroffset;
+    u32 direntry_cluster;
+    fat_fs_info_t* info;
     char namebuf[256] = { NULL };
 
-    if (!KERR_OK(fat32_read_dir_entry(dir->priv, &entry, namebuf, sizeof(namebuf), idx, NULL)))
+    /* Get the fat fs info */
+    info = GET_FAT_FSINFO(dir->fsroot);
+
+    if (!KERR_OK(fat32_read_dir_entry(dir->priv, &entry, namebuf, sizeof(namebuf), idx, &diroffset)))
         return nullptr;
 
     /* If the first byte in the name buffer is still null, we could not find any lfn entries for this index... */
     if (!namebuf[0])
         fat_8_3_to_filename((char*)entry.name, namebuf, sizeof(namebuf));
 
+    KLOG_DBG("Found a FAT entry at index %d: %s\n", idx, namebuf);
+
+    direntry_cluster = __fat32_dir_entry_get_start_cluster(&entry);
+
+    /* Set the correct cluster offsets */
+    direntry_cluster += diroffset / info->cluster_size;
+
     if ((entry.attr & FAT_ATTR_DIR) == FAT_ATTR_DIR)
-        d = create_fat_dir(GET_FAT_FSINFO(dir->fsroot), NULL, namebuf);
-    else
-        f = create_fat_file(GET_FAT_FSINFO(dir->fsroot), NULL, namebuf);
+        return __fat_open_dir(dir->fsroot, dir, namebuf, &entry, diroffset, direntry_cluster);
 
-    if (d)
-        return d->object;
-
-    if (f)
-        return f->m_obj;
-
-    return nullptr;
+    return __fat_open_file(dir->fsroot, dir, namebuf, &entry, diroffset, direntry_cluster);
 }
 
 dir_ops_t fat_dir_ops = {

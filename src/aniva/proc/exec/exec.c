@@ -1,5 +1,7 @@
 #include "exec.h"
+#include "lightos/error.h"
 #include "proc/exec/elf/elf.h"
+#include "proc/proc.h"
 
 static aniva_exec_method_t* __exec_methods = NULL;
 
@@ -11,14 +13,23 @@ static aniva_exec_method_t* __exec_methods = NULL;
 error_t aniva_exec(oss_object_t* object, proc_t* target, u32 flags)
 {
     error_t error = -ENOIMPL;
+    aniva_exec_method_t* method;
 
     /*
      * Loop over all methods and try to execute @object
      * All these methods should have the ->f_execute field set, otherwise sm
      * went wrong during register, or the field got corrupted
      */
-    for (aniva_exec_method_t* method = __exec_methods; method && !IS_OK(error); method = method->next)
+    for (method = __exec_methods; method; method = method->next) {
         error = method->f_execute(object, target);
+
+        if (IS_OK(error))
+            break;
+    }
+
+    /* If we have an execution method that succeeded, bind them to the process. */
+    if (method && IS_OK(error))
+        proc_set_exec_method(target, method->key);
 
     return error;
 }

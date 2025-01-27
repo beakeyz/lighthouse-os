@@ -45,12 +45,12 @@ typedef struct oss_object_ops {
      * Reads some data from an object. Reads propegate to all downstream
      * connections
      */
-    int (*f_Read)(struct oss_object* this, u64 offset, void* buffer, size_t size);
+    ssize_t (*f_Read)(struct oss_object* this, u64 offset, void* buffer, size_t size);
     /*
      * Write some data to an object. Writes propegate to all downstream
      * connections
      */
-    int (*f_Write)(struct oss_object* this, u64 offset, void* buffer, size_t size);
+    ssize_t (*f_Write)(struct oss_object* this, u64 offset, void* buffer, size_t size);
     /*
      * Tries to open an object connected to this object. Called when trying to
      * open an object that doesn't seem connected to the object we end up at
@@ -70,6 +70,10 @@ typedef struct oss_object_ops {
      * drivers, which may need to update fs entry names
      */
     int (*f_Rename)(struct oss_object* this, const char* new_key);
+    /*
+     * Gets object info
+     */
+    int (*f_GetInfo)(struct oss_object* this, object_info_t* info_buffer);
     /*
      * Tries to remove this object from it's connections.
      * Fails if there are connections where this guy is the parent still
@@ -184,8 +188,8 @@ oss_object_t* oss_object_get_connected(oss_object_t* object, const char* key);
 error_t oss_object_connect(oss_object_t* parent, oss_object_t* child);
 error_t oss_object_connect_new(oss_object_t* parent, const char* key, enum OSS_OBJECT_TYPE type);
 error_t oss_object_disconnect(oss_object_t* parent, oss_object_t* child);
-error_t oss_object_read(oss_object_t* this, u64 offset, void* buffer, size_t size);
-error_t oss_object_write(oss_object_t* this, u64 offset, void* buffer, size_t size);
+ssize_t oss_object_read(oss_object_t* this, u64 offset, void* buffer, size_t size);
+ssize_t oss_object_write(oss_object_t* this, u64 offset, void* buffer, size_t size);
 error_t oss_object_open(oss_object_t* this, const char* key, oss_object_t** pobj);
 error_t oss_object_close(oss_object_t* this);
 error_t oss_object_flush(oss_object_t* this);

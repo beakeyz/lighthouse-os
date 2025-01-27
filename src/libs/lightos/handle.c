@@ -42,17 +42,9 @@ HANDLE open_handle_from(HANDLE rel_handle, const char* path, HANDLE_TYPE type, u
     return sys_open(path, handle_flags(flags, type, rel_handle), mode, NULL, NULL);
 }
 
-error_t handle_read(HANDLE handle, u64 offset, VOID* buffer, u64 buffer_size)
+ssize_t handle_read(HANDLE handle, u64 offset, VOID* buffer, u64 buffer_size)
 {
-    return handle_read_ex(handle, offset, buffer, buffer_size, NULL);
-}
-
-error_t handle_read_ex(HANDLE handle, u64 offset, VOID* buffer, u64 buffer_size, u64* preadsize)
-{
-    if (!buffer || !buffer_size)
-        return EINVAL;
-
-    return sys_read(handle, offset, buffer, buffer_size, preadsize);
+    return sys_read(handle, offset, buffer, buffer_size);
 }
 
 error_t handle_write(HANDLE handle, u64 offset, VOID* buffer, size_t buffer_size)

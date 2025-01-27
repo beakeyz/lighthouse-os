@@ -9,11 +9,11 @@
 #include "mem/kmem.h"
 #include "mem/zalloc/zalloc.h"
 #include "oss/object.h"
-#include "priv.h"
 #include "proc/handle.h"
 #include "proc/proc.h"
 #include "proc/thread.h"
 #include <libk/string.h>
+#include <proc/exec/elf/dynamic.h>
 
 loaded_app_t* create_loaded_app(file_t* file, proc_t* proc)
 {

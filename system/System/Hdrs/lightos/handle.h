@@ -54,8 +54,7 @@ HANDLE open_handle_from(HANDLE rel_handle, const char* path, HANDLE_TYPE type, u
 /*
  * Perform a read opperation on a handle
  */
-error_t handle_read(HANDLE handle, u64 offset, VOID* buffer, u64 buffer_size);
-error_t handle_read_ex(HANDLE handle, u64 offset, VOID* buffer, u64 buffer_size, u64* preadsize);
+ssize_t handle_read(HANDLE handle, u64 offset, VOID* buffer, u64 buffer_size);
 
 /*
  * Perform a write opperation on a handle

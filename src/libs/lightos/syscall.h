@@ -14,9 +14,9 @@
  * sysids must be terminated
  */
 
-#include "lightos/api/dynldr.h"
 #include "lightos/api/handle.h"
 #include "lightos/api/objects.h"
+#include "lightos/api/process.h"
 #include "lightos/api/sysvar.h"
 #include <lightos/types.h>
 
@@ -88,10 +88,10 @@ enum SYSID {
  * yayyyy)
  */
 extern void sys_exit(error_t status);
-extern error_t sys_get_exitvec(dynldr_exit_vector_t** p_exitvec);
+extern error_t sys_get_exitvec(proc_exitvec_t** p_exitvec);
 extern error_t sys_close(HANDLE handle);
-extern error_t sys_read(HANDLE handle, u64 offset, void* buffer, size_t size, size_t* pread_size);
-extern error_t sys_write(HANDLE handle, u64 offset, void* buffer, size_t size);
+extern ssize_t sys_read(HANDLE handle, u64 offset, void* buffer, size_t size);
+extern ssize_t sys_write(HANDLE handle, u64 offset, void* buffer, size_t size);
 extern HANDLE sys_open(const char* path, handle_flags_t flags, enum HNDL_MODE mode, void* buffer, size_t bsize);
 extern HANDLE sys_open_idx(HANDLE handle, u32 idx, handle_flags_t flags);
 extern HANDLE sys_open_connected_idx(HANDLE handle, u32 idx, handle_flags_t flags);
