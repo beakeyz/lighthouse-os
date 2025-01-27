@@ -52,7 +52,7 @@ static Object* __get_target_object(Object* self_obj)
     if (!ObjectIsValid(cwd))
         return nullptr;
 
-    if (ObjectRead(cwd, 0, path_buff, sizeof(path_buff)))
+    if (IS_FATAL(ObjectRead(cwd, 0, path_buff, sizeof(path_buff))))
         return nullptr;
 
     /* Close the object */

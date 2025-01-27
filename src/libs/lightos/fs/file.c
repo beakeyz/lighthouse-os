@@ -97,7 +97,7 @@ int __read_byte(File* file, u64 offset, uint8_t* buffer)
         *buffer = file->rd_buff[offset - file->rd_bstart];
     else {
         /* This read is outside the current read buffer, pull in a new block */
-        if (ObjectRead(file->object, offset, file->rd_buff, file->rd_bsize))
+        if (ObjectRead(file->object, offset, file->rd_buff, file->rd_bsize) < 0)
             return NULL;
 
         /* Set the new buffer start */
