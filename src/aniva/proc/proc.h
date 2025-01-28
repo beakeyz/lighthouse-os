@@ -9,6 +9,7 @@
 #include "mem/tracker/tracker.h"
 #include "oss/object.h"
 #include "proc/core.h"
+#include "proc/envir.h"
 #include "proc/handle.h"
 #include <libk/string.h>
 
@@ -65,6 +66,7 @@ typedef struct proc {
     page_dir_t m_root_pd;
     khandle_map_t m_handle_map;
     page_tracker_t m_virtual_tracker;
+    proc_envir_t envir;
 
     /* A couple of static pointers to certain threads */
     struct thread* main_thread;

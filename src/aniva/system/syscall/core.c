@@ -26,6 +26,8 @@ static const sys_fn_t __syscall_map[] = {
     [SYSID_SET_OBJECT_TYPE] = (sys_fn_t)sys_set_object_type,
     [SYSID_GET_OBJECT_KEY] = (sys_fn_t)sys_get_object_key,
     [SYSID_SET_OBJECT_KEY] = (sys_fn_t)sys_set_object_key,
+    [SYSID_CONNECT_OBJECT] = (sys_fn_t)sys_connect_object,
+    [SYSID_DISCONNECT_OBJECT] = (sys_fn_t)sys_disconnect_object,
 
     [SYSID_ALLOC_VMEM] = (sys_fn_t)sys_alloc_vmem,
     [SYSID_DEALLOC_VMEM] = (sys_fn_t)sys_dealloc_vmem,
@@ -33,6 +35,7 @@ static const sys_fn_t __syscall_map[] = {
     [SYSID_PROTECT_VMEM] = (sys_fn_t)sys_protect_vmem,
 
     [SYSID_SYSEXEC] = (sys_fn_t)sys_exec,
+    [SYSID_OPEN_PROC_OBJ] = (sys_fn_t)sys_open_proc_obj,
     [SYSID_CREATE_PROC] = (sys_fn_t)sys_create_proc,
     [SYSID_DESTROY_PROC] = (sys_fn_t)sys_destroy_proc,
 

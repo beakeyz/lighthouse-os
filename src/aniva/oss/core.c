@@ -193,13 +193,24 @@ reference_and_return:
     return 0;
 }
 
-error_t oss_open_connected_object_from_idx(u32 idx, struct oss_object* rel, struct oss_object** pobj)
+error_t oss_open_connected_object_from_idx(u32 idx, struct oss_object* rel, struct oss_object** pobj, enum OSS_CONNECTION_DIRECTION dir)
 {
     oss_object_t* obj = NULL;
     oss_connection_t* conn;
 
-    /* First, check if there is a connection with this index already */
-    conn = oss_object_get_connection_by_index(rel, idx);
+    /* Try and get a connection in the right direction */
+    switch (dir) {
+    case OSS_CONNECTION_DOWNSTREAM:
+        conn = oss_object_get_connection_down_idx(rel, idx);
+        break;
+    case OSS_CONNECTION_UPSTREAM:
+        conn = oss_object_get_connection_up_idx(rel, idx);
+        break;
+    default:
+        /* First, check if there is a connection with this index already */
+        conn = oss_object_get_connection_idx(rel, idx);
+        break;
+    }
 
     if (!conn)
         return -ENOENT;

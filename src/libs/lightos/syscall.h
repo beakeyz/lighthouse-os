@@ -46,6 +46,8 @@ enum SYSID {
     SYSID_SET_OBJECT_TYPE, /* Tries to set an object type. Fails if the type is already set */
     SYSID_GET_OBJECT_KEY, /* Gets the current object key for a give object */
     SYSID_SET_OBJECT_KEY, /* Tries to set the key for a given object */
+    SYSID_CONNECT_OBJECT, /* Connects an object */
+    SYSID_DISCONNECT_OBJECT, /* Disconnects an object */
 
     SYSID_ALLOC_VMEM, /* Allocates a range of virtual memory */
     SYSID_DEALLOC_VMEM, /* Deallocates a range of virtual memory */
@@ -53,6 +55,7 @@ enum SYSID {
     SYSID_PROTECT_VMEM, /* Change the memory flags of virtual memory */
 
     SYSID_SYSEXEC, /* Ask the system to do stuff for us */
+    SYSID_OPEN_PROC_OBJ,
     SYSID_CREATE_PROC,
     SYSID_DESTROY_PROC,
     SYSID_GET_HNDL_TYPE,
@@ -101,6 +104,8 @@ extern enum OSS_OBJECT_TYPE sys_get_object_type(HANDLE handle);
 extern enum OSS_OBJECT_TYPE sys_set_object_type(HANDLE handle, enum OSS_OBJECT_TYPE ptype);
 extern error_t sys_get_object_key(HANDLE handle, char* key_buff, size_t key_buff_len);
 extern error_t sys_set_object_key(HANDLE handle, char* key_buff, size_t key_buff_len);
+extern error_t sys_connect_object(HANDLE object, HANDLE new_parent);
+extern error_t sys_disconnect_object(HANDLE object, HANDLE parent);
 
 extern error_t sys_alloc_vmem(size_t size, u32 flags, vaddr_t* paddr);
 extern error_t sys_dealloc_vmem(vaddr_t addr, size_t size);
@@ -108,6 +113,7 @@ extern void* sys_map_vmem(HANDLE handle, void* addr, size_t len, u32 flags);
 extern error_t sys_protect_vmem(void* addr, size_t len, u32 flags);
 
 extern error_t sys_exec(const char* cmd, size_t len);
+extern HANDLE sys_open_proc_obj(const char* key, handle_flags_t flags);
 extern HANDLE sys_create_proc(const char* cmd, FuncPtr entry);
 extern error_t sys_destroy_proc(HANDLE proc, u32 flags);
 

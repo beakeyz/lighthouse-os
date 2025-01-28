@@ -4,7 +4,8 @@ USER_SRC=$(SRC)/user
 # Define where the userapp sources are located
 USER_PATHS := ./init \
 			  ./ls \
-			  ./cat
+			  ./cat \
+			  ./todo
 
 # Currently there is no process extention lmao
 export PROCESS_EXT=

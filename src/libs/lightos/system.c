@@ -76,6 +76,16 @@ error_t sys_set_object_key(HANDLE handle, char* key_buff, size_t key_buff_len)
     return syscall_3(SYSID_SET_OBJECT_KEY, handle, (u64)key_buff, key_buff_len);
 }
 
+error_t sys_connect_object(HANDLE object, HANDLE new_parent)
+{
+    return syscall_2(SYSID_CONNECT_OBJECT, object, new_parent);
+}
+
+error_t sys_disconnect_object(HANDLE object, HANDLE parent)
+{
+    return syscall_2(SYSID_DISCONNECT_OBJECT, object, parent);
+}
+
 error_t sys_alloc_vmem(size_t size, u32 flags, vaddr_t* paddr)
 {
     return syscall_3(SYSID_ALLOC_VMEM, size, flags, (u64)paddr);
@@ -99,6 +109,11 @@ error_t sys_protect_vmem(void* addr, size_t len, u32 flags)
 error_t sys_exec(const char* cmd, size_t len)
 {
     return syscall_2(SYSID_SYSEXEC, (u64)cmd, len);
+}
+
+HANDLE sys_open_proc_obj(const char* key, handle_flags_t flags)
+{
+    return syscall_2(SYSID_OPEN_PROC_OBJ, (u64)key, flags.raw);
 }
 
 HANDLE sys_create_proc(const char* cmd, FuncPtr entry)

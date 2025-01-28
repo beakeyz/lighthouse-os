@@ -19,6 +19,7 @@
 #include "oss/core.h"
 #include "oss/object.h"
 #include "oss/path.h"
+#include "proc/envir.h"
 #include "proc/exec/exec.h"
 #include "proc/handle.h"
 #include "proc/kprocs/reaper.h"
@@ -156,6 +157,9 @@ proc_t* create_proc(const char* name, struct user_profile* profile, u32 flags)
 
     /* Initialize this fucker */
     __proc_init_page_tracker(proc, PROC_DEFAULT_PAGE_TRACKER_BSIZE);
+
+    /* Initialize the process environment */
+    init_process_envir(proc);
 
     /* Yikes */
     if (IS_OK(proc_register(proc, profile)))

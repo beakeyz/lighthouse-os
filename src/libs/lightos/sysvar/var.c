@@ -105,13 +105,13 @@ BOOL sysvar_read_from_profile(char* profile_name, char* var_key, u32 flags, void
     if (!buffer || !bsize)
         return FALSE;
 
-    profile_handle = open_profile(profile_name, flags | HNDL_FLAG_READACCESS);
+    profile_handle = open_profile(profile_name, flags | HF_READACCESS);
 
     /* Yikes */
     if (handle_verify(profile_handle))
         return FALSE;
 
-    var_handle = open_sysvar_ex(profile_handle, var_key, flags | HNDL_FLAG_READACCESS);
+    var_handle = open_sysvar_ex(profile_handle, var_key, flags | HF_READACCESS);
 
     /* Failed to open a handle to the variable, close the profile and exit */
     if (handle_verify(var_handle)) {
@@ -140,13 +140,13 @@ BOOL sysvar_write_from_profile(char* profile_name, char* var_key, u32 flags, voi
     HANDLE profile_handle;
     HANDLE var_handle;
 
-    profile_handle = open_profile(profile_name, flags | HNDL_FLAG_WRITEACCESS);
+    profile_handle = open_profile(profile_name, flags | HF_WRITEACCESS);
 
     /* Yikes */
     if (handle_verify(profile_handle))
         return FALSE;
 
-    var_handle = open_sysvar_ex(profile_handle, var_key, flags | HNDL_FLAG_WRITEACCESS);
+    var_handle = open_sysvar_ex(profile_handle, var_key, flags | HF_WRITEACCESS);
 
     /* Failed to open a handle to the variable, close the profile and exit */
     if (handle_verify(var_handle)) {

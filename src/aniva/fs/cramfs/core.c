@@ -91,18 +91,14 @@ static int ramfs_read(fs_root_object_t* fsroot, void* buffer, size_t size, uintp
     return 0;
 }
 
-static int tar_file_read(file_t* file, void* buffer, size_t* size, uintptr_t offset)
+static ssize_t tar_file_read(file_t* file, void* buffer, size_t size, uintptr_t offset)
 {
     size_t target_size;
 
     if (!file || !buffer || !size)
         return -1;
 
-    if (!(*size))
-        return -2;
-
-    target_size = *size;
-    *size = 0;
+    target_size = size;
 
     if (offset >= file->m_total_size)
         return -3;
@@ -115,12 +111,10 @@ static int tar_file_read(file_t* file, void* buffer, size_t* size, uintptr_t off
     memcpy(buffer, (void*)((uint64_t)file->m_buffer + offset), target_size);
 
     /* Adjust the read size */
-    *size = target_size;
-
-    return 0;
+    return target_size;
 }
 
-int tar_file_write(file_t* file, void* buffer, size_t* size, uint64_t offset)
+static ssize_t tar_file_write(file_t* file, void* buffer, size_t size, uint64_t offset)
 {
     return 0;
 }

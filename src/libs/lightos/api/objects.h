@@ -13,6 +13,7 @@
 enum OSS_OBJECT_TYPE {
     OT_COULDNT_SET = -2,
     OT_INVALID = -1,
+    /* NOTE: NONE should stay at value 0 */
     OT_NONE,
     OT_FILE,
     OT_DIR,
@@ -28,6 +29,11 @@ enum OSS_OBJECT_TYPE {
 
     NR_OBJECT_TYPES
 };
+
+static inline bool oss_object_valid_type(enum OSS_OBJECT_TYPE type)
+{
+    return (type > OT_NONE && type < NR_OBJECT_TYPES);
+}
 
 /* Object flags */
 #define OF_PROPEGATE 0x0001 // Propegate some object calls
@@ -63,5 +69,8 @@ typedef struct object {
     /* Type of this object */
     enum OSS_OBJECT_TYPE type;
 } Object, object_t;
+
+/* Woahhhhh. This guy connects to the current working object */
+#define OBJECT_WO_HOLDER "WOH"
 
 #endif // !__LIGHTOS_OBJECTS_H__

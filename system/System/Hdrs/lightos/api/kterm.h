@@ -10,7 +10,6 @@ typedef struct kterm_box_constr {
 } kterm_box_constr_t;
 
 enum KTERM_DRV_CTLC {
-    KTERM_DRV_GET_CWD,
     KTERM_DRV_CLEAR,
     KTERM_DRV_UPDATE_BOX,
     KTERM_DRV_REMOVE_BOX,

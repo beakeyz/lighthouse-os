@@ -83,7 +83,7 @@ HANDLE sys_create_sysvar(const char* key, handle_flags_t flags, enum SYSVAR_TYPE
         return HNDL_INVAL;
 
     /* Can't write to this handle =/ */
-    if (target_khandle->type != HNDL_TYPE_OBJECT || (target_khandle->flags & HNDL_FLAG_W) != HNDL_FLAG_W)
+    if (target_khandle->type != HNDL_TYPE_OBJECT || (target_khandle->flags & HF_W) != HF_W)
         return HNDL_INVAL;
 
     target_object = target_khandle->object;

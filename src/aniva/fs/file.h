@@ -28,8 +28,8 @@ struct file;
 typedef struct file_ops {
     int (*f_sync)(struct file* file);
     /* TODO: Standardize the offset-buffer-size order of read/write functions */
-    int (*f_read)(struct file* file, void* buffer, size_t* size, uintptr_t offset);
-    int (*f_write)(struct file* file, void* buffer, size_t* size, uintptr_t offset);
+    ssize_t (*f_read)(struct file* file, void* buffer, size_t size, uintptr_t offset);
+    ssize_t (*f_write)(struct file* file, void* buffer, size_t size, uintptr_t offset);
     /* Allocate a part of the file into a buffer and map that buffer to the specefied page dir */
     struct file (*f_kmap)(struct file* file, page_dir_t* dir, size_t size, uint32_t custom_flags, uint32_t page_flags);
     /*
@@ -111,8 +111,8 @@ file_t* create_file(fs_root_object_t* fsroot, uint32_t flags, const char* key);
 
 void file_set_ops(file_t* file, file_ops_t* ops);
 
-size_t file_read(file_t* file, void* buffer, size_t size, uintptr_t offset);
-size_t file_write(file_t* file, void* buffer, size_t size, uintptr_t offset);
+ssize_t file_read(file_t* file, void* buffer, size_t size, uintptr_t offset);
+ssize_t file_write(file_t* file, void* buffer, size_t size, uintptr_t offset);
 int file_sync(file_t* file);
 
 file_t* file_open(const char* path);

@@ -59,7 +59,7 @@ void deallocate_thread(struct thread* thread);
  */
 struct thread* spawn_thread(char* name, enum SCHEDULER_PRIORITY prio, FuncPtr entry, uint64_t arg0);
 
-struct proc* find_proc(const char* path);
+struct proc* find_proc(const char* key);
 
 bool foreach_proc(bool (*f_callback)(struct proc*), struct proc** presult);
 uint32_t get_proc_count();

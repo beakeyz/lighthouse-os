@@ -90,7 +90,7 @@ error_t sys_dealloc_vmem(vaddr_t buffer, size_t size)
 
 static inline bool __can_proc_delete_vmem(khandle_t* handle, proc_t* c_proc, proc_t* target_proc, sysvar_t* var)
 {
-    if ((handle->flags & HNDL_FLAG_W) != HNDL_FLAG_W)
+    if ((handle->flags & HF_W) != HF_W)
         return false;
 
     /* Processes can always delete their own memory, but other processes only can if  */
@@ -101,7 +101,7 @@ static inline bool __can_proc_delete_vmem(khandle_t* handle, proc_t* c_proc, pro
 static inline bool __can_proc_map_vmem(khandle_t* handle, proc_t* c_proc, proc_t* target_proc, sysvar_t* var)
 {
     /* This handle also needs to have the write flag  */
-    if ((handle->flags & HNDL_FLAG_W) != HNDL_FLAG_W)
+    if ((handle->flags & HF_W) != HF_W)
         return false;
 
     // return (c_proc == target_proc || (pattr_hasperm(&var->obj->attr, &c_proc->m_env->attr, PATTR_WRITE)));
@@ -111,7 +111,7 @@ static inline bool __can_proc_map_vmem(khandle_t* handle, proc_t* c_proc, proc_t
 static inline bool __can_proc_remap_vmem(khandle_t* handle, proc_t* c_proc, proc_t* target_proc, sysvar_t* var)
 {
     /* This handle also needs to have the read flag  */
-    if ((handle->flags & HNDL_FLAG_R) != HNDL_FLAG_R)
+    if ((handle->flags & HF_R) != HF_R)
         return false;
 
     /* When remapping, we only read the range from the var, hence why we need read permissions */

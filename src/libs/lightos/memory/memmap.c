@@ -76,7 +76,7 @@ error_t vmem_remap(HANDLE handle, const char* name, void** paddr, size_t* plen, 
 
     /* Maybe create a new mapping */
     if (name)
-        ret = vmem_open(name, HNDL_FLAG_RW, HNDL_MODE_CREATE_NEW);
+        ret = vmem_open(name, HF_RW, HNDL_MODE_CREATE_NEW);
 
     /* Get range bounds */
     rsize = page_range_size(&range);

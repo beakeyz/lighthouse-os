@@ -18,13 +18,13 @@
 #include "libk/stddef.h"
 #include "libk/string.h"
 #include "lightos/api/device.h"
-#include "lightos/api/sysvar.h"
 #include "logging/log.h"
 #include "mem/heap.h"
 #include "mem/kmem.h"
 #include "oss/core.h"
 #include "oss/object.h"
 #include "proc/core.h"
+#include "proc/envir.h"
 #include "proc/proc.h"
 #include "proc/thread.h"
 #include "sched/scheduler.h"
@@ -846,21 +846,9 @@ int kterm_get_login(struct user_profile** profile)
     return 0;
 }
 
-int kterm_connect_cwd_object(struct proc* proc)
+int kterm_connect_wo(struct proc* proc)
 {
-    sysvar_t* sysvar;
-
-    sysvar = create_sysvar("CWD", &proc->profile->attr, SYSVAR_TYPE_STRING, NULL, _c_login.cwd, strlen(_c_login.cwd));
-
-    if (!sysvar)
-        return -ENOMEM;
-
-    if (sysvar_attach(proc->obj, sysvar)) {
-        release_sysvar(sysvar);
-        return -EINVAL;
-    }
-
-    return 0;
+    return process_envir_connect_wo(proc, _c_login.c_obj);
 }
 
 /*!
@@ -1361,20 +1349,6 @@ uintptr_t kterm_on_packet(aniva_driver_t* driver, dcc_t code, void __user* buffe
     switch (code) {
     case KTERM_DRV_CLEAR:
         kterm_clear();
-        break;
-    case KTERM_DRV_GET_CWD:
-        if (!size)
-            return DRV_STAT_INVAL;
-
-        /* ??? */
-        if (!buffer)
-            return DRV_STAT_INVAL;
-
-        /* Is the size enough to fit the entire string? */
-        if (size > (strlen(_c_login.cwd) + 1))
-            size = (strlen(_c_login.cwd) + 1);
-
-        memcpy(buffer, _c_login.cwd, size);
         break;
     case KTERM_DRV_UPDATE_BOX:
         if (size != sizeof(kterm_box_constr_t))

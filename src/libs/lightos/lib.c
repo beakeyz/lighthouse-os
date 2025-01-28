@@ -16,7 +16,7 @@ BOOL lib_load(const char* path, HANDLE* out_handle)
     if (!path || !out_handle)
         return FALSE;
 
-    hdl = open_handle(path, HNDL_TYPE_SHARED_LIB, HNDL_FLAG_RW, NULL);
+    hdl = open_handle(path, HNDL_TYPE_SHARED_LIB, HF_RW, NULL);
 
     if (handle_verify(hdl))
         return FALSE;

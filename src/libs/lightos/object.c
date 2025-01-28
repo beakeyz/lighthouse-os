@@ -7,6 +7,12 @@
 #include <stdio.h>
 #include <string.h>
 
+/*
+ * Reference to the working object holder. Every process should be launched
+ * wich a CWO object attached, which is defined by the api/objects.h file.
+ */
+static Object* __wo_holder = NULL;
+
 static enum OSS_OBJECT_TYPE __get_object_type(HANDLE handle)
 {
     return sys_get_object_type(handle);
@@ -36,7 +42,7 @@ Object* CreateObject(const char* key, u16 flags, enum OSS_OBJECT_TYPE type)
 
     memset(ret, 0, sizeof(*ret));
 
-    ret->handle = open_handle(key, HNDL_TYPE_OBJECT, HNDL_FLAG_RW, HNDL_MODE_CREATE_NEW);
+    ret->handle = open_handle(key, HNDL_TYPE_OBJECT, HF_RW, HNDL_MODE_CREATE_NEW);
 
     /* If the handle isn't valid, we can just dip */
     if (handle_verify(ret->handle)) {
@@ -58,34 +64,60 @@ Object* OpenObject(const char* path, u32 hndl_flags, enum HNDL_MODE mode)
     return OpenObjectFrom(nullptr, path, hndl_flags, mode);
 }
 
+/*!
+ * @brief: Creates a new userspace object based on @handle
+ *
+ * Assumes @handle is valid
+ */
 static Object* __open_object(HANDLE handle)
 {
     Object* ret;
+    enum OSS_OBJECT_TYPE type;
 
+    /* First, try to get an object type from this handle */
+    type = __get_object_type(handle);
+
+    /* Check if that is actually a valid type */
+    if (!oss_object_valid_type(type))
+        return nullptr;
+
+    /* Yes, now we can allocate a new object */
     ret = malloc(sizeof(*ret));
 
     if (!ret)
         return nullptr;
 
+    /* Clear the object buffer */
     memset(ret, 0, sizeof(*ret));
 
+    /* Set the objects handle */
     ret->handle = handle;
-    /* Ask the kernel what the type of this object is */
-    ret->type = __get_object_type(handle);
+    /* Emplace our previously gotten object type */
+    ret->type = type;
 
-    /*
-     * Get the object key from the path.
-     * We know the key of an object is always the last entry
-     * in a path, so we can just scan the path from the back to
-     * find the last path entry
-     */
+    /* Get the object key from the path */
     __get_object_key(ret);
 
     return ret;
 }
 
-Object* CreateObjectFromHandle(HANDLE handle)
+Object* OpenSelfObject(u32 flags)
 {
+    HANDLE self;
+
+    /* Try to open ourselves */
+    self = sys_open_proc_obj(NULL, (handle_flags_t) { .s_flags = flags, .s_rel_hndl = HNDL_INVAL, .s_type = HNDL_TYPE_OBJECT });
+
+    /* Try to create an object from it */
+    return GetObjectFromHandle(self);
+}
+
+Object* GetObjectFromHandle(HANDLE handle)
+{
+    /* Check if this handle is actually valid */
+    if (IS_FATAL(handle_verify(handle)))
+        return nullptr;
+
     return __open_object(handle);
 }
 
@@ -100,6 +132,10 @@ Object* OpenObjectFrom(Object* relative, const char* path, u32 hndl_flags, enum 
     else
         handle = open_handle(path, HNDL_TYPE_OBJECT, hndl_flags, mode);
 
+    /* Check if this handle is actually valid */
+    if (IS_FATAL(handle_verify(handle)))
+        return nullptr;
+
     /* Create the object */
     ret = __open_object(handle);
 
@@ -109,7 +145,7 @@ Object* OpenObjectFrom(Object* relative, const char* path, u32 hndl_flags, enum 
     return ret;
 }
 
-Object* OpenObjectFromIdx(Object* relative, u32 idx, u32 hndl_flags, enum HNDL_MODE mode)
+Object* OpenObjectIdx(Object* relative, u32 idx, u32 hndl_flags, enum HNDL_MODE mode)
 {
     HANDLE handle;
     Object* ret;
@@ -124,7 +160,7 @@ Object* OpenObjectFromIdx(Object* relative, u32 idx, u32 hndl_flags, enum HNDL_M
     return ret;
 }
 
-Object* OpenConnectedObjectFromIdx(Object* rel, u32 idx, u32 hndl_flags, enum HNDL_MODE mode)
+Object* OpenConnectedObjectByIdx(Object* rel, u32 idx, u32 hndl_flags, enum HNDL_MODE mode)
 {
     HANDLE handle;
     Object* ret;
@@ -137,6 +173,46 @@ Object* OpenConnectedObjectFromIdx(Object* rel, u32 idx, u32 hndl_flags, enum HN
         close_handle(handle);
 
     return ret;
+}
+
+Object* OpenDownConnectedObjectByIdx(Object* rel, u32 idx, u32 hndl_flags, enum HNDL_MODE mode)
+{
+    return OpenConnectedObjectByIdx(rel, idx, hndl_flags | HF_D, mode);
+}
+
+Object* OpenUpConnectedObjectByIdx(Object* rel, u32 idx, u32 hndl_flags, enum HNDL_MODE mode)
+{
+    return OpenConnectedObjectByIdx(rel, idx, hndl_flags | HF_U, mode);
+}
+
+Object* OpenWorkingObject(u32 flags)
+{
+    Object* self_obj = OpenSelfObject(HF_RW);
+
+    /* Big bruh */
+    if (!self_obj)
+        return nullptr;
+
+    /*
+     * Open the working object holder on our process
+     */
+    Object* woh = OpenObjectFrom(self_obj, OBJECT_WO_HOLDER, HF_R, NULL);
+
+    /* Close this guy again as well */
+    CloseObject(self_obj);
+
+    /* No woh. Sad =( */
+    if (!ObjectIsValid(woh))
+        return nullptr;
+
+    /* Try to open the object pointed to by WO */
+    return OpenDownConnectedObjectByIdx(woh, 0, NULL, NULL);
+}
+
+error_t ChWorkingObject(Object* object)
+{
+    exit_noimpl("ChWorkingObject");
+    return 0;
 }
 
 error_t CloseObject(Object* obj)
@@ -197,12 +273,27 @@ error_t ObjectMessage(Object* obj, u64 msgc, u64 offset, void* buffer, size_t si
 
 error_t ObjectConnect(Object* obj, Object* child)
 {
-    exit_noimpl("ObjectConnect");
-    return 0;
+    if (!ObjectIsValid(obj) || !ObjectIsValid(child))
+        return -EINVAL;
+
+    return sys_connect_object(child->handle, obj->handle);
 }
 
 error_t ObjectDisconnect(Object* obj, Object* child)
 {
-    exit_noimpl("ObjectDisconnect");
+    if (!obj || !child)
+        return -EINVAL;
+
+    return sys_disconnect_object(child->handle, obj->handle);
+}
+
+error_t ObjectGetInfo(Object* object, object_info_t* infobuff)
+{
+    exit_noimpl("ObjectGetInfo");
     return 0;
+}
+
+void __init_lightos_oss_objects()
+{
+    (void)__wo_holder;
 }

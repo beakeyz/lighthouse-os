@@ -109,6 +109,7 @@ class RamdiskManager(object):
         # self.__copy_app("diskutil", self.APPS_PATH)
         self.__copy_app("ls", self.APPS_PATH)
         self.__copy_app("cat", self.APPS_PATH)
+        self.__copy_app("todo", self.APPS_PATH)
 
         return True
 

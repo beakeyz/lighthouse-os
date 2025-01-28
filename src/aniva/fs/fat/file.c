@@ -8,17 +8,11 @@
 #include "logging/log.h"
 #include "mem/heap.h"
 
-static int fat_read(file_t* file, void* buffer, size_t* p_size, uintptr_t offset)
+static ssize_t fat_read(file_t* file, void* buffer, size_t size, uintptr_t offset)
 {
-    size_t size;
     fs_root_object_t* fsroot;
 
-    if (!p_size)
-        return -1;
-
     fsroot = file->fsroot;
-
-    size = *p_size;
 
     if (offset >= file->m_total_size)
         return -2;
@@ -27,18 +21,25 @@ static int fat_read(file_t* file, void* buffer, size_t* p_size, uintptr_t offset
     if ((offset + size) > file->m_total_size)
         size -= ((offset + size) - file->m_total_size);
 
-    /* Update this shit */
-    *p_size = size;
+    if (fat32_read_clusters(fsroot, buffer, file->m_private, offset, size))
+        return 0;
 
-    return fat32_read_clusters(fsroot, buffer, file->m_private, offset, size);
+    return size;
 }
 
-static int fat_write(file_t* file, void* buffer, size_t* p_size, uintptr_t offset)
+static ssize_t fat_write(file_t* file, void* buffer, size_t size, uintptr_t offset)
 {
+    error_t error;
+
     if (!file || !file->m_obj)
         return -KERR_INVAL;
 
-    return fat32_write_clusters(file->fsroot, buffer, file->m_private, offset, *p_size);
+    error = fat32_write_clusters(file->fsroot, buffer, file->m_private, offset, size);
+
+    if (error)
+        return error;
+
+    return size;
 }
 
 static int fat_sync(file_t* file)

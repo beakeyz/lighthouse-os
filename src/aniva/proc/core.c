@@ -61,13 +61,13 @@ struct thread* spawn_thread(char* name, enum SCHEDULER_PRIORITY prio, FuncPtr en
  * Processes live in oss under the Proc root object. They are simply attached to this node
  * by name and any sysvars will be directly connected to them
  */
-proc_t* find_proc(const char* path)
+proc_t* find_proc(const char* key)
 {
     proc_t* ret;
     oss_object_t* obj;
 
     /* Try to find this object in oss */
-    if (oss_open_object(path, &obj))
+    if (oss_open_object_from(key, __proc_root_obj, &obj))
         return nullptr;
 
     ret = oss_object_unwrap(obj, OT_PROCESS);

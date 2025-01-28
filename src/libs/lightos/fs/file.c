@@ -7,58 +7,81 @@
 #include <stdlib.h>
 #include <string.h>
 
-static File __create_file(u32 flags, Object* object)
+static File* __create_file(u32 flags, Object* object)
 {
-    File ret = { 0 };
+    File* ret;
 
-    ret.object = object;
+    if (!object)
+        return nullptr;
 
-    if (!ObjectIsValid(ret.object))
-        return ret;
+    ret = malloc(sizeof(*ret));
+
+    if (!ret)
+        return nullptr;
+
+    memset(ret, 0, sizeof(*ret));
+
+    /* Set the files object */
+    ret->object = object;
 
     /* Initialize file buffers */
-    FileSetBuffers(&ret, LIGHTOS_FILE_DEFAULT_RBSIZE, (flags & OF_READONLY) ? 0 : LIGHTOS_FILE_DEFAULT_WBSIZE);
+    FileSetBuffers(ret, LIGHTOS_FILE_DEFAULT_RBSIZE, (flags & OF_READONLY) ? 0 : LIGHTOS_FILE_DEFAULT_WBSIZE);
 
     return ret;
 }
 
-File CreateFile(const char* key, u32 flags)
+File* CreateFile(const char* key, u32 flags)
 {
     return __create_file(flags, CreateObject(key, flags, OT_FILE));
 }
 
-File OpenFile(const char* path, u32 hndl_flags, enum HNDL_MODE mode)
+File* OpenFile(const char* path, u32 hndl_flags, enum HNDL_MODE mode)
 {
     return OpenFileFrom(nullptr, path, hndl_flags, mode);
 }
 
-File OpenFileFrom(Object* rel, const char* path, u32 hndl_flags, enum HNDL_MODE mode)
+File* OpenFileFrom(Object* rel, const char* path, u32 hndl_flags, enum HNDL_MODE mode)
 {
     Object* object;
 
     if (!path)
-        return (File) { 0 };
+        return nullptr;
 
     object = OpenObjectFrom(rel, path, hndl_flags, mode);
 
     if (!ObjectIsValid(object))
-        return (File) { 0 };
+        return nullptr;
 
     if (object->type != OT_FILE)
         CloseObject(rel);
 
-    return __create_file((hndl_flags & HNDL_FLAG_W) ? NULL : OF_READONLY, object);
+    return __create_file((hndl_flags & HF_W) ? NULL : OF_READONLY, object);
 }
 
 error_t CloseFile(File* file)
 {
+    error_t error;
+
+    /* Flush the file buffer */
+    FileFlush(file);
+
+    /* First try to close the files object */
+    error = CloseObject(file->object);
+
+    /* We failed. Return it */
+    if (error)
+        return error;
+
     if (file->rd_buff)
         free(file->rd_buff);
 
     if (file->wr_buff)
         free(file->wr_buff);
 
-    return CloseObject(file->object);
+    /* Free the file memory */
+    free(file);
+
+    return 0;
 }
 
 error_t FileSetBuffers(File* file, size_t r_bsize, size_t w_bsize)

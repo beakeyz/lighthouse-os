@@ -15,7 +15,7 @@ file_t f_kmap(file_t* file, page_dir_t* dir, size_t size, uint32_t custom_flags,
  * buffer if that exsists, otherwise we will have to go to the device to read
  * from it
  */
-int f_read(file_t* file, void* buffer, size_t* size, uintptr_t offset)
+ssize_t f_read(file_t* file, void* buffer, size_t size, uintptr_t offset)
 {
 
     uintptr_t end_offset;
@@ -28,29 +28,27 @@ int f_read(file_t* file, void* buffer, size_t* size, uintptr_t offset)
     if (!file || !file->m_buffer)
         return -1;
 
-    end_offset = offset + *size;
+    end_offset = offset + size;
     read_offset = (uintptr_t)file->m_buffer + offset;
 
     /* TODO: in this case, we could try to read from the device (filesystem) */
-    if (offset > file->m_buffer_size) {
-        *size = 0;
-        return -1;
-    }
+    if (offset > file->m_buffer_size)
+        return 0;
 
     /* TODO: also in this case, we should read from the device (filesystem) */
     if (end_offset > file->m_buffer_size) {
         uintptr_t delta = end_offset - file->m_buffer_size;
 
         /* We'll just copy everything we can */
-        *size -= delta;
+        size -= delta;
     }
 
-    memcpy(buffer, (void*)read_offset, *size);
+    memcpy(buffer, (void*)read_offset, size);
 
-    return 0;
+    return size;
 }
 
-int f_write(file_t* file, void* buffer, size_t* size, uintptr_t offset)
+ssize_t f_write(file_t* file, void* buffer, size_t size, uintptr_t offset)
 {
 
     kernel_panic("Tried to write to a file! (TODO: implement)");
@@ -191,9 +189,9 @@ void file_set_ops(file_t* file, file_ops_t* ops)
 /*!
  * @brief: Read data from a file
  */
-size_t file_read(file_t* file, void* buffer, size_t size, uintptr_t offset)
+ssize_t file_read(file_t* file, void* buffer, size_t size, uintptr_t offset)
 {
-    kerror_t error;
+    ssize_t error_or_size;
     oss_object_t* file_obj;
 
     if (!file || !file->m_ops || !file->m_ops->f_read)
@@ -206,14 +204,11 @@ size_t file_read(file_t* file, void* buffer, size_t size, uintptr_t offset)
 
     mutex_lock(file_obj->lock);
 
-    error = file->m_ops->f_read(file, buffer, &size, offset);
+    error_or_size = file->m_ops->f_read(file, buffer, size, offset);
 
     mutex_unlock(file_obj->lock);
 
-    if (error)
-        return 0;
-
-    return size;
+    return error_or_size;
 }
 
 /*!
@@ -222,9 +217,9 @@ size_t file_read(file_t* file, void* buffer, size_t size, uintptr_t offset)
  * The filesystem may choose if it wants to use buffers that get synced by
  * ->f_sync or if they want to instantly write to disk here
  */
-size_t file_write(file_t* file, void* buffer, size_t size, uintptr_t offset)
+ssize_t file_write(file_t* file, void* buffer, size_t size, uintptr_t offset)
 {
-    kerror_t error;
+    ssize_t error_or_size;
     oss_object_t* file_obj;
 
     if (!file || !file->m_ops || !file->m_ops->f_write)
@@ -237,14 +232,11 @@ size_t file_write(file_t* file, void* buffer, size_t size, uintptr_t offset)
 
     mutex_lock(file_obj->lock);
 
-    error = file->m_ops->f_write(file, buffer, &size, offset);
+    error_or_size = file->m_ops->f_write(file, buffer, size, offset);
 
     mutex_unlock(file_obj->lock);
 
-    if (error)
-        return 0;
-
-    return size;
+    return error_or_size;
 }
 
 /*!

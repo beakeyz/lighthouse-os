@@ -163,8 +163,8 @@ uint32_t kterm_try_exec(const char** argv, size_t argc, const char* cmdline)
     /* Make sure the profile has the correct rights */
     kterm_get_login(&login_profile);
 
-    /* Connect the CWD sysvar */
-    kterm_connect_cwd_object(p);
+    /* Connect the wo object */
+    kterm_connect_wo(p);
 
     /* Wait for process termination if we don't want to run in the background */
     // if (true)

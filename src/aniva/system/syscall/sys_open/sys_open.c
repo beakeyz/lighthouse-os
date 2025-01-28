@@ -117,6 +117,17 @@ HANDLE sys_open_idx(handle_t rel, uint32_t idx, handle_flags_t flags)
     return ret;
 }
 
+static inline enum OSS_CONNECTION_DIRECTION __get_oss_direction_from_flags(handle_flags_t flags)
+{
+    if ((flags.s_flags & HF_U) == HF_U)
+        return OSS_CONNECTION_UPSTREAM;
+
+    if ((flags.s_flags & HF_D) == HF_D)
+        return OSS_CONNECTION_DOWNSTREAM;
+
+    return OSS_CONNECTION_DONTCARE;
+}
+
 HANDLE sys_open_connected_idx(handle_t rel, uint32_t idx, handle_flags_t flags)
 {
     HANDLE ret;
@@ -124,6 +135,7 @@ HANDLE sys_open_connected_idx(handle_t rel, uint32_t idx, handle_flags_t flags)
     khandle_t* khandle;
     khandle_t new_handle;
     oss_object_t* new_object;
+    enum OSS_CONNECTION_DIRECTION direction;
 
     c_proc = get_current_proc();
 
@@ -132,8 +144,11 @@ HANDLE sys_open_connected_idx(handle_t rel, uint32_t idx, handle_flags_t flags)
     if (!khandle || khandle->type != HNDL_TYPE_OBJECT)
         return HNDL_INVAL;
 
+    /* Get the desired connection direction */
+    direction = __get_oss_direction_from_flags(flags);
+
     /* Try to find an object on this guy */
-    if (oss_open_connected_object_from_idx(idx, khandle->object, &new_object))
+    if (oss_open_connected_object_from_idx(idx, khandle->object, &new_object, direction))
         return HNDL_INVAL;
 
     /* First initialize the new handle */

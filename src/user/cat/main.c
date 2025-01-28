@@ -39,32 +39,14 @@ static error_t __parse_cmdline(u32 argc)
 static Object* __get_target_object(Object* self_obj)
 {
     Object *relative, *ret;
-    char path_buff[256] = { 0 };
-
-    ret = OpenObject(__target_path, HNDL_FLAG_R, NULL);
-
-    if (ret)
-        return ret;
-
-    /* Try to open the current directory sysvar object */
-    Object* cwd = OpenObjectFrom(self_obj, "CWD", HNDL_FLAG_R, NULL);
-
-    if (!ObjectIsValid(cwd))
-        return nullptr;
-
-    if (IS_FATAL(ObjectRead(cwd, 0, path_buff, sizeof(path_buff))))
-        return nullptr;
-
-    /* Close the object */
-    CloseObject(cwd);
 
     /* Try to open the object pointed to by CWD */
-    relative = OpenObject(path_buff, HNDL_FLAG_R, NULL);
+    relative = OpenWorkingObject(HF_R);
 
     if (!relative)
         return nullptr;
 
-    ret = OpenObjectFrom(relative, __target_path, HNDL_FLAG_R, NULL);
+    ret = OpenObjectFrom(relative, __target_path, HF_R, NULL);
 
     CloseObject(relative);
 
@@ -75,8 +57,6 @@ static int dump_object(Object* object)
 {
     ssize_t sz_or_error;
     u64 offset = 0;
-
-    printf("Trying to dump object: %s\n", object->key);
 
     while (true) {
         char buf[0x1000] = { 0 };
@@ -106,7 +86,7 @@ int main(HANDLE self)
     __parse_cmdline(argc);
 
     /* Create a handle from our process handle */
-    self_obj = CreateObjectFromHandle(self);
+    self_obj = GetObjectFromHandle(self);
 
     target = __get_target_object(self_obj);
 
@@ -114,5 +94,10 @@ int main(HANDLE self)
     if (!target)
         return -ENOENT;
 
-    return dump_object(target);
+    /* Just dump the object without complaining */
+    (void)dump_object(target);
+
+    CloseObject(target);
+
+    return 0;
 }

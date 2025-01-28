@@ -42,25 +42,11 @@ static error_t __parse_cmdline(u32 argc)
 
 static Object* __get_target_object(Object* self_obj)
 {
-    char path_buff[256] = { 0 };
-
     if (__relative_path)
-        return OpenObject(__relative_path, HNDL_FLAG_R, NULL);
+        return OpenObject(__relative_path, HF_R, NULL);
 
-    /* Try to open the current directory sysvar object */
-    Object* cwd = OpenObjectFrom(self_obj, "CWD", HNDL_FLAG_R, NULL);
-
-    if (!ObjectIsValid(cwd))
-        return nullptr;
-
-    if (IS_FATAL(ObjectRead(cwd, 0, path_buff, sizeof(path_buff))))
-        return nullptr;
-
-    /* Close the object */
-    CloseObject(cwd);
-
-    /* Try to open the object pointed to by CWD */
-    return OpenObject(path_buff, HNDL_FLAG_R, NULL);
+    /* Try to open the working object holder */
+    return OpenWorkingObject(HF_R);
 }
 
 static error_t __maybe_add_object(Object* obj)
@@ -108,7 +94,7 @@ error_t main(HANDLE self)
     /* First, gather all the non-connected objects */
     for (idx = 0;; idx++) {
         /* Grab this guy */
-        Object* walker = OpenObjectFromIdx(rel_obj, idx, HNDL_FLAG_R, NULL);
+        Object* walker = OpenObjectIdx(rel_obj, idx, HF_R, NULL);
 
         if (!ObjectIsValid(walker))
             break;
@@ -123,7 +109,7 @@ error_t main(HANDLE self)
     /* Then, gather the connected, non-duplicate objects */
     for (idx = 0;; idx++) {
         /* Grab this guy */
-        Object* walker = OpenConnectedObjectFromIdx(rel_obj, idx, HNDL_FLAG_R, NULL);
+        Object* walker = OpenConnectedObjectByIdx(rel_obj, idx, HF_R, NULL);
 
         if (!ObjectIsValid(walker))
             break;

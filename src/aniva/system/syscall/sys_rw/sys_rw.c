@@ -32,7 +32,7 @@ ssize_t sys_write(HANDLE handle, u64 offset, void __user* buffer, size_t length)
 
     khandle = find_khandle(&current_proc->m_handle_map, handle);
 
-    if ((khandle->flags & HNDL_FLAG_WRITEACCESS) != HNDL_FLAG_WRITEACCESS)
+    if ((khandle->flags & HF_WRITEACCESS) != HF_WRITEACCESS)
         return -EPERM;
 
     /* If we can't find a driver, the system does not support writing to this type of handle
@@ -66,7 +66,7 @@ ssize_t sys_read(HANDLE handle, u64 offset, void* buffer, size_t size)
 
     khandle = find_khandle(&current_proc->m_handle_map, handle);
 
-    if ((khandle->flags & HNDL_FLAG_READACCESS) != HNDL_FLAG_READACCESS)
+    if ((khandle->flags & HF_READACCESS) != HF_READACCESS)
         return -EPERM;
 
     /* If we can't find a driver, the system does not support reading this type of handle

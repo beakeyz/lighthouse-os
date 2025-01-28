@@ -58,7 +58,7 @@ void __init_stdio(void)
         exit(error);
 
     /* Open the stdio path variable */
-    stdio_handle = open_sysvar(SYSVAR_STDIO, HNDL_FLAG_R);
+    stdio_handle = open_sysvar(SYSVAR_STDIO, HF_R);
 
     if (handle_verify(stdio_handle))
         return;
@@ -70,7 +70,7 @@ void __init_stdio(void)
     close_handle(stdio_handle);
 
     /* Open the handle type variable */
-    stdio_handle = open_sysvar(SYSVAR_STDIO_HANDLE_TYPE, HNDL_FLAG_R);
+    stdio_handle = open_sysvar(SYSVAR_STDIO_HANDLE_TYPE, HF_R);
 
     if (handle_verify(stdio_handle))
         return;
@@ -81,9 +81,9 @@ void __init_stdio(void)
     /* Close the handle */
     close_handle(stdio_handle);
 
-    stdout->object = OpenObject(stdio_path, HNDL_FLAG_W, NULL);
-    stdin->object = OpenObject(stdio_path, HNDL_FLAG_R, NULL);
-    stderr->object = OpenObject(stdio_path, HNDL_FLAG_RW, NULL);
+    stdout->object = OpenObject(stdio_path, HF_W, NULL);
+    stdin->object = OpenObject(stdio_path, HF_R, NULL);
+    stderr->object = OpenObject(stdio_path, HF_RW, NULL);
 }
 
 static int parse_modes(const char* modes, uint32_t* flags, uint32_t* mode)
@@ -97,11 +97,11 @@ static int parse_modes(const char* modes, uint32_t* flags, uint32_t* mode)
         switch (c) {
         case 'r':
         case 'R':
-            _flags |= HNDL_FLAG_READACCESS;
+            _flags |= HF_READACCESS;
             break;
         case 'w':
         case 'W':
-            _flags |= HNDL_FLAG_WRITEACCESS;
+            _flags |= HF_WRITEACCESS;
             break;
         case 'c':
         case 'C':
@@ -123,27 +123,17 @@ static int parse_modes(const char* modes, uint32_t* flags, uint32_t* mode)
 FILE* fopen(const char* path, const char* modes)
 {
     FILE* ret;
-    File file;
     uint32_t flags;
     uint32_t mode;
 
     if (parse_modes(modes, &flags, &mode))
         return nullptr;
 
-    file = OpenFile(path, flags, mode);
+    ret = OpenFile(path, flags, mode);
 
     /* Couldn't open this file */
-    if (!FileIsValid(&file))
+    if (!FileIsValid(ret))
         return nullptr;
-
-    ret = malloc(sizeof(*ret));
-
-    if (!ret) {
-        CloseFile(&file);
-        return nullptr;
-    }
-
-    memcpy(ret, &file, sizeof(file));
 
     return ret;
 }

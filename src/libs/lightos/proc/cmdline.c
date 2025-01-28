@@ -77,7 +77,7 @@ int __get_raw_cmdline()
     error = -1;
     memset(&__this_cmdline, 0, sizeof(__this_cmdline));
 
-    cmdline_var = open_sysvar(CMDLINE_VARNAME, HNDL_FLAG_R);
+    cmdline_var = open_sysvar(CMDLINE_VARNAME, HF_R);
 
     /* Yikes^2 */
     if (handle_verify(cmdline_var))

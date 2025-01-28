@@ -58,22 +58,28 @@ static inline handle_flags_t handle_flags(u32 flags, enum HANDLE_TYPE type, HAND
     };
 }
 
-#define HNDL_FLAG_READACCESS (0x1ULL)
-#define HNDL_FLAG_WRITEACCESS (0x2ULL)
-#define HNDL_FLAG_R (HNDL_FLAG_READACCESS)
-#define HNDL_FLAG_W (HNDL_FLAG_WRITEACCESS)
-#define HNDL_FLAG_RW (HNDL_FLAG_READACCESS | HNDL_FLAG_WRITEACCESS)
-
-#define HNDL_FLAG_PERM_MASK 0xff
-#define HNDL_FLAG_PERM_OFFSET 23
-#define HNDL_FLAGS_GET_PERM(flags) ((flags) >> HNDL_FLAG_PERM_OFFSET) & HNDL_FLAG_PERM_MASK
-
 /*
- * We use this mask to easily clear out any flags that indicate a certain state of the handle
- * Since permissions (Like Read/Write) and state (locked/waiting) are stored in the same ,
- * we want to have this to avoid any confusion
+ * Handle flags
+ *
+ * HF_*
  */
-#define HNDL_OPT_MASK (HNDL_FLAG_BUSY | HNDL_FLAG_LOCKED | HNDL_FLAG_WAITING | HNDL_FLAG_INVALID)
+
+#define HF_READACCESS (0x0001)
+#define HF_WRITEACCESS (0x0002)
+#define HF_R (HF_READACCESS)
+#define HF_W (HF_WRITEACCESS)
+#define HF_RW (HF_READACCESS | HF_WRITEACCESS)
+
+/* Limit this handle to downstream connections (pretty much only used for object lookups by index) */
+#define HF_DOWNSTREAM (0x0004)
+/*
+ * Limit this handle to upstream connections (pretty much only used for object
+ * lookups by index). Plz use only one of either downstream or upstream. not both
+ */
+#define HF_UPSTREAM (0x0008)
+/* These guys makes sure the other bit is cleared, so please use the shortend version =) */
+#define HF_D (HF_DOWNSTREAM & ~HF_UPSTREAM)
+#define HF_U (HF_UPSTREAM & ~HF_DOWNSTREAM)
 
 /*
  * Handle modes
