@@ -4,10 +4,94 @@
 #include "mem/kmem.h"
 #include "oss/core.h"
 #include "proc/handle.h"
-#include "proc/hdrv/driver.h"
 #include "proc/proc.h"
 #include "sched/scheduler.h"
 #include <lightos/types.h>
+
+static int oss_object_khdrv_open(const char* path, u32 flags, enum HNDL_MODE mode, khandle_t* bHandle)
+{
+    error_t error;
+    oss_object_t* object;
+
+    switch (mode) {
+    case HNDL_MODE_NORMAL:
+        error = oss_open_object(path, &object);
+        break;
+    case HNDL_MODE_CREATE:
+        error = oss_open_object(path, &object);
+
+        if (EOK == error)
+            break;
+
+    case HNDL_MODE_CREATE_NEW:
+        /* Create a new object for this process */
+        object = create_oss_object(path, NULL, OT_GENERIC, oss_get_generic_ops(), NULL);
+
+        if (!object)
+            return -ENOMEM;
+
+        /*
+         * Need to take a reference, as this process will otherwise hold a loose
+         * oss object
+         */
+        oss_object_ref(object);
+        break;
+    default:
+        return -ENOIMPL;
+    }
+
+    if (error)
+        return error;
+
+    /* Initialize this handle */
+    init_khandle_ex(bHandle, flags, object);
+
+    return 0;
+}
+
+static int oss_object_khdrv_open_relative(khandle_t* rel_hndl, const char* path, u32 flags, enum HNDL_MODE mode, khandle_t* bHandle)
+{
+    error_t error;
+    oss_object_t* object;
+    oss_object_t* rel_object;
+
+    if (!rel_hndl)
+        return -EINVAL;
+
+    rel_object = rel_hndl->object;
+
+    switch (mode) {
+    case HNDL_MODE_NORMAL:
+        error = oss_open_object_from(path, rel_object, &object);
+        break;
+
+    case HNDL_MODE_CREATE:
+        error = oss_open_object_from(path, rel_object, &object);
+
+        if (IS_OK(error))
+            break;
+
+    case HNDL_MODE_CREATE_NEW:
+        error = EOK;
+        /* Try to create a new object for the user */
+        object = create_oss_object(path, NULL, OT_GENERIC, oss_get_generic_ops(), NULL);
+
+        if (!object)
+            error = -ENOMEM;
+
+        break;
+    default:
+        return -ENOIMPL;
+    }
+
+    if (error)
+        return error;
+
+    /* Initialize this handle */
+    init_khandle_ex(bHandle, flags, object);
+
+    return 0;
+}
 
 /*
  * Generic open syscall
@@ -19,7 +103,6 @@
 HANDLE sys_open(const char __user* path, handle_flags_t flags, enum HNDL_MODE mode, void __user* buffer, size_t bsize)
 {
     HANDLE ret;
-    khandle_driver_t* khndl_driver;
     khandle_t* rel_khndl;
     khandle_t handle = { 0 };
     kerror_t error;
@@ -33,12 +116,6 @@ HANDLE sys_open(const char __user* path, handle_flags_t flags, enum HNDL_MODE mo
     if (buffer && kmem_validate_ptr(c_proc, (vaddr_t)buffer, bsize))
         return HNDL_INVAL;
 
-    khndl_driver = nullptr;
-
-    /* Find the driver for this handle type */
-    if (khandle_driver_find(flags.s_type, &khndl_driver) || !khndl_driver)
-        return HNDL_INVAL;
-
     if (HNDL_IS_VALID(flags.s_rel_hndl)) {
         rel_khndl = find_khandle(&c_proc->m_handle_map, flags.s_rel_hndl);
 
@@ -46,11 +123,11 @@ HANDLE sys_open(const char __user* path, handle_flags_t flags, enum HNDL_MODE mo
         if (!rel_khndl)
             return HNDL_INVAL;
 
-        if (khandle_driver_open_relative(khndl_driver, rel_khndl, path, flags.s_flags, mode, &handle))
+        if (oss_object_khdrv_open_relative(rel_khndl, path, flags.s_flags, mode, &handle))
             return HNDL_NOT_FOUND;
     } else
         /* Just mark it as 'not found' if the driver fails to open */
-        if (khandle_driver_open(khndl_driver, path, flags.s_flags, mode, &handle))
+        if (oss_object_khdrv_open(path, flags.s_flags, mode, &handle))
             return HNDL_NOT_FOUND;
 
     /*
@@ -61,7 +138,7 @@ HANDLE sys_open(const char __user* path, handle_flags_t flags, enum HNDL_MODE mo
      */
 
     /* Check if the handle was really initialized */
-    if (!handle.kobj)
+    if (!handle.object)
         return HNDL_NOT_FOUND;
 
     /* Copy the handle into the map */
@@ -101,7 +178,7 @@ HANDLE sys_open_idx(handle_t rel, uint32_t idx, handle_flags_t flags)
 
     khandle = find_khandle(&c_proc->m_handle_map, rel);
 
-    if (!khandle || khandle->type != HNDL_TYPE_OBJECT)
+    if (!khandle)
         return HNDL_INVAL;
 
     /* Try to find an object on this guy */
@@ -109,7 +186,7 @@ HANDLE sys_open_idx(handle_t rel, uint32_t idx, handle_flags_t flags)
         return HNDL_INVAL;
 
     /* First initialize the new handle */
-    init_khandle_ex(&new_handle, HNDL_TYPE_OBJECT, flags.s_flags, new_object);
+    init_khandle_ex(&new_handle, flags.s_flags, new_object);
 
     /* Bind the handle */
     bind_khandle(&c_proc->m_handle_map, &new_handle, (u32*)&ret);
@@ -141,7 +218,7 @@ HANDLE sys_open_connected_idx(handle_t rel, uint32_t idx, handle_flags_t flags)
 
     khandle = find_khandle(&c_proc->m_handle_map, rel);
 
-    if (!khandle || khandle->type != HNDL_TYPE_OBJECT)
+    if (!khandle)
         return HNDL_INVAL;
 
     /* Get the desired connection direction */
@@ -152,7 +229,7 @@ HANDLE sys_open_connected_idx(handle_t rel, uint32_t idx, handle_flags_t flags)
         return HNDL_INVAL;
 
     /* First initialize the new handle */
-    init_khandle_ex(&new_handle, HNDL_TYPE_OBJECT, flags.s_flags, new_object);
+    init_khandle_ex(&new_handle, flags.s_flags, new_object);
 
     /* Bind the handle */
     bind_khandle(&c_proc->m_handle_map, &new_handle, (u32*)&ret);

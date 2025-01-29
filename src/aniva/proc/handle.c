@@ -2,7 +2,6 @@
 #include "libk/flow/error.h"
 #include "logging/log.h"
 #include "oss/object.h"
-#include "proc/hdrv/driver.h"
 #include "sync/mutex.h"
 #include <dev/driver.h>
 #include <mem/kmem.h>
@@ -34,18 +33,9 @@ static inline void __destroy_khandle(khandle_t* handle)
 
 void destroy_khandle(khandle_t* handle)
 {
-    khandle_driver_t* hdrv;
+    /* Close the object handle */
+    oss_object_close(handle->object);
 
-    if (!handle)
-        return;
-
-    if (khandle_driver_find(handle->type, &hdrv))
-        goto destroy_and_exit;
-
-    /* Make sure to handle the state change on this handle inside the object */
-    khandle_driver_close(hdrv, handle);
-
-destroy_and_exit:
     /* Actually clear the handle internally */
     __destroy_khandle(handle);
 }
@@ -68,7 +58,7 @@ void khandle_set_flags(khandle_t* handle, uint32_t flags)
  */
 static bool __is_khandle_bound(khandle_t* handle)
 {
-    return (handle != nullptr && ((handle->index != KHNDL_INVALID_INDEX) && handle->kobj != nullptr));
+    return (handle != nullptr && ((handle->index != KHNDL_INVALID_INDEX) && handle->object != nullptr));
 }
 
 int init_khandle_map(khandle_map_t* ret, uint32_t max_count)
@@ -340,28 +330,4 @@ kerror_t unbind_khandle(khandle_map_t* map, u32 handle)
 error_and_unlock:
     mutex_unlock(map->lock);
     return -1;
-}
-
-/*!
- * @brief: Removes all instances of @addr of type @type
- *
- * Does not do any kind of object cleanup. Caller is responsable for that
- */
-kerror_t khandle_map_remove(khandle_map_t* map, HANDLE_TYPE type, void* addr)
-{
-    if (!map || !map->lock)
-        return -KERR_INVAL;
-
-    mutex_lock(map->lock);
-
-    for (u32 i = 0; i < map->max_count; i++) {
-        if (map->handles[i].type != type || map->handles[i].kobj != addr)
-            continue;
-
-        __destroy_khandle(&map->handles[i]);
-    }
-
-    mutex_unlock(map->lock);
-
-    return 0;
 }

@@ -6,7 +6,6 @@
 #include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"
 #include "libk/stddef.h"
-#include "lightos/api/handle.h"
 #include "lightos/api/objects.h"
 #include "lightos/api/process.h"
 #include "lightos/api/sysvar.h"
@@ -259,9 +258,9 @@ proc_t* proc_exec(const char* cmd, const char* pname, sysvar_vector_t vars, stru
     oss_object_close(object);
 
     if ((flags & PF_SYNC) == PF_SYNC)
-        error = proc_schedule_and_await(p, profile, cmd, NULL, NULL, SCHED_PRIO_HIGH);
+        error = proc_schedule_and_await(p, profile, cmd, NULL, SCHED_PRIO_HIGH);
     else
-        error = proc_schedule(p, profile, cmd, NULL, NULL, SCHED_PRIO_HIGH);
+        error = proc_schedule(p, profile, cmd, NULL, SCHED_PRIO_HIGH);
 
     if (error) {
         destroy_proc(p);
@@ -296,7 +295,7 @@ static void __proc_clear_handles(proc_t* proc)
     for (uint32_t i = 0; i < map->max_count; i++) {
         current_handle = &map->handles[i];
 
-        if (!current_handle->kobj || current_handle->index == KHNDL_INVALID_INDEX)
+        if (!current_handle->object || current_handle->index == KHNDL_INVALID_INDEX)
             continue;
 
         destroy_khandle(current_handle);
@@ -408,7 +407,7 @@ static bool _await_proc_term_hook_condition(kevent_ctx_t* ctx, void* param)
  *
  *
  */
-int proc_schedule_and_await(proc_t* proc, struct user_profile* profile, const char* cmd, const char* stdio_path, HANDLE_TYPE stdio_type, enum SCHEDULER_PRIORITY prio)
+int proc_schedule_and_await(proc_t* proc, struct user_profile* profile, const char* cmd, const char* stdio_path, enum SCHEDULER_PRIORITY prio)
 {
     int error;
 
@@ -425,7 +424,7 @@ int proc_schedule_and_await(proc_t* proc, struct user_profile* profile, const ch
     kevent_add_poll_hook("proc", proc->name, _await_proc_term_hook_condition, proc);
 
     /* Do an instant rescedule */
-    error = proc_schedule(proc, profile, cmd, stdio_path, stdio_type, prio);
+    error = proc_schedule(proc, profile, cmd, stdio_path, prio);
 
     /* Fuck */
     if (error) {
@@ -451,7 +450,7 @@ remove_hook_and_fail:
  *
  * Pretty much a wrapper around sched_add_proc
  */
-int proc_schedule(proc_t* proc, struct user_profile* profile, const char* cmd, const char* stdio_path, HANDLE_TYPE stdio_type, enum SCHEDULER_PRIORITY prio)
+int proc_schedule(proc_t* proc, struct user_profile* profile, const char* cmd, const char* stdio_path, enum SCHEDULER_PRIORITY prio)
 {
     oss_object_t* proc_obj;
 
@@ -459,10 +458,8 @@ int proc_schedule(proc_t* proc, struct user_profile* profile, const char* cmd, c
         return -KERR_INVAL;
 
     /* Default to the null device in this case */
-    if (!stdio_path) {
+    if (!stdio_path)
         stdio_path = "Devices/Null";
-        stdio_type = HNDL_TYPE_OBJECT;
-    }
 
     if (!cmd)
         cmd = proc->name;
@@ -478,7 +475,6 @@ int proc_schedule(proc_t* proc, struct user_profile* profile, const char* cmd, c
     /* Attack the most basic sysvars to the process */
     sysvar_attach_ex(proc_obj, SYSVAR_CMDLINE, profile->attr.ptype, SYSVAR_TYPE_STRING, NULL, (void*)cmd, strlen(cmd));
     sysvar_attach_ex(proc_obj, SYSVAR_STDIO, profile->attr.ptype, SYSVAR_TYPE_STRING, NULL, (void*)stdio_path, strlen(stdio_path));
-    sysvar_attach_ex(proc_obj, SYSVAR_STDIO_HANDLE_TYPE, profile->attr.ptype, SYSVAR_TYPE_DWORD, NULL, (void*)&stdio_type, sizeof(stdio_type));
 
     /* Try to add all threads of this process to the scheduler */
     return scheduler_add_proc(proc, prio);

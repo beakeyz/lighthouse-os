@@ -103,8 +103,8 @@ void destroy_proc(proc_t* proc);
 // proc_t* proc_exec(const char* cmd, sysvar_vector_t vars, struct user_profile* profile, u32 flags);
 
 /* Block until the process has ended execution */
-int proc_schedule_and_await(proc_t* proc, struct user_profile* profile, const char* cmd, const char* stdio_path, HANDLE_TYPE stdio_type, enum SCHEDULER_PRIORITY prio);
-int proc_schedule(proc_t* proc, struct user_profile* profile, const char* cmd, const char* stdio_path, HANDLE_TYPE stdio_type, enum SCHEDULER_PRIORITY prio);
+int proc_schedule_and_await(proc_t* proc, struct user_profile* profile, const char* cmd, const char* stdio_path, enum SCHEDULER_PRIORITY prio);
+int proc_schedule(proc_t* proc, struct user_profile* profile, const char* cmd, const char* stdio_path, enum SCHEDULER_PRIORITY prio);
 const char* proc_try_get_symname(proc_t* proc, uintptr_t addr);
 
 kerror_t proc_add_thread(proc_t* proc, struct thread* thread);

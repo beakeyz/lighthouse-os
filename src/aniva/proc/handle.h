@@ -66,7 +66,6 @@ kerror_t try_bind_khandle_at(khandle_map_t* map, khandle_t* handle, uint32_t ind
 
 /* NOTE: mutates the handle to clear the index */
 kerror_t unbind_khandle(khandle_map_t* map, u32 handle);
-kerror_t khandle_map_remove(khandle_map_t* map, void* addr);
 
 khandle_t* find_khandle(khandle_map_t* map, uint32_t index);
 
