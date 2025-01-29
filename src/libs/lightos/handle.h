@@ -10,6 +10,7 @@
  *
  * negative handles mean invalid handles of different types
  */
+#include "lightos/api/objects.h"
 #include "stdint.h"
 
 /* This file contains definitions to be used for both userspace and kernelspace */
@@ -20,11 +21,6 @@
  * @brief: Check if a certain handle is actually valid for use
  */
 error_t handle_verify(handle_t handle);
-
-/*
- * Ask the kernel what kind of handle we are dealing with
- */
-error_t handle_get_type(HANDLE handle, HANDLE_TYPE* type);
 
 /*
  * Close this handle and make the kernel deallocate its resources
@@ -41,7 +37,7 @@ error_t close_handle(HANDLE handle);
  * NOTE: this is the raw function that should really only be called by the api itself, but this
  * can be used in userspace itself if handled carefully
  */
-HANDLE open_handle(const char* path, HANDLE_TYPE type, u32 flags, enum HNDL_MODE mode);
+HANDLE open_handle(const char* path, u32 flags, enum OSS_OBJECT_TYPE type, enum HNDL_MODE mode);
 
 /*!
  * @brief: Open a handle relative to another handle
@@ -49,7 +45,7 @@ HANDLE open_handle(const char* path, HANDLE_TYPE type, u32 flags, enum HNDL_MODE
  * This will always return a handle of the type HNDL_TYPE_OSS_OBJ.
  * The handletype can be expanded by handle_expand_type
  */
-HANDLE open_handle_from(HANDLE rel_handle, const char* path, HANDLE_TYPE type, u32 flags, enum HNDL_MODE mode);
+HANDLE open_handle_from(HANDLE rel_handle, const char* path, u32 flags, enum OSS_OBJECT_TYPE type, enum HNDL_MODE mode);
 
 /*
  * Perform a read opperation on a handle
@@ -59,6 +55,6 @@ ssize_t handle_read(HANDLE handle, u64 offset, VOID* buffer, u64 buffer_size);
 /*
  * Perform a write opperation on a handle
  */
-error_t handle_write(HANDLE handle, u64 offset, VOID* buffer, size_t buffer_size);
+ssize_t handle_write(HANDLE handle, u64 offset, VOID* buffer, size_t buffer_size);
 
 #endif // !__LIGHTENV_HANDLE__

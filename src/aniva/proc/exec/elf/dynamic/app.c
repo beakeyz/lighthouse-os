@@ -88,7 +88,7 @@ static inline error_t lightos_ctx_bind_proc_handle(lightos_appctx_t* ctx, loaded
         return -EINVAL;
 
     /* Initialize the handle */
-    init_khandle_ex(&handle, HNDL_TYPE_OBJECT, HF_R, app->image.proc->obj);
+    init_khandle_ex(&handle, HF_R, app->image.proc->obj);
 
     /* We need to take a reference here, on behalf of the process */
     oss_object_ref(app->image.proc->obj);

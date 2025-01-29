@@ -50,14 +50,16 @@ void __init_stdio(void)
 {
     int error;
     HANDLE stdio_handle;
-    HANDLE_TYPE type = HNDL_TYPE_NONE;
     char stdio_path[512] = { 0 };
 
     /* Prepare the stdio I/O buffers */
     if ((error = __init_stdio_buffers(FILE_BUFSIZE)))
         exit(error);
 
-    /* Open the stdio path variable */
+    /*
+     * Open the stdio path variable
+     * TODO: Also change stdio to just a link object just like woh
+     */
     stdio_handle = open_sysvar(SYSVAR_STDIO, HF_R);
 
     if (handle_verify(stdio_handle))
@@ -69,21 +71,10 @@ void __init_stdio(void)
     /* Close the handle */
     close_handle(stdio_handle);
 
-    /* Open the handle type variable */
-    stdio_handle = open_sysvar(SYSVAR_STDIO_HANDLE_TYPE, HF_R);
-
-    if (handle_verify(stdio_handle))
-        return;
-
-    /* Read which type of handle we need to open */
-    (void)sysvar_read(stdio_handle, &type, sizeof(type));
-
-    /* Close the handle */
-    close_handle(stdio_handle);
-
-    stdout->object = OpenObject(stdio_path, HF_W, NULL);
-    stdin->object = OpenObject(stdio_path, HF_R, NULL);
-    stderr->object = OpenObject(stdio_path, HF_RW, NULL);
+    /* Any oss object can be used as stdio */
+    stdout->object = OpenObject(stdio_path, HF_W, OT_ANY, NULL);
+    stdin->object = OpenObject(stdio_path, HF_R, OT_ANY, NULL);
+    stderr->object = OpenObject(stdio_path, HF_RW, OT_ANY, NULL);
 }
 
 static int parse_modes(const char* modes, uint32_t* flags, uint32_t* mode)
@@ -395,6 +386,8 @@ int puts(const char* str)
 
     FileWrite(stdout, (u8*)str, str_len);
     FileWrite(stdout, "\n", 1);
+
+    FileFlush(stdout);
     return 0;
 }
 

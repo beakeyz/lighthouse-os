@@ -16,8 +16,6 @@ struct oss_object;
  */
 typedef struct kernel_handle {
     uint32_t index;
-    uint8_t protection_lvl;
-    uint8_t res;
     uint32_t flags;
     struct oss_object* object;
 } khandle_t;

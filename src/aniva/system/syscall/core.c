@@ -39,11 +39,8 @@ static const sys_fn_t __syscall_map[] = {
     [SYSID_CREATE_PROC] = (sys_fn_t)sys_create_proc,
     [SYSID_DESTROY_PROC] = (sys_fn_t)sys_destroy_proc,
 
-    [SYSID_GET_HNDL_TYPE] = (sys_fn_t)sys_handle_get_type,
     [SYSID_GET_SYSVAR_TYPE] = (sys_fn_t)sys_get_sysvar_type,
     [SYSID_CREATE_SYSVAR] = (sys_fn_t)sys_create_sysvar,
-
-    [SYSID_DIR_CREATE] = (sys_fn_t)sys_dir_create,
 
     [SYSID_SEEK] = (sys_fn_t)sys_seek,
     [SYSID_GET_PROCESSTIME] = (sys_fn_t)sys_get_process_time,

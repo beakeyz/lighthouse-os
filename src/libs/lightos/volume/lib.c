@@ -13,7 +13,7 @@ Object* open_volume(const char* path, uint32_t flags, enum HNDL_MODE mode)
 {
     Object* object;
 
-    object = OpenObject(path, flags, mode);
+    object = OpenObject(path, flags, OT_DEVICE, mode);
 
     /* Invalid type. Just close the object */
     if (object->type != OT_DEVICE)

@@ -46,7 +46,7 @@ static Object* __get_target_object(Object* self_obj)
     if (!relative)
         return nullptr;
 
-    ret = OpenObjectFrom(relative, __target_path, HF_R, NULL);
+    ret = OpenObjectFrom(relative, __target_path, HF_R, OT_FILE, NULL);
 
     CloseObject(relative);
 

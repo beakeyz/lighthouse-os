@@ -36,7 +36,7 @@ HANDLE sys_open_proc_obj(const char* key, handle_flags_t flags)
         return HNDL_INVAL;
 
     /* Initialize the handle */
-    init_khandle_ex(&khandle, HNDL_TYPE_OBJECT, flags.s_flags, target);
+    init_khandle_ex(&khandle, flags.s_flags, target);
 
     /* Now bind the handle into the processes handle map */
     bind_khandle(&c_proc->m_handle_map, &khandle, (u32*)&ret);

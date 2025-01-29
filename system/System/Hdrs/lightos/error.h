@@ -147,6 +147,7 @@
 #define ECONST 180
 #define ENODRV 181
 #define EDUPLICATE 182
+#define EBADTYPE 183
 
 #define ERESTARTSYS 512
 

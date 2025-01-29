@@ -1,7 +1,6 @@
 #include "exec.h"
 #include "drivers/env/kterm/kterm.h"
 #include "libk/flow/error.h"
-#include "lightos/api/handle.h"
 #include "logging/log.h"
 #include "mem/heap.h"
 #include "oss/core.h"
@@ -168,7 +167,7 @@ uint32_t kterm_try_exec(const char** argv, size_t argc, const char* cmdline)
 
     /* Wait for process termination if we don't want to run in the background */
     // if (true)
-    ASSERT_MSG(proc_schedule_and_await(p, login_profile, cmdline, "Devices/kterm", HNDL_TYPE_OBJECT, SCHED_PRIO_MID) == 0, "Process termination failed");
+    ASSERT_MSG(proc_schedule_and_await(p, login_profile, cmdline, "Devices/kterm", SCHED_PRIO_MID) == 0, "Process termination failed");
     // else
     // proc_schedule(p, SCHED_PRIO_MID);
 

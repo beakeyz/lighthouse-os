@@ -35,7 +35,7 @@ error_t sys_send_msg(HANDLE handle, dcc_t code, u64 offset, void* buffer, size_t
     /* Find the handle */
     c_hndl = find_khandle(&c_proc->m_handle_map, handle);
 
-    if (!c_hndl || c_hndl->type != HNDL_TYPE_OBJECT)
+    if (!c_hndl)
         return EINVAL;
 
     object = c_hndl->object;

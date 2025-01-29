@@ -43,7 +43,7 @@ static error_t __parse_cmdline(u32 argc)
 static Object* __get_target_object(Object* self_obj)
 {
     if (__relative_path)
-        return OpenObject(__relative_path, HF_R, NULL);
+        return OpenObject(__relative_path, HF_R, OT_ANY, NULL);
 
     /* Try to open the working object holder */
     return OpenWorkingObject(HF_R);

@@ -134,6 +134,12 @@ error_t oss_object_settype(oss_object_t* object, enum OSS_OBJECT_TYPE type, oss_
     if (oss_object_can_set_type(object) || !presult)
         return -EINVAL;
 
+    /* Type already matches. Just return ourselves */
+    if (object->type == type) {
+        *presult = object;
+        return 0;
+    }
+
     /* Switch over the types we know to transform to */
     switch (type) {
     case OT_FILE:

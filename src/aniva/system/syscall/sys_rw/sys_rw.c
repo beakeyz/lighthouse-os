@@ -7,7 +7,6 @@
 #include "mem/kmem.h"
 #include "oss/object.h"
 #include "proc/handle.h"
-#include "proc/hdrv/driver.h"
 #include "proc/proc.h"
 #include "sched/scheduler.h"
 #include <libk/string.h>
@@ -20,7 +19,6 @@ ssize_t sys_write(HANDLE handle, u64 offset, void __user* buffer, size_t length)
 {
     proc_t* current_proc;
     khandle_t* khandle;
-    khandle_driver_t* khandle_driver;
 
     if (!buffer)
         return -EINVAL;
@@ -35,12 +33,7 @@ ssize_t sys_write(HANDLE handle, u64 offset, void __user* buffer, size_t length)
     if ((khandle->flags & HF_WRITEACCESS) != HF_WRITEACCESS)
         return -EPERM;
 
-    /* If we can't find a driver, the system does not support writing to this type of handle
-     * in it's current state... */
-    if (khandle_driver_find(khandle->type, &khandle_driver))
-        return -EINVAL;
-
-    return khandle_driver_write(khandle_driver, khandle, offset, buffer, length);
+    return oss_object_write(khandle->object, offset, buffer, length);
 }
 
 /*!
@@ -54,7 +47,6 @@ ssize_t sys_read(HANDLE handle, u64 offset, void* buffer, size_t size)
 {
     proc_t* current_proc;
     khandle_t* khandle;
-    khandle_driver_t* khandle_driver;
 
     if (!buffer)
         return NULL;
@@ -69,12 +61,7 @@ ssize_t sys_read(HANDLE handle, u64 offset, void* buffer, size_t size)
     if ((khandle->flags & HF_READACCESS) != HF_READACCESS)
         return -EPERM;
 
-    /* If we can't find a driver, the system does not support reading this type of handle
-     * in it's current state... */
-    if (khandle_driver_find(khandle->type, &khandle_driver))
-        return -EINVAL;
-
-    return khandle_driver_read(khandle_driver, khandle, offset, buffer, size);
+    return oss_object_read(khandle->object, offset, buffer, size);
 }
 
 size_t sys_seek(HANDLE handle, u64 c_offset, u64 new_offset, u32 type)
@@ -92,7 +79,7 @@ size_t sys_seek(HANDLE handle, u64 c_offset, u64 new_offset, u32 type)
     khndl = find_khandle(&curr_prc->m_handle_map, handle);
 
     /* Can only seek on objects */
-    if (!khndl || khndl->type != HNDL_TYPE_OBJECT)
+    if (!khndl)
         return EINVAL;
 
     switch (type) {
@@ -121,10 +108,4 @@ size_t sys_seek(HANDLE handle, u64 c_offset, u64 new_offset, u32 type)
     }
 
     return ret;
-}
-
-error_t sys_dir_create(const char* path, i32 mode)
-{
-    // kernel_panic("TODO: Implement syscall (sys_dir_create)");
-    return 0;
 }

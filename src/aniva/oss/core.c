@@ -64,6 +64,8 @@ error_t oss_open_root_object(const char* path, struct oss_object** pobj)
  */
 static error_t __maybe_create_object(const char* key, u32 oss_path_idx, oss_path_t* oss_path, enum OSS_OBJECT_TYPE type, oss_object_t* rel, oss_object_t** pobj)
 {
+    if (!oss_object_valid_type(type))
+        return -ENOENT;
     /*
      * We can only try to create a new entry if we're at the last
      * subpath in an open action. Otherwise we don't know what to do
@@ -93,7 +95,7 @@ static error_t __oss_open_or_create_object_from(oss_path_t* path, u32 start_idx,
     while (walker && i < path->n_subpath) {
         if (oss_object_open(walker, path->subpath_vec[i], &next_object))
             /* Check if we want to try to create an object here. If we do, great! Otherwise return error */
-            return (oss_object_valid_type(create_type) ? __maybe_create_object(path->subpath_vec[i], i, path, create_type, rel, pobj) : -ENOENT);
+            return __maybe_create_object(path->subpath_vec[i], i, path, create_type, rel, pobj);
 
         /* Maybe connect this object, if that wasn't yet done */
         if (next_object)

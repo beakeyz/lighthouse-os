@@ -177,22 +177,45 @@ static int fat32_cache_cluster_chain(fs_root_object_t* fsroot, fat_file_t* file,
  * The size of @buffer must be at least ->cluster_size
  * this size is assumed
  */
-static int
-__fat32_write_cluster(fs_root_object_t* fsroot, void* buffer, uint32_t cluster)
+static int __fat32_write_clusters(fs_root_object_t* fsroot, uint8_t* buffer, struct fat_file* file, uint32_t start, size_t size)
 {
     int error;
-    fat_fs_info_t* info;
+    uintptr_t current_index;
+    uintptr_t current_offset;
+    uintptr_t current_deviation;
+    uintptr_t current_delta;
     uintptr_t current_cluster_offset;
+    uintptr_t index;
+    fat_fs_info_t* info;
 
-    if (!fsroot || !fsroot->m_fs_priv || cluster < 2)
+    if (!fsroot)
         return -1;
 
     info = GET_FAT_FSINFO(fsroot);
-    current_cluster_offset = (info->usable_clusters_start + (cluster - 2) * info->boot_sector_copy.sectors_per_cluster) * info->boot_sector_copy.sector_size;
-    error = fatfs_write(fsroot, buffer, info->cluster_size, current_cluster_offset);
 
-    if (error)
-        return -2;
+    index = 0;
+
+    while (index < size) {
+        current_offset = start + index;
+        current_index = current_offset / info->cluster_size;
+        current_deviation = current_offset % info->cluster_size;
+
+        current_delta = size - index;
+
+        /* Limit the delta to the size of a cluster, except if we try to get an unaligned size smaller than 'cluster_size' */
+        if (current_delta > info->cluster_size - current_deviation)
+            current_delta = info->cluster_size - current_deviation;
+
+        current_cluster_offset = (info->usable_clusters_start + (file->clusterchain_buffer[current_index] - 2) * info->boot_sector_copy.sectors_per_cluster)
+            * info->boot_sector_copy.sector_size;
+
+        error = fatfs_write(fsroot, buffer + index, current_delta, current_cluster_offset + current_deviation);
+
+        if (error)
+            return -2;
+
+        index += current_delta;
+    }
 
     return 0;
 }
@@ -339,6 +362,33 @@ __fat32_find_end_cluster(fs_root_object_t* fsroot, uint32_t start_cluster, uint3
     return 0;
 }
 
+static int __fat32_write_back_direntry_size(fs_root_object_t* fsroot, fat_fs_info_t* fs_info, fat_file_t* ffile, u32 overflow_delta)
+{
+    u8* cluster_buffer;
+
+    /*
+     * We can now perform a nice write opperation on this files data
+     */
+
+    cluster_buffer = kmalloc(fs_info->cluster_size);
+
+    fat_dir_entry_t* dir_entry = (fat_dir_entry_t*)((uintptr_t)cluster_buffer + ffile->direntry_offset);
+
+    /* Read the dir entry of this file */
+    if (fatfs_read(fsroot, cluster_buffer, fs_info->cluster_size, ffile->direntry_cluster * fs_info->cluster_size))
+        goto free_and_exit;
+
+    /* Add the size to this file */
+    dir_entry->size += overflow_delta;
+
+    /* Write back the new size */
+    fatfs_write(fsroot, cluster_buffer, fs_info->cluster_size, ffile->direntry_cluster * fs_info->cluster_size);
+
+free_and_exit:
+    kfree(cluster_buffer);
+    return 0;
+}
+
 int fat32_write_clusters(fs_root_object_t* fsroot, uint8_t* buffer, struct fat_file* ffile, uint32_t offset, size_t size)
 {
     int error;
@@ -346,10 +396,6 @@ int fat32_write_clusters(fs_root_object_t* fsroot, uint8_t* buffer, struct fat_f
     uint32_t max_offset;
     uint32_t overflow_delta;
     uint32_t overflow_clusters;
-    uint32_t write_clusters;
-    uint32_t write_start_cluster;
-    uint32_t start_cluster_index;
-    uint32_t cluster_internal_offset;
     uint32_t file_start_cluster;
     uint32_t file_end_cluster;
     fat_fs_info_t* fs_info;
@@ -374,12 +420,6 @@ int fat32_write_clusters(fs_root_object_t* fsroot, uint8_t* buffer, struct fat_f
 
     /* Calculate how many clusters we might need to allocate extra */
     overflow_clusters = ALIGN_UP(overflow_delta, fs_info->cluster_size) / fs_info->cluster_size;
-    /* Calculate in how many clusters we need to write */
-    write_clusters = ALIGN_UP(size, fs_info->cluster_size) / fs_info->cluster_size;
-    /* Calculate the first cluster where we need to write */
-    write_start_cluster = ALIGN_DOWN(offset, fs_info->cluster_size) / fs_info->cluster_size;
-    /* Calculate the start offset within the first cluster */
-    cluster_internal_offset = offset % fs_info->cluster_size;
     /* Find the starting cluster */
     file_start_cluster = __fat32_file_get_start_cluster_entry(ffile);
 
@@ -424,64 +464,13 @@ int fat32_write_clusters(fs_root_object_t* fsroot, uint8_t* buffer, struct fat_f
             return error;
 
         file->m_total_size = ffile->clusters_num * fs_info->cluster_size;
+        file->m_logical_size += overflow_delta;
+
+        __fat32_write_back_direntry_size(fsroot, fs_info, ffile, overflow_delta);
     }
 
-    /*
-     * We can now perform a nice write opperation on this files data
-     */
-    start_cluster_index = write_start_cluster / ffile->clusters_num;
-    uint8_t* cluster_buffer = kmalloc(fs_info->cluster_size);
+    __fat32_write_clusters(fsroot, buffer, ffile, offset, size);
 
-    /* Current offset: the offset into the current cluster */
-    uint32_t current_offset = cluster_internal_offset;
-    /* Current delta: how much have we already written */
-    uint32_t current_delta = 0;
-    /* Write size: how many bytes are in this write */
-    uint32_t write_size;
-
-    /* FIXME: this is prob slow asf. We could be smarter about our I/O */
-    for (uint32_t i = 0; i < write_clusters; i++) {
-
-        if (current_delta >= size)
-            break;
-
-        /* This is the cluster we need to write shit to */
-        uint32_t this_cluster = ffile->clusterchain_buffer[start_cluster_index + i];
-
-        /* Figure out the write size */
-        write_size = size - current_delta;
-
-        /* Write size exceeds the size of our clusters */
-        if (write_size > fs_info->cluster_size - current_offset)
-            write_size = fs_info->cluster_size - current_offset;
-
-        /* Read the current content into our buffer here */
-        fat32_read_clusters(fsroot, cluster_buffer, ffile, this_cluster, 1);
-
-        /* Copy the bytes over */
-        memcpy(&cluster_buffer[current_offset], &buffer[current_delta], write_size);
-
-        /* And write back the changes we've made */
-        __fat32_write_cluster(fsroot, cluster_buffer, this_cluster);
-
-        current_delta += write_size;
-        /* After the first write, any subsequent write will always start at the start of a cluster */
-        current_offset = 0;
-    }
-
-    fat_dir_entry_t* dir_entry = (fat_dir_entry_t*)((uintptr_t)cluster_buffer + ffile->direntry_offset);
-
-    /* Read the dir entry of this file */
-    if (fat32_read_clusters(fsroot, cluster_buffer, ffile, ffile->direntry_cluster, 1))
-        goto free_and_exit;
-
-    /* Add the size to this file */
-    dir_entry->size += size;
-
-    __fat32_write_cluster(fsroot, cluster_buffer, ffile->direntry_cluster);
-
-free_and_exit:
-    kfree(cluster_buffer);
     return 0;
 }
 
@@ -713,6 +702,7 @@ static inline bool __should_exempt_cluster_chain_updating(fat_dir_entry_t* entry
 static error_t fat_file_update_cluster_chain(fat_file_t* fat_file, fat_dir_entry_t* current, u32 direntry_offset, u32 direntry_cluster)
 {
     error_t error;
+    fat_fs_info_t* info;
     fs_root_object_t* fsroot;
 
     if (__should_exempt_cluster_chain_updating(current))
@@ -723,6 +713,8 @@ static error_t fat_file_update_cluster_chain(fat_file_t* fat_file, fat_dir_entry
     if (!fsroot)
         return -EINVAL;
 
+    info = GET_FAT_FSINFO(fsroot);
+
     /* Make sure the file knows about its cluster chain */
     error = fat32_cache_cluster_chain(fsroot, fat_file, (current->first_cluster_low | ((uint32_t)current->first_cluster_hi << 16)));
 
@@ -731,7 +723,7 @@ static error_t fat_file_update_cluster_chain(fat_file_t* fat_file, fat_dir_entry
 
     /* Cache the offset of the clusterchain */
     fat_file->clusterchain_offset = (current->first_cluster_low | ((uint32_t)current->first_cluster_hi << 16));
-    fat_file->direntry_offset = direntry_offset;
+    fat_file->direntry_offset = direntry_offset % info->cluster_size;
     fat_file->direntry_cluster = direntry_cluster;
 
     return 0;
@@ -841,7 +833,7 @@ oss_object_t* __fat_open(dir_t* dir, const char* path)
     error = fat32_open_dir_entry(fsroot, &current, &current, (char*)path, &direntry_offset);
 
     /* A single directory may have entries spanning over multiple clusters */
-    direntry_cluster += direntry_offset / info->cluster_size;
+    direntry_cluster += ALIGN_DOWN(direntry_offset, info->cluster_size) / info->cluster_size;
 
     if (error)
         return nullptr;

@@ -6,7 +6,6 @@
 #define SYSVAR_CMDLINE "CMDLINE"
 
 /* Sysvar ids for standard i/o */
-#define SYSVAR_STDIO_HANDLE_TYPE "STDIO-HANDLE"
 #define SYSVAR_STDIO "STDIO"
 #define SYSVAR_IO_DUMP SYSVAR_STDIO
 

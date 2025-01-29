@@ -36,9 +36,9 @@ ssize_t sys_write(HANDLE handle, u64 offset, void* buffer, size_t size)
     return syscall_4(SYSID_WRITE, handle, offset, (u64)buffer, size);
 }
 
-HANDLE sys_open(const char* path, handle_flags_t flags, enum HNDL_MODE mode, void* buffer, size_t bsize)
+extern HANDLE sys_open(const char* path, handle_flags_t flags, enum OSS_OBJECT_TYPE type, enum HNDL_MODE mode)
 {
-    return syscall_5(SYSID_OPEN, (u64)path, flags.raw, mode, (u64)buffer, bsize);
+    return syscall_4(SYSID_OPEN, (u64)path, flags.raw, type, mode);
 }
 
 HANDLE sys_open_idx(HANDLE handle, u32 idx, handle_flags_t flags)
@@ -126,11 +126,6 @@ error_t sys_destroy_proc(HANDLE proc, u32 flags)
     return syscall_2(SYSID_DESTROY_PROC, proc, flags);
 }
 
-enum HANDLE_TYPE sys_handle_get_type(HANDLE handle)
-{
-    return (enum HANDLE_TYPE)syscall_1(SYSID_GET_HNDL_TYPE, handle);
-}
-
 enum SYSVAR_TYPE sys_get_sysvar_type(HANDLE handle)
 {
     return (enum SYSVAR_TYPE)syscall_1(SYSID_GET_SYSVAR_TYPE, handle);
@@ -139,11 +134,6 @@ enum SYSVAR_TYPE sys_get_sysvar_type(HANDLE handle)
 HANDLE sys_create_sysvar(const char* key, handle_flags_t flags, enum SYSVAR_TYPE type, void* buffer, size_t len)
 {
     return (HANDLE)syscall_5(SYSID_CREATE_SYSVAR, (u64)key, flags.raw, type, (u64)buffer, len);
-}
-
-error_t sys_dir_create(const char* path, i32 mode)
-{
-    return syscall_2(SYSID_DIR_CREATE, (u64)path, mode);
 }
 
 size_t sys_seek(HANDLE handle, u64 c_offset, u64 new_offset, u32 type)

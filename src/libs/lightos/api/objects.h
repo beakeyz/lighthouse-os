@@ -25,6 +25,12 @@ enum OSS_OBJECT_TYPE {
     OT_PROFILE,
     OT_SYSVAR,
     OT_KEVENT,
+
+    /* These types are still TODO */
+    OT_VMEM,
+    OT_LIB,
+    OT_BYTESTREAM,
+
     OT_GENERIC,
 
     NR_OBJECT_TYPES,

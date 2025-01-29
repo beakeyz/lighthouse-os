@@ -12,22 +12,7 @@ static HANDLE __proc_handle;
 
 HANDLE open_sysvar_ex(HANDLE handle, char* key, u32 flags)
 {
-    HANDLE ret;
-    enum OSS_OBJECT_TYPE type;
-
-    ret = open_handle_from(handle, key, HNDL_TYPE_OBJECT, flags, NULL);
-
-    if (handle_verify(ret))
-        return HNDL_INVAL;
-
-    type = sys_get_object_type(ret);
-
-    if (type != OT_SYSVAR) {
-        close_handle(ret);
-        return HNDL_INVAL;
-    }
-
-    return ret;
+    return open_handle_from(handle, key, flags, OT_SYSVAR, NULL);
 }
 
 HANDLE open_sysvar(char* key, u32 flags)
@@ -44,7 +29,7 @@ extern HANDLE create_sysvar(HANDLE handle, const char* key, enum SYSVAR_TYPE typ
         return FALSE;
 
     /* Make sure this is a bool and not something like a u64 */
-    return sys_create_sysvar(key, handle_flags(flags, HNDL_TYPE_OBJECT, handle), type, value, len);
+    return sys_create_sysvar(key, handle_flags(flags, handle), type, value, len);
 }
 
 BOOL sysvar_get_type(HANDLE var_handle, enum SYSVAR_TYPE* type)
@@ -56,42 +41,32 @@ BOOL sysvar_get_type(HANDLE var_handle, enum SYSVAR_TYPE* type)
     return TRUE;
 }
 
-BOOL sysvar_read(HANDLE handle, void* buffer, u64 buffer_size)
+ssize_t sysvar_read(HANDLE var_handle, void* buffer, size_t buffer_size)
 {
-    HANDLE_TYPE type;
-
-    if (handle_get_type(handle, &type) || type != HNDL_TYPE_OBJECT)
-        return FALSE;
-
-    return handle_read(handle, 0, buffer, buffer_size);
+    return handle_read(var_handle, 0, buffer, buffer_size);
 }
 
-extern BOOL sysvar_read_byte(HANDLE h_var, u8* pvalue)
+ssize_t sysvar_read_byte(HANDLE h_var, u8* pvalue)
 {
     enum SYSVAR_TYPE type;
 
     /* Verify the handle */
     if (handle_verify(h_var))
-        return FALSE;
+        return 0;
 
     /* Get the type */
     if (!sysvar_get_type(h_var, &type))
-        return FALSE;
+        return 0;
 
     if (type != SYSVAR_TYPE_BYTE)
-        return FALSE;
+        return 0;
 
     return sysvar_read(h_var, pvalue, sizeof(*pvalue));
 }
 
-BOOL sysvar_write(HANDLE handle, void* buffer, size_t bsize)
+ssize_t sysvar_write(HANDLE var_handle, void* buffer, size_t bsize)
 {
-    HANDLE_TYPE type;
-
-    if (handle_get_type(handle, &type) || type != HNDL_TYPE_OBJECT)
-        return FALSE;
-
-    return handle_write(handle, 0, buffer, bsize);
+    return handle_write(var_handle, 0, buffer, bsize);
 }
 
 /*

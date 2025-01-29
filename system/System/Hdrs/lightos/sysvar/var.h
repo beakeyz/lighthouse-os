@@ -39,13 +39,13 @@ extern BOOL sysvar_get_type(HANDLE var_handle, enum SYSVAR_TYPE* type);
 /*
  * Read from a system variable
  */
-extern BOOL sysvar_read(HANDLE var_handle, void* buffer, size_t buffer_size);
+extern ssize_t sysvar_read(HANDLE var_handle, void* buffer, size_t buffer_size);
 
-extern BOOL sysvar_read_byte(HANDLE h_var, u8* pvalue);
+extern ssize_t sysvar_read_byte(HANDLE h_var, u8* pvalue);
 /*
  * Write to a system variable
  */
-extern BOOL sysvar_write(HANDLE var_handle, void* buffer, size_t bsize);
+extern ssize_t sysvar_write(HANDLE var_handle, void* buffer, size_t bsize);
 
 /*!
  * @brief: Read from a system variable on a profile

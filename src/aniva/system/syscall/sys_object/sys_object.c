@@ -16,7 +16,7 @@ enum OSS_OBJECT_TYPE sys_get_object_type(HANDLE handle)
     khandle = find_khandle(&c_proc->m_handle_map, handle);
 
     /* Check if we have a valid handle */
-    if (!khandle || khandle->type != HNDL_TYPE_OBJECT)
+    if (!khandle)
         return OT_INVALID;
 
     /* Export the type */
@@ -36,7 +36,7 @@ enum OSS_OBJECT_TYPE sys_set_object_type(HANDLE handle, enum OSS_OBJECT_TYPE pty
     khandle = find_khandle(&c_proc->m_handle_map, handle);
 
     /* Check if we have a valid handle */
-    if (!khandle || khandle->type != HNDL_TYPE_OBJECT)
+    if (!khandle)
         return OT_INVALID;
 
     /* Tries to set the type */
@@ -61,9 +61,6 @@ error_t sys_get_object_key(HANDLE handle, char* key_buff, size_t key_buff_len)
     khandle = find_khandle(&c_proc->m_handle_map, handle);
 
     if (!khandle)
-        return -EBADHANDLE;
-
-    if (khandle->type != HNDL_TYPE_OBJECT)
         return -EBADHANDLE;
 
     if ((khandle->flags & HF_R) != HF_R)
@@ -92,9 +89,6 @@ error_t sys_set_object_key(HANDLE handle, char* key_buff, size_t key_buff_len)
     if (!khandle)
         return -EBADHANDLE;
 
-    if (khandle->type != HNDL_TYPE_OBJECT)
-        return -EBADHANDLE;
-
     /* Check for write perms */
     if ((khandle->flags & HF_W) != HF_W)
         return -EPERM;
@@ -113,12 +107,12 @@ static error_t __get_object_and_parent(proc_t* c_proc, HANDLE object, oss_object
 
     object_khandle = find_khandle(&c_proc->m_handle_map, object);
 
-    if (!object_khandle || object_khandle->type != HNDL_TYPE_OBJECT)
+    if (!object_khandle)
         return -EINVAL;
 
     parent_khandle = find_khandle(&c_proc->m_handle_map, parent);
 
-    if (!parent_khandle || object_khandle->type != HNDL_TYPE_OBJECT)
+    if (!parent_khandle)
         return -EINVAL;
 
     *pobject = object_khandle->object;

@@ -21,8 +21,8 @@ Object* GetObjectFromHandle(HANDLE handle);
  * it to another object
  */
 Object* CreateObject(const char* key, u16 flags, enum OSS_OBJECT_TYPE type);
-Object* OpenObject(const char* path, u32 hndl_flags, enum HNDL_MODE mode);
-Object* OpenObjectFrom(Object* rel, const char* path, u32 hndl_flags, enum HNDL_MODE mode);
+Object* OpenObject(const char* path, u32 hndl_flags, enum OSS_OBJECT_TYPE type, enum HNDL_MODE mode);
+Object* OpenObjectFrom(Object* rel, const char* path, u32 hndl_flags, enum OSS_OBJECT_TYPE type, enum HNDL_MODE mode);
 Object* OpenObjectIdx(Object* rel, u32 idx, u32 hndl_flags, enum HNDL_MODE mode);
 Object* OpenConnectedObjectByIdx(Object* rel, u32 idx, u32 hndl_flags, enum HNDL_MODE mode);
 Object* OpenDownConnectedObjectByIdx(Object* rel, u32 idx, u32 hndl_flags, enum HNDL_MODE mode);

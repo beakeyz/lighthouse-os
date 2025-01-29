@@ -7,20 +7,6 @@
 #include "system/sysvar/map.h"
 #include "system/sysvar/var.h"
 
-enum HANDLE_TYPE sys_handle_get_type(HANDLE handle)
-{
-    khandle_t* c_handle;
-    proc_t* c_proc;
-
-    c_proc = get_current_proc();
-    c_handle = find_khandle(&c_proc->m_handle_map, handle);
-
-    if (!c_handle)
-        return HNDL_TYPE_NONE;
-
-    return c_handle->type;
-}
-
 enum SYSVAR_TYPE sys_get_sysvar_type(HANDLE pvar_handle)
 {
     sysvar_t* var;
@@ -35,7 +21,7 @@ enum SYSVAR_TYPE sys_get_sysvar_type(HANDLE pvar_handle)
     /* Find the khandle */
     handle = find_khandle(&current_proc->m_handle_map, pvar_handle);
 
-    if (handle->type != HNDL_TYPE_OBJECT)
+    if (!handle)
         return SYSVAR_TYPE_INVAL;
 
     /* Extract the profile variable */
@@ -83,7 +69,7 @@ HANDLE sys_create_sysvar(const char* key, handle_flags_t flags, enum SYSVAR_TYPE
         return HNDL_INVAL;
 
     /* Can't write to this handle =/ */
-    if (target_khandle->type != HNDL_TYPE_OBJECT || (target_khandle->flags & HF_W) != HF_W)
+    if ((target_khandle->flags & HF_W) != HF_W)
         return HNDL_INVAL;
 
     target_object = target_khandle->object;
@@ -99,7 +85,7 @@ HANDLE sys_create_sysvar(const char* key, handle_flags_t flags, enum SYSVAR_TYPE
         goto close_and_return_error;
 
     /* Inherit the target handles flags lol */
-    init_khandle_ex(&new_khandle, HNDL_TYPE_OBJECT, target_khandle->flags, var->object);
+    init_khandle_ex(&new_khandle, target_khandle->flags, var->object);
 
     /* Try to bind the khandle */
     if (bind_khandle(&proc->m_handle_map, &new_khandle, (u32*)&ret))

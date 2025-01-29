@@ -58,11 +58,8 @@ enum SYSID {
     SYSID_OPEN_PROC_OBJ,
     SYSID_CREATE_PROC,
     SYSID_DESTROY_PROC,
-    SYSID_GET_HNDL_TYPE,
     SYSID_GET_SYSVAR_TYPE,
     SYSID_CREATE_SYSVAR,
-    /* Directory syscalls */
-    SYSID_DIR_CREATE,
     /* Manipulate the R/W offset of a handle */
     SYSID_SEEK,
     SYSID_GET_PROCESSTIME,
@@ -95,7 +92,7 @@ extern error_t sys_get_exitvec(proc_exitvec_t** p_exitvec);
 extern error_t sys_close(HANDLE handle);
 extern ssize_t sys_read(HANDLE handle, u64 offset, void* buffer, size_t size);
 extern ssize_t sys_write(HANDLE handle, u64 offset, void* buffer, size_t size);
-extern HANDLE sys_open(const char* path, handle_flags_t flags, enum HNDL_MODE mode, void* buffer, size_t bsize);
+extern HANDLE sys_open(const char* path, handle_flags_t flags, enum OSS_OBJECT_TYPE type, enum HNDL_MODE mode);
 extern HANDLE sys_open_idx(HANDLE handle, u32 idx, handle_flags_t flags);
 extern HANDLE sys_open_connected_idx(HANDLE handle, u32 idx, handle_flags_t flags);
 extern error_t sys_send_msg(HANDLE handle, u32 code, u64 offset, void* buffer, size_t bsize);
@@ -117,11 +114,8 @@ extern HANDLE sys_open_proc_obj(const char* key, handle_flags_t flags);
 extern HANDLE sys_create_proc(const char* cmd, FuncPtr entry);
 extern error_t sys_destroy_proc(HANDLE proc, u32 flags);
 
-extern enum HANDLE_TYPE sys_handle_get_type(HANDLE handle);
 extern enum SYSVAR_TYPE sys_get_sysvar_type(HANDLE handle);
 extern HANDLE sys_create_sysvar(const char* key, handle_flags_t flags, enum SYSVAR_TYPE type, void* buffer, size_t len);
-
-extern error_t sys_dir_create(const char* path, i32 mode);
 
 extern size_t sys_seek(HANDLE handle, u64 c_offset, u64 new_offset, u32 type);
 extern size_t sys_get_process_time(void);

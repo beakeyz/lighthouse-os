@@ -42,7 +42,7 @@ Object* CreateObject(const char* key, u16 flags, enum OSS_OBJECT_TYPE type)
 
     memset(ret, 0, sizeof(*ret));
 
-    ret->handle = open_handle(key, HNDL_TYPE_OBJECT, HF_RW, HNDL_MODE_CREATE_NEW);
+    ret->handle = open_handle(key, HF_RW, type, HNDL_MODE_CREATE_NEW);
 
     /* If the handle isn't valid, we can just dip */
     if (handle_verify(ret->handle)) {
@@ -59,9 +59,9 @@ Object* CreateObject(const char* key, u16 flags, enum OSS_OBJECT_TYPE type)
     return ret;
 }
 
-Object* OpenObject(const char* path, u32 hndl_flags, enum HNDL_MODE mode)
+Object* OpenObject(const char* path, u32 hndl_flags, enum OSS_OBJECT_TYPE type, enum HNDL_MODE mode)
 {
-    return OpenObjectFrom(nullptr, path, hndl_flags, mode);
+    return OpenObjectFrom(nullptr, path, hndl_flags, type, mode);
 }
 
 /*!
@@ -106,7 +106,7 @@ Object* OpenSelfObject(u32 flags)
     HANDLE self;
 
     /* Try to open ourselves */
-    self = sys_open_proc_obj(NULL, (handle_flags_t) { .s_flags = flags, .s_rel_hndl = HNDL_INVAL, .s_type = HNDL_TYPE_OBJECT });
+    self = sys_open_proc_obj(NULL, handle_flags(flags, HNDL_INVAL));
 
     /* Try to create an object from it */
     return GetObjectFromHandle(self);
@@ -121,16 +121,16 @@ Object* GetObjectFromHandle(HANDLE handle)
     return __open_object(handle);
 }
 
-Object* OpenObjectFrom(Object* relative, const char* path, u32 hndl_flags, enum HNDL_MODE mode)
+Object* OpenObjectFrom(Object* rel, const char* path, u32 hndl_flags, enum OSS_OBJECT_TYPE type, enum HNDL_MODE mode)
 {
     Object* ret;
     HANDLE handle;
 
     /* Open the objects handle */
-    if (relative)
-        handle = open_handle_from(relative->handle, path, HNDL_TYPE_OBJECT, hndl_flags, mode);
+    if (rel)
+        handle = open_handle_from(rel->handle, path, hndl_flags, type, mode);
     else
-        handle = open_handle(path, HNDL_TYPE_OBJECT, hndl_flags, mode);
+        handle = open_handle(path, hndl_flags, type, mode);
 
     /* Check if this handle is actually valid */
     if (IS_FATAL(handle_verify(handle)))
@@ -150,7 +150,7 @@ Object* OpenObjectIdx(Object* relative, u32 idx, u32 hndl_flags, enum HNDL_MODE 
     HANDLE handle;
     Object* ret;
 
-    handle = sys_open_idx(relative->handle, idx, handle_flags(hndl_flags, HNDL_TYPE_OBJECT, HNDL_INVAL));
+    handle = sys_open_idx(relative->handle, idx, handle_flags(hndl_flags, HNDL_INVAL));
 
     ret = __open_object(handle);
 
@@ -165,7 +165,7 @@ Object* OpenConnectedObjectByIdx(Object* rel, u32 idx, u32 hndl_flags, enum HNDL
     HANDLE handle;
     Object* ret;
 
-    handle = sys_open_connected_idx(rel->handle, idx, handle_flags(hndl_flags, HNDL_TYPE_OBJECT, HNDL_INVAL));
+    handle = sys_open_connected_idx(rel->handle, idx, handle_flags(hndl_flags, HNDL_INVAL));
 
     ret = __open_object(handle);
 
@@ -196,7 +196,7 @@ Object* OpenWorkingObject(u32 flags)
     /*
      * Open the working object holder on our process
      */
-    Object* woh = OpenObjectFrom(self_obj, OBJECT_WO_HOLDER, HF_R, NULL);
+    Object* woh = OpenObjectFrom(self_obj, OBJECT_WO_HOLDER, HF_R, OT_ANY, NULL);
 
     /* Close this guy again as well */
     CloseObject(self_obj);

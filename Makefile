@@ -178,10 +178,12 @@ image: $(OUT)/$(LIGHTOS_IMG)
 	@rm -rf $(LOOPBACK_DEV)
 	@echo -e [Image] Done!
 
-debug: image
+qemu:
 	@echo Debugging: Running system in QEMU
 	@$(EMU) -m 1G -enable-kvm -net none -M q35 -usb $(OUT)/$(LIGHTOS_IMG) -bios ./ovmf/OVMF.fd -serial stdio -device usb-ehci -device usb-kbd -device usb-mouse
 	#@$(EMU) -m 1G -enable-kvm -net none -M q35 -usb $(OUT)/$(LIGHTOS_IMG) -bios ./ovmf/OVMF.fd -serial stdio
+
+debug: image qemu ## Creates a system image and runs qemu
 
 install-gcc-hdrs:
 	@$(MAKE) -C ./cross_compiler/build/binutils install

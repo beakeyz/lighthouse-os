@@ -10,7 +10,6 @@
 #include "oss/core.h"
 #include "oss/object.h"
 #include "proc/exec/exec.h"
-#include "proc/hdrv/driver.h"
 #include "proc/proc.h"
 #include "proc/thread.h"
 #include "sched/scheduler.h"
@@ -270,15 +269,6 @@ ANIVA_STATUS init_proc_core()
      */
     init_sysvars();
     init_user_profiles();
-
-    /*
-     * Initialize the hdrv subsystem
-     * These drivers are second order drivers (with first order drivers
-     * being device drivers), which are in charge of driving software-to-software
-     * services inside the OSes ABI. With these drivers, we're able to configure
-     * the software interaction with system objects.
-     */
-    init_khandle_drivers();
 
     /* Initialize the aniva execution model */
     init_aniva_execution();

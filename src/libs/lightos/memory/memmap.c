@@ -124,7 +124,7 @@ close_and_return_err:
  */
 HANDLE vmem_open(const char* path, u32 flags, enum HNDL_MODE mode)
 {
-    return open_handle(path, HNDL_TYPE_OBJECT, flags, mode);
+    return open_handle(path, flags, OT_ANY, mode);
 }
 
 /*!
@@ -132,7 +132,7 @@ HANDLE vmem_open(const char* path, u32 flags, enum HNDL_MODE mode)
  */
 HANDLE vmem_open_rel(HANDLE handle, const char* path, u32 flags)
 {
-    return open_handle_from(handle, path, HNDL_TYPE_OBJECT, flags, HNDL_MODE_NORMAL);
+    return open_handle_from(handle, path, flags, OT_ANY, HNDL_MODE_NORMAL);
 }
 
 error_t vmem_close(HANDLE handle)

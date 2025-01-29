@@ -25,9 +25,18 @@ enum OSS_OBJECT_TYPE {
     OT_PROFILE,
     OT_SYSVAR,
     OT_KEVENT,
+
+    /* These types are still TODO */
+    OT_VMEM,
+    OT_LIB,
+    OT_BYTESTREAM,
+
     OT_GENERIC,
 
-    NR_OBJECT_TYPES
+    NR_OBJECT_TYPES,
+
+    /* Wildcard type. Used to specify 'dontcares' */
+    OT_ANY,
 };
 
 static inline bool oss_object_valid_type(enum OSS_OBJECT_TYPE type)

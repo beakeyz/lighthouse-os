@@ -1,6 +1,9 @@
 #include "libk/flow/error.h"
 #include "lightos/api/handle.h"
+#include "lightos/api/objects.h"
+#include "lightos/error.h"
 #include "lightos/syscall.h"
+#include "logging/log.h"
 #include "mem/kmem.h"
 #include "oss/core.h"
 #include "proc/handle.h"
@@ -8,17 +11,25 @@
 #include "sched/scheduler.h"
 #include <lightos/types.h>
 
-static int oss_object_khdrv_open(const char* path, u32 flags, enum HNDL_MODE mode, khandle_t* bHandle)
+static int oss_object_khdrv_open(const char* path, u32 flags, enum OSS_OBJECT_TYPE type, enum HNDL_MODE mode, khandle_t* bHandle)
 {
     error_t error;
     oss_object_t* object;
 
+    KLOG_INFO("Trying to open regular object %s of type %d\n", path, type);
+
     switch (mode) {
     case HNDL_MODE_NORMAL:
         error = oss_open_object(path, &object);
+
+        /* Check if the type matches */
+        if (IS_OK(error) && oss_object_valid_type(type) && object->type != type)
+            error = -EBADTYPE;
+
         break;
     case HNDL_MODE_CREATE:
-        error = oss_open_object(path, &object);
+        /*  */
+        error = oss_open_or_create_object(path, type, &object);
 
         if (EOK == error)
             break;
@@ -43,13 +54,15 @@ static int oss_object_khdrv_open(const char* path, u32 flags, enum HNDL_MODE mod
     if (error)
         return error;
 
+    KLOG_INFO("Found object %s of type %d\n", object->key, object->type);
+
     /* Initialize this handle */
     init_khandle_ex(bHandle, flags, object);
 
     return 0;
 }
 
-static int oss_object_khdrv_open_relative(khandle_t* rel_hndl, const char* path, u32 flags, enum HNDL_MODE mode, khandle_t* bHandle)
+static int oss_object_khdrv_open_relative(khandle_t* rel_hndl, const char* path, u32 flags, enum OSS_OBJECT_TYPE type, enum HNDL_MODE mode, khandle_t* bHandle)
 {
     error_t error;
     oss_object_t* object;
@@ -63,10 +76,13 @@ static int oss_object_khdrv_open_relative(khandle_t* rel_hndl, const char* path,
     switch (mode) {
     case HNDL_MODE_NORMAL:
         error = oss_open_object_from(path, rel_object, &object);
-        break;
 
+        /* Check if the type matches */
+        if (IS_OK(error) && oss_object_valid_type(type) && object->type != type)
+            error = -EBADTYPE;
+        break;
     case HNDL_MODE_CREATE:
-        error = oss_open_object_from(path, rel_object, &object);
+        error = oss_open_or_create_object_from(path, type, rel_object, &object);
 
         if (IS_OK(error))
             break;
@@ -100,7 +116,7 @@ static int oss_object_khdrv_open_relative(khandle_t* rel_hndl, const char* path,
  * We can make this much cleaner. Every handle type can have it's own sys_open implementation, which
  * we just have to look up. This way we don't need this giant ugly switch statement
  */
-HANDLE sys_open(const char __user* path, handle_flags_t flags, enum HNDL_MODE mode, void __user* buffer, size_t bsize)
+HANDLE sys_open(const char* path, handle_flags_t flags, enum OSS_OBJECT_TYPE type, enum HNDL_MODE mode)
 {
     HANDLE ret;
     khandle_t* rel_khndl;
@@ -108,12 +124,11 @@ HANDLE sys_open(const char __user* path, handle_flags_t flags, enum HNDL_MODE mo
     kerror_t error;
     proc_t* c_proc;
 
+    KLOG_INFO("Trying to open %s\n", path);
+
     c_proc = get_current_proc();
 
     if (!c_proc || !path || (kmem_validate_ptr(c_proc, (uintptr_t)path, 1)))
-        return HNDL_INVAL;
-
-    if (buffer && kmem_validate_ptr(c_proc, (vaddr_t)buffer, bsize))
         return HNDL_INVAL;
 
     if (HNDL_IS_VALID(flags.s_rel_hndl)) {
@@ -123,11 +138,11 @@ HANDLE sys_open(const char __user* path, handle_flags_t flags, enum HNDL_MODE mo
         if (!rel_khndl)
             return HNDL_INVAL;
 
-        if (oss_object_khdrv_open_relative(rel_khndl, path, flags.s_flags, mode, &handle))
+        if (oss_object_khdrv_open_relative(rel_khndl, path, flags.s_flags, type, mode, &handle))
             return HNDL_NOT_FOUND;
     } else
         /* Just mark it as 'not found' if the driver fails to open */
-        if (oss_object_khdrv_open(path, flags.s_flags, mode, &handle))
+        if (oss_object_khdrv_open(path, flags.s_flags, type, mode, &handle))
             return HNDL_NOT_FOUND;
 
     /*

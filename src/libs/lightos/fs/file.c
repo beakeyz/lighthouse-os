@@ -47,7 +47,7 @@ File* OpenFileFrom(Object* rel, const char* path, u32 hndl_flags, enum HNDL_MODE
     if (!path)
         return nullptr;
 
-    object = OpenObjectFrom(rel, path, hndl_flags, mode);
+    object = OpenObjectFrom(rel, path, hndl_flags, OT_FILE, mode);
 
     if (!ObjectIsValid(object))
         return nullptr;

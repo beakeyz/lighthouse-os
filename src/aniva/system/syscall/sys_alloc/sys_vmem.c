@@ -423,7 +423,7 @@ void* sys_map_vmem(HANDLE handle, void* addr, size_t len, u32 flags)
     khandle = find_khandle(&c_proc->m_handle_map, handle);
 
     /* Check for invalid handle */
-    if (khandle && (khandle->type != HNDL_TYPE_OBJECT))
+    if (khandle)
         return nullptr;
 
     switch (flags & (VMEM_FLAG_REMAP | VMEM_FLAG_DELETE | VMEM_FLAG_BIND)) {

@@ -1,6 +1,6 @@
 #include "lib.h"
-#include "lightos/handle.h"
 #include "lightos/api/handle.h"
+#include "lightos/handle.h"
 #include "lightos/syscall.h"
 #include "stdlib.h"
 
@@ -16,7 +16,7 @@ BOOL lib_load(const char* path, HANDLE* out_handle)
     if (!path || !out_handle)
         return FALSE;
 
-    hdl = open_handle(path, HNDL_TYPE_SHARED_LIB, HF_RW, NULL);
+    hdl = open_handle(path, HF_RW, OT_LIB, NULL);
 
     if (handle_verify(hdl))
         return FALSE;

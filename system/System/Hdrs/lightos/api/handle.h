@@ -5,26 +5,6 @@
 
 typedef int handle_t, HANDLE;
 
-/*
- * Different type of handles a process may have
- * Most handles are going to have an oss object, which will then have it's own underlying
- * type. For special objects that don't live on the oss, like loaded libraries, we make
- * an exception, but they also really should come to live on oss at some point...
- *
- * TODO: get rid of KHNDL and make the kernel just
- * use these -_-
- */
-typedef enum HANDLE_TYPE {
-    HNDL_TYPE_NONE,
-    HNDL_TYPE_OBJECT, /* A handle to a virtual object in the vfs */
-    HNDL_TYPE_THREAD,
-    /* Shared library when there is a dynamic loaded driver loaded */
-    HNDL_TYPE_SHARED_LIB,
-
-    NR_HNDL_TYPES,
-} HANDLE_TYPE,
-    handle_type_t;
-
 #define HNDL_INVAL (-1) /* Tried to get a handle from an invalid source */
 #define HNDL_NOT_FOUND (-2) /* Could not resolve the handle on the kernel side */
 #define HNDL_BUSY (-3) /* Handle target was busy and could not accept the handle at this time */
@@ -39,21 +19,17 @@ typedef enum HANDLE_TYPE {
  */
 typedef union handle_flags {
     struct {
-        /* Reserve 16 bits for handle flags */
-        u16 s_flags;
-        /* We don't even need this many bytes to represent the type */
-        enum HANDLE_TYPE s_type : 16;
+        u32 s_flags;
         /* Use the remaining bits for a (possibly unused) relative handle */
         HANDLE s_rel_hndl;
     };
     u64 raw;
 } handle_flags_t;
 
-static inline handle_flags_t handle_flags(u32 flags, enum HANDLE_TYPE type, HANDLE rel_hndl)
+static inline handle_flags_t handle_flags(u32 flags, HANDLE rel_hndl)
 {
     return (handle_flags_t) {
         .s_flags = flags,
-        .s_type = type,
         .s_rel_hndl = rel_hndl
     };
 }

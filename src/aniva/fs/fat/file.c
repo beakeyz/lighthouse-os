@@ -10,6 +10,7 @@
 
 static ssize_t fat_read(file_t* file, void* buffer, size_t size, uintptr_t offset)
 {
+    size_t delta = 0;
     fs_root_object_t* fsroot;
 
     fsroot = file->fsroot;
@@ -19,7 +20,14 @@ static ssize_t fat_read(file_t* file, void* buffer, size_t size, uintptr_t offse
 
     /* Trim the size a bit if it happens to overflows */
     if ((offset + size) > file->m_total_size)
-        size -= ((offset + size) - file->m_total_size);
+        delta = ((offset + size) - file->m_total_size);
+
+    /* If we have to delete our entire buffer, user is just weird */
+    if (delta > size)
+        return -EBADSIZE;
+
+    /* Shafe off a bit of the buffer */
+    size -= delta;
 
     if (fat32_read_clusters(fsroot, buffer, file->m_private, offset, size))
         return 0;
@@ -146,7 +154,7 @@ oss_object_t* fat_dir_read(dir_t* dir, uint64_t idx)
     direntry_cluster = __fat32_dir_entry_get_start_cluster(&entry);
 
     /* Set the correct cluster offsets */
-    direntry_cluster += diroffset / info->cluster_size;
+    direntry_cluster += ALIGN_DOWN(diroffset, info->cluster_size) / info->cluster_size;
 
     if ((entry.attr & FAT_ATTR_DIR) == FAT_ATTR_DIR)
         return __fat_open_dir(dir->fsroot, dir, namebuf, &entry, diroffset, direntry_cluster);

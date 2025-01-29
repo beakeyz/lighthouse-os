@@ -4,7 +4,7 @@
 
 HANDLE open_profile(const char* name, u32 flags)
 {
-    return open_handle(name, HNDL_TYPE_OBJECT, flags, HNDL_MODE_NORMAL);
+    return open_handle(name, flags, OT_PROFILE, HNDL_MODE_NORMAL);
 }
 
 BOOL profile_open_from_process(HANDLE process_handle, HANDLE* profile_handle)
