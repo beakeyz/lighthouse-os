@@ -27,7 +27,10 @@ enum OSS_OBJECT_TYPE {
     OT_KEVENT,
     OT_GENERIC,
 
-    NR_OBJECT_TYPES
+    NR_OBJECT_TYPES,
+
+    /* Wildcard type. Used to specify 'dontcares' */
+    OT_ANY,
 };
 
 static inline bool oss_object_valid_type(enum OSS_OBJECT_TYPE type)

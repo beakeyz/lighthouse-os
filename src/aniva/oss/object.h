@@ -35,7 +35,7 @@ typedef struct oss_object_ops {
      * Connects a new object to this object. Oss drivers may implement
      * their own way to create and connect the new object
      */
-    int (*f_ConnectNew)(struct oss_object* this, const char* key, enum OSS_OBJECT_TYPE type);
+    int (*f_ConnectNew)(struct oss_object* this, const char* key, enum OSS_OBJECT_TYPE type, struct oss_object** p_result);
     /*
      * Remove a connection with another object.
      * Removes the reference @this has over @obj.
@@ -187,7 +187,7 @@ oss_object_t* oss_object_get_connected(oss_object_t* object, const char* key);
 
 /* Interface functions for talking with oss objects */
 error_t oss_object_connect(oss_object_t* parent, oss_object_t* child);
-error_t oss_object_connect_new(oss_object_t* parent, const char* key, enum OSS_OBJECT_TYPE type);
+error_t oss_object_connect_new(oss_object_t* parent, const char* key, enum OSS_OBJECT_TYPE type, oss_object_t** pobj);
 error_t oss_object_disconnect(oss_object_t* parent, oss_object_t* child);
 ssize_t oss_object_read(oss_object_t* this, u64 offset, void* buffer, size_t size);
 ssize_t oss_object_write(oss_object_t* this, u64 offset, void* buffer, size_t size);

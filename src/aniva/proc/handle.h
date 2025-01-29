@@ -2,8 +2,6 @@
 #define __ANIVA_HANDLE__
 
 #include "libk/flow/error.h"
-#include "lightos/api/handle.h"
-#include "proc/exec/exec.h"
 #include "sync/mutex.h"
 #include <libk/stddef.h>
 
@@ -17,19 +15,11 @@ struct oss_object;
  * simply act as indices to these kind of handles.
  */
 typedef struct kernel_handle {
-    HANDLE_TYPE type;
     uint32_t index;
     uint8_t protection_lvl;
     uint8_t res;
     uint32_t flags;
-    union {
-        /* TODO: Also move threads to oss objects */
-        struct thread* thread;
-        struct oss_object* object;
-        struct kevent_hook* hook;
-        process_library_t* lib;
-        void* kobj;
-    };
+    struct oss_object* object;
 } khandle_t;
 
 #define KHNDL_PROT_LVL_TOP (0xFF)
@@ -38,8 +28,8 @@ typedef struct kernel_handle {
 #define KHDNL_PROT_LVL_LOW (50)
 #define KHDNL_PROT_LVL_LOWEST (0)
 
-void init_khandle(khandle_t* out_handle, HANDLE_TYPE* type, void* ref);
-void init_khandle_ex(khandle_t* bHandle, HANDLE_TYPE type, u32 flags, void* ref);
+void init_khandle(khandle_t* out_handle, struct oss_object* ref);
+void init_khandle_ex(khandle_t* bHandle, u32 flags, struct oss_object* ref);
 void destroy_khandle(khandle_t* handle);
 void khandle_set_flags(khandle_t* handle, uint32_t flags);
 
@@ -76,7 +66,7 @@ kerror_t try_bind_khandle_at(khandle_map_t* map, khandle_t* handle, uint32_t ind
 
 /* NOTE: mutates the handle to clear the index */
 kerror_t unbind_khandle(khandle_map_t* map, u32 handle);
-kerror_t khandle_map_remove(khandle_map_t* map, HANDLE_TYPE type, void* addr);
+kerror_t khandle_map_remove(khandle_map_t* map, void* addr);
 
 khandle_t* find_khandle(khandle_map_t* map, uint32_t index);
 

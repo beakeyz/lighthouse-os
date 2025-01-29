@@ -60,6 +60,22 @@ error_t oss_open_root_object(const char* path, struct oss_object** pobj)
 }
 
 /*!
+ * @brief: Might create a missing object
+ */
+static error_t __maybe_create_object(const char* key, u32 oss_path_idx, oss_path_t* oss_path, enum OSS_OBJECT_TYPE type, oss_object_t* rel, oss_object_t** pobj)
+{
+    /*
+     * We can only try to create a new entry if we're at the last
+     * subpath in an open action. Otherwise we don't know what to do
+     */
+    if (oss_path_idx != (oss_path->n_subpath - 1))
+        return -ENOENT;
+
+    /* Connect a new object and export a reference to that object */
+    return oss_object_connect_new(rel, key, type, pobj);
+}
+
+/*!
  * @brief: Recursively open an object relative to a starting object
  *
  * NOTE: This function doesn't check parameters, so callers should do that
@@ -67,7 +83,7 @@ error_t oss_open_root_object(const char* path, struct oss_object** pobj)
  * certain object, we try to create one using the f_Open call on the object. If that fails,
  * we assume we've hit a dead end and we bail
  */
-static error_t __oss_open_object_from(oss_path_t* path, u32 start_idx, struct oss_object* rel, struct oss_object** pobj)
+static error_t __oss_open_or_create_object_from(oss_path_t* path, u32 start_idx, enum OSS_OBJECT_TYPE create_type, oss_object_t* rel, oss_object_t** pobj)
 {
     u32 i = start_idx;
     oss_object_t* walker = rel;
@@ -76,7 +92,8 @@ static error_t __oss_open_object_from(oss_path_t* path, u32 start_idx, struct os
     /* Walk the object graph */
     while (walker && i < path->n_subpath) {
         if (oss_object_open(walker, path->subpath_vec[i], &next_object))
-            return -ENOENT;
+            /* Check if we want to try to create an object here. If we do, great! Otherwise return error */
+            return (oss_object_valid_type(create_type) ? __maybe_create_object(path->subpath_vec[i], i, path, create_type, rel, pobj) : -ENOENT);
 
         /* Maybe connect this object, if that wasn't yet done */
         if (next_object)
@@ -99,7 +116,7 @@ static error_t __oss_open_object_from(oss_path_t* path, u32 start_idx, struct os
     return 0;
 }
 
-error_t oss_open_object(const char* path, struct oss_object** pobj)
+static error_t __oss_open_object(const char* path, enum OSS_OBJECT_TYPE create_type, struct oss_object** pobj)
 {
     error_t error;
     oss_object_t* root_obj;
@@ -118,7 +135,7 @@ error_t oss_open_object(const char* path, struct oss_object** pobj)
         goto destroy_path_and_exit;
 
     /* Try to open the object relative to the root object we just found */
-    error = __oss_open_object_from(&oss_path, 1, root_obj, pobj);
+    error = __oss_open_or_create_object_from(&oss_path, 1, create_type, root_obj, pobj);
 
 destroy_path_and_exit:
     oss_destroy_path(&oss_path);
@@ -126,7 +143,17 @@ destroy_path_and_exit:
     return error;
 }
 
-error_t oss_open_object_from(const char* path, struct oss_object* rel, struct oss_object** pobj)
+error_t oss_open_object(const char* path, struct oss_object** pobj)
+{
+    return __oss_open_object(path, OT_INVALID, pobj);
+}
+
+error_t oss_open_or_create_object(const char* path, enum OSS_OBJECT_TYPE type, struct oss_object** pobj)
+{
+    return __oss_open_object(path, type, pobj);
+}
+
+static error_t __oss_open_object_from(const char* path, enum OSS_OBJECT_TYPE create_type, struct oss_object* rel, struct oss_object** pobj)
 {
     error_t error;
     oss_path_t oss_path;
@@ -139,12 +166,22 @@ error_t oss_open_object_from(const char* path, struct oss_object* rel, struct os
         return -EINVAL;
 
     /* Try to find the object */
-    error = __oss_open_object_from(&oss_path, 0, rel, pobj);
+    error = __oss_open_or_create_object_from(&oss_path, 0, create_type, rel, pobj);
 
     /* Kill the path */
     oss_destroy_path(&oss_path);
 
     return error;
+}
+
+error_t oss_open_object_from(const char* path, struct oss_object* rel, struct oss_object** pobj)
+{
+    return __oss_open_object_from(path, OT_INVALID, rel, pobj);
+}
+
+error_t oss_open_or_create_object_from(const char* path, enum OSS_OBJECT_TYPE type, struct oss_object* rel, struct oss_object** pobj)
+{
+    return __oss_open_object_from(path, type, rel, pobj);
 }
 
 /*!

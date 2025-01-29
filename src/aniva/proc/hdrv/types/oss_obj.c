@@ -61,6 +61,22 @@ static int oss_object_khdrv_open_relative(struct khandle_driver* driver, khandle
     case HNDL_MODE_NORMAL:
         error = oss_open_object_from(path, rel_object, &object);
         break;
+
+    case HNDL_MODE_CREATE:
+        error = oss_open_object_from(path, rel_object, &object);
+
+        if (IS_OK(error))
+            break;
+
+    case HNDL_MODE_CREATE_NEW:
+        error = EOK;
+        /* Try to create a new object for the user */
+        object = create_oss_object(path, NULL, OT_GENERIC, oss_get_generic_ops(), NULL);
+
+        if (!object)
+            error = -ENOMEM;
+
+        break;
     default:
         return -ENOIMPL;
     }

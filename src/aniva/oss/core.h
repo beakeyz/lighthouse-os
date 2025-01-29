@@ -8,6 +8,7 @@
  * another.
  */
 
+#include "lightos/api/objects.h"
 #include "lightos/types.h"
 
 struct volume;
@@ -37,6 +38,8 @@ const char* oss_get_default_rootobj_key(enum OSS_ROOTOBJ_TYPE type);
 error_t oss_open_root_object(const char* path, struct oss_object** pobj);
 error_t oss_open_object(const char* path, struct oss_object** pobj);
 error_t oss_open_object_from(const char* path, struct oss_object* rel, struct oss_object** pobj);
+error_t oss_open_or_create_object(const char* path, enum OSS_OBJECT_TYPE type, struct oss_object** pobj);
+error_t oss_open_or_create_object_from(const char* path, enum OSS_OBJECT_TYPE type, struct oss_object* rel, struct oss_object** pobj);
 error_t oss_open_connected_object_from_idx(u32 idx, struct oss_object* rel, struct oss_object** pobj, enum OSS_CONNECTION_DIRECTION dir);
 error_t oss_open_object_from_idx(u32 idx, struct oss_object* rel, struct oss_object** pobj);
 

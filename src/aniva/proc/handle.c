@@ -1,14 +1,14 @@
 #include "handle.h"
 #include "libk/flow/error.h"
-#include "lightos/api/handle.h"
 #include "logging/log.h"
+#include "oss/object.h"
 #include "proc/hdrv/driver.h"
 #include "sync/mutex.h"
 #include <dev/driver.h>
 #include <mem/kmem.h>
 #include <proc/proc.h>
 
-void init_khandle(khandle_t* out_handle, HANDLE_TYPE* type, void* ref)
+void init_khandle(khandle_t* out_handle, oss_object_t* ref)
 {
     if (!ref)
         return;
@@ -16,13 +16,12 @@ void init_khandle(khandle_t* out_handle, HANDLE_TYPE* type, void* ref)
     memset(out_handle, 0, sizeof(khandle_t));
 
     out_handle->index = KHNDL_INVALID_INDEX;
-    out_handle->type = *type;
-    out_handle->kobj = ref;
+    out_handle->object = ref;
 }
 
-void init_khandle_ex(khandle_t* bHandle, HANDLE_TYPE type, u32 flags, void* ref)
+void init_khandle_ex(khandle_t* bHandle, u32 flags, oss_object_t* ref)
 {
-    init_khandle(bHandle, &type, ref);
+    init_khandle(bHandle, ref);
 
     khandle_set_flags(bHandle, flags);
 }

@@ -378,6 +378,45 @@ error_t oss_object_connect(oss_object_t* parent, oss_object_t* child)
 }
 
 /*!
+ * @brief: Lets @parent connect a new object to itself
+ *
+ * Might export the newly created object as well, but it will take a reference
+ * on behalf of the caller in that case
+ */
+error_t oss_object_connect_new(oss_object_t* parent, const char* key, enum OSS_OBJECT_TYPE type, oss_object_t** pobj)
+{
+    error_t error = EOK;
+    oss_object_t* child;
+
+    /* Maybe call f_Connect */
+    if (!parent->ops->f_ConnectNew)
+        return -ENOIMPL;
+
+    /* Let @parent connect a new object of type @type to itself */
+    error = parent->ops->f_ConnectNew(parent, key, type, &child);
+
+    /* Check if the f_Connect call might have failed */
+    if (IS_FATAL(error))
+        return error;
+
+    /* Call the function to actually connect @child to @parent */
+    error = __oss_object_connect(parent, child);
+
+    if (error)
+        /* Actual connect failed. We need to lose this object */
+        oss_object_close(child);
+    else if (pobj) {
+        /* Reference the object */
+        oss_object_ref(child);
+
+        /* Export the object */
+        *pobj = child;
+    }
+
+    return error;
+}
+
+/*!
  * @brief: Checks if @child can be disconnected from @parent and does the needed prefetching
  */
 static inline error_t __oss_object_prep_disconnect(oss_object_t* parent, oss_object_t* child, oss_connection_t** p_parent_conn)
